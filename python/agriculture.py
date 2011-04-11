@@ -1,5 +1,6 @@
 import os, sys, time, numpy
 from osgeo import gdal
+from osgeo import osr
 from osgeo.gdalconst import *
 
 FILENAME = '../sample_data/landuse_90'
@@ -29,7 +30,7 @@ def countIds(band,id):
         croplandCount += numpy.where(scanline == CROPLANDID)[0].size
     return croplandCount
 
-
+#for timing runs
 startTime = time.time()
 
 #Register all drivers at once
@@ -44,11 +45,6 @@ if dataset is None:
 if (dataset.RasterCount != 1):
     die('RasterCount should be 1 '+ dataset.RasterCount)
 
-
-#define projection for indexing lat/lng
-projection = dataset.GetProjection()
-
-
 #Get georeference info, coordinates are for top left corners of pixels
 geotransform = dataset.GetGeoTransform()
 originX = geotransform[0]
@@ -56,12 +52,19 @@ originY = geotransform[3]
 pixelWidth = geotransform[1]
 pixelHeight = geotransform[5]
 
+#define projection for indexing lat/lng
+srs = osr.SpatialReference()
+srs.ImportFromWkt(dataset.GetProjection())
+
+srsLatLong = srs.CloneGeogCS() #gets the default coordinate system
+ct = osr.CoordinateTransformation(srs,srsLatLong) #transform from current projection to defined coordinate system
+print ct.TransformPoint(originX,originY)
+
 #Get first band, should be only one since it's LULC    
 band = dataset.GetRasterBand(1)
 croplandCount = countIds(band,CROPLANDID)
 
 #Results
-print 'Projection: ' + projection
 print 'upper left: (' + str(originX) + ', ' + str(originY) + ')'
 print 'pixel dimensions (' + str(pixelWidth) + ', ' + str(pixelHeight) + ')'
 print 'X: ' + str(band.XSize) + ' Y: ' + str(band.YSize)
