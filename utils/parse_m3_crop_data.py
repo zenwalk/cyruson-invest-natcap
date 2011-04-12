@@ -1,4 +1,4 @@
-import os, sys, time, numpy, glob
+import os, sys, time, numpy, glob, re
 from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
@@ -8,27 +8,37 @@ def die(message):
     sys.exit(1)
 
 def countValidNonZeroData(band):
+    
     noDataValue = band.GetNoDataValue()
+    startTime = time.time()
     array = band.ReadAsArray(0,0,band.XSize,band.YSize)
-    nonzero = numpy.where(array != noDataValue)[0].size
+    print 'Read as array time elapsed: ' + str(time.time()-startTime) + ' seconds'
+    startTime = time.time()
+    nonzero = numpy.where((array != noDataValue) & (array != 0))[0].size
+    print 'Count nonzero time elapsed: ' + str(time.time()-startTime) + ' seconds'
     total = band.XSize*band.YSize
+    
     return (nonzero,total,nonzero/float(total))
-
-
 
 #for timing runs
 startTime = time.time()
+
+#Register all drivers at once
 gdal.AllRegister()
 
 PATH = '../tmp_data/175crops/'
+
+cropNameRe = re.compile("^(.*/)([^/]*)_5min")
+
 for filename in glob.glob(os.path.join(PATH, '*.nc')):
     
-    #Register all drivers at once
-    
-    print filename
+    cropName = cropNameRe.match(filename).group(2)
+    print cropName
     
     #open file
+    startTime = time.time()
     dataset = gdal.Open(filename, GA_ReadOnly);
+    print 'Open file time elapsed: ' + str(time.time()-startTime) + ' seconds'
     
     if dataset is None:
         die('Could not open ' + filename)
@@ -39,21 +49,16 @@ for filename in glob.glob(os.path.join(PATH, '*.nc')):
     pixelWidth = geotransform[1]
     pixelHeight = geotransform[5]
     
-    yieldBand = dataset.GetRasterBand(1)
-    areaBand = dataset.GetRasterBand(2)
+    startTime = time.time()
+    harvestedAreaBand = dataset.GetRasterBand(1)
+    yieldBand = dataset.GetRasterBand(2)
+    print 'Get bands time elapsed: ' + str(time.time()-startTime) + ' seconds'
     
     
     nonzero, total, percent = countValidNonZeroData(yieldBand)
+    print 'yield nonzero elements: ' + str(nonzero) + ' total: ' + str(total) + ' percent: ' + str(float(nonzero)/total)
+
+    nonzero, total, percent = countValidNonZeroData(harvestedAreaBand)
+    print 'area nonzero elements: ' + str(nonzero) + ' total: ' + str(total) + ' percent: ' + str(float(nonzero)/total)
     
-    #for y in range(band.YSize):
-    #    scanline = band.ReadAsArray(0,y,band.XSize, 1)
-    #    nonzero += numpy.where(scanline != noDataValue)[0].size
-    #    total += band.XSize
-    
-    #print 'RasterCount: ' + str(dataset.RasterCount)
-    #print 'upper left: (' + str(originX) + ', ' + str(originY) + ')'
-    #print 'pixel dimensions (' + str(pixelWidth) + ', ' + str(pixelHeight) + ')'
-    
-    print 'nonzero elements: ' + str(nonzero) + ' total: ' + str(total) + ' percent: ' + str(float(nonzero)/total)
-    print 'Time elapsed: ' + str(time.time()-startTime) + ' seconds'
     print
