@@ -3,14 +3,18 @@
 #to map to a map of cropids which in turn map to average yields and fractional
 #land usage.
 
-import os, sys, time, numpy, glob, re
+import os, sys, time, numpy, glob, re, pickle
 from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
 
+#Global constants
+
 BANDIDS = {'yield':0, 'harvestArea':1}
 MAXBANDS = len(BANDIDS)
 PATH = '../tmp_data/175crops/'
+
+#Functions
 
 def die(message):
     """Error handler"""
@@ -33,28 +37,85 @@ def addValidCropDataToMap(band, cropId, map, bandId):
             map[coord][cropId] = [None]*MAXBANDS #default array of band types for that crop at that coordinate
         map[coord][cropId][bandId] = values[i]
 
-#for timing runs
-startTime = time.time()
+def verifyGeotransformData(filenames):
+    originX = None
+    originY = None
+    pixelWidth = None
+    pixelHeight = None
+    nBands = None
+    bandX = None
+    bandY = None
+    for filename in filenames:
+        #open file
+        dataset = gdal.Open(filename, GA_ReadOnly);
+        
+        if dataset is None:
+            die('Could not open ' + filename)
+        
+        #Get geotransform data which will later be saved
+        geotransform = dataset.GetGeoTransform()
+        #initialize the main variables
+        if originX == None:
+            originX = geotransform[0]
+            originY = geotransform[3]
+            pixelWidth = geotransform[1]
+            pixelHeight = geotransform[5]
+            
+        #check main variables, they should all be the same for each dataset    
+        if originX != geotransform[0]:
+            die("originX not the same: " + str(originX) + ' ' + str(geotransform[0]))
+        if originY != geotransform[3]:
+            die("originY not the same: " + str(originY) + ' ' + str(geotransform[3]))
+        if pixelWidth != geotransform[1]:
+            die("pixelWidth not the same: " + str(pixelWidth) + ' ' + str(geotransform[1]))
+        if pixelHeight != geotransform[5]:
+            die("pixelWidth not the same: " + str(pixelHeight) + ' ' + str(geotransform[5]))
+
+#main script
+
+
 
 #Register all drivers at once
 gdal.AllRegister()
 
+#This will map global coordinate tuples to a map of cropIds to yield/area arrays
 globalMap = {}
-filenames = glob.glob(os.path.join(PATH, '*.nc'))
+
+#regular expression to break the cropname out of the path 
+#example (apple) from /home/joe/path/apple_5min.nc
 cropNameRe = re.compile("^(.*/)([^/]*)_5min")
-cropNames = [cropNameRe.match(filename).group(2) for filename in filenames]
 cropIds = {}
+
+
+filenames = glob.glob(os.path.join(PATH, '*.nc'))
+
+#verify that all geotransform data is the same across all files
+print 'Verify geotransform data...',
+verifyGeotransformData(filenames)
+print 'passed!'
+
+MAXRUNS = 2
+runs= 0
+
+totalTime = 0
 
 for filename in filenames:
     
-    #break the cropname (apple) out of the path /home/joe/path/apple_5min.nc
+    if runs >= MAXRUNS:
+        break
+    runs += 1
+    
+    #Group 1 has the path, group 2 will have the filename in it 
     cropName = cropNameRe.match(filename).group(2) 
     
     #create a cropId if that crop hasn't been seen before
     if cropName not in cropIds:
         cropIds[cropName] = len(cropIds)
     
-    print cropName
+    print cropName,
+
+    #for timing runs
+    startTime = time.time()
     
     #open file
     dataset = gdal.Open(filename, GA_ReadOnly);
@@ -62,6 +123,7 @@ for filename in filenames:
     if dataset is None:
         die('Could not open ' + filename)
     
+    #Get geotransform data which will later be saved
     geotransform = dataset.GetGeoTransform()
     originX = geotransform[0]
     originY = geotransform[3]
@@ -74,5 +136,14 @@ for filename in filenames:
     addValidCropDataToMap(yieldBand, cropIds[cropName], globalMap, BANDIDS['yield'])
     addValidCropDataToMap(harvestedAreaBand, cropIds[cropName], globalMap, BANDIDS['harvestArea'])
     
-    print
+    del dataset # cause python garbage collection to deallocate
+    
+    currentTime = time.time()-startTime
+    totalTime += currentTime
+    
+    print ', '+ str(currentTime) 
     sys.stdout.flush()
+print "totalTime , " + str(totalTime)
+outputFile = open('globalMap.pkl', 'wb')
+pickle.dump(globalMap,outputFile)
+sys.stdout.flush()
