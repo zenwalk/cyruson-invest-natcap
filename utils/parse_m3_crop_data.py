@@ -3,51 +3,31 @@ from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
 
-
-bandIds = {'yield':0, 'harvestArea':1}
-MAXBANDS = len(bandIds)
+BANDIDS = {'yield':0, 'harvestArea':1}
+MAXBANDS = len(BANDIDS)
 PATH = '../tmp_data/175crops/'
 
-cropNameRe = re.compile("^(.*/)([^/]*)_5min")
-
-globalMap = {}
-cropIds = {}
-
-#Build up cropId table
-for filename in glob.glob(os.path.join(PATH, '*.nc')):
-    cropName = cropNameRe.match(filename).group(2)
-    if cropName not in cropIds:
-        cropIds[cropName] = len(cropIds)
-    print cropName
-
-MAXCROPS = len(cropIds)
+def createCropIdMap(cropNames):
+    """Build up cropId table"""
+    cropIds = {}
+    for cropName in cropNames: 
+        if cropName not in cropIds:
+            cropIds[cropName] = len(cropIds)
+    return cropIds
 
 def die(message):
+    """Error handler"""
     print message
     sys.exit(1)
 
-def countValidNonZeroData(band):
-    
+def addValidCropDataToMap(band, cropId, map, bandId):
+    """Given the band for a particular cropId, find the nonzero valid
+    data in that band and store it in the map under the particular bandId"""
     noDataValue = band.GetNoDataValue()
-    startTime = time.time()
-    array = band.ReadAsArray(0, 0, band.XSize, band.YSize)
-    print 'Read as array time elapsed: ' + str(time.time() - startTime) + ' seconds'
-    startTime = time.time()
-    nonzero = numpy.where((array != noDataValue) & (array != 0))[0].size
-    print 'Count nonzero time elapsed: ' + str(time.time() - startTime) + ' seconds'
-    total = band.XSize * band.YSize
-    
-    return (nonzero, total, nonzero / float(total))
-
-def collectValidNonZeroData(band, cropId, map, bandId):
-    noDataValue = band.GetNoDataValue()
-    startTime = time.time()
     array2d = band.ReadAsArray(0, 0, band.XSize, band.YSize)
     
     nonzeroValidIndices = numpy.where((array2d != noDataValue) & (array2d != 0))
     values = array2d[nonzeroValidIndices]
-    #nonzeroValidCoordinates = zip(nonzeroValidIndices[0],nonzeroValidIndices[1])
-    #for coord in nonzeroValidCoordinates:
     for i in range(len(values)):
         coord = (nonzeroValidIndices[0][i], nonzeroValidIndices[1][i])
         if coord not in map:
@@ -55,23 +35,28 @@ def collectValidNonZeroData(band, cropId, map, bandId):
         if cropId not in map[coord]:
             map[coord][cropId] = [None]*MAXBANDS #default array of band types for that crop at that coordinate
         map[coord][cropId][bandId] = values[i]
-        
-    print 'Collect ' + str(len(values)) + ' nonzero data for ' + str(bandId) + ' elapsed: ' + str(time.time() - startTime) + ' seconds'
-    print 'Map length: ' + str(len(map))
+
 #for timing runs
 startTime = time.time()
 
 #Register all drivers at once
 gdal.AllRegister()
 
+globalMap = {}
+filenames = glob.glob(os.path.join(PATH, '*.nc'))
+cropNameRe = re.compile("^(.*/)([^/]*)_globalMap = {}5min")
+cropNames = [cropNameRe.match(filename).group(2) for filename in filenames]
+cropIds = createCropIdMap(filenames)
 
-
-
-for filename in glob.glob(os.path.join(PATH, '*.nc')):
+for filename in filenames:
     
-    cropName = cropNameRe.match(filename).group(2)
+    #break the cropname (apple) out of the path /home/joe/path/apple_5min.nc
+    cropName = cropNameRe.match(filename).group(2) 
+    
+    #create a cropId if that crop hasn't been seen before
     if cropName not in cropIds:
         cropIds[cropName] = len(cropIds)
+    
     print cropName
     
     #open file
@@ -89,14 +74,8 @@ for filename in glob.glob(os.path.join(PATH, '*.nc')):
     harvestedAreaBand = dataset.GetRasterBand(1)
     yieldBand = dataset.GetRasterBand(2)
     
-    collectValidNonZeroData(yieldBand, cropIds[cropName], globalMap, bandIds['yield'])
-    collectValidNonZeroData(harvestedAreaBand, cropIds[cropName], globalMap, bandIds['harvestArea'])
-    
-    #nonzero, total, percent = countValidNonZeroData(yieldBand)
-    #print 'yield nonzero elements: ' + str(nonzero) + ' total: ' + str(total) + ' percent: ' + str(float(nonzero)/total)
-
-    #nonzero, total, percent = countValidNonZeroData(harvestedAreaBand)
-    #print 'area nonzero elements: ' + str(nonzero) + ' total: ' + str(total) + ' percent: ' + str(float(nonzero)/total)
+    addValidCropDataToMap(yieldBand, cropIds[cropName], globalMap, BANDIDS['yield'])
+    addValidCropDataToMap(harvestedAreaBand, cropIds[cropName], globalMap, BANDIDS['harvestArea'])
     
     print
     sys.stdout.flush()
