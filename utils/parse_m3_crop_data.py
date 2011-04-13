@@ -1,3 +1,8 @@
+#The purpose of this script is to read all the M3 crop data and convert
+#into a single coherent data structure that allows indexes by coordinate
+#to map to a map of cropids which in turn map to average yields and fractional
+#land usage.
+
 import os, sys, time, numpy, glob, re
 from osgeo import gdal
 from osgeo import osr
