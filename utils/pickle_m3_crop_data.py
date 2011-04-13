@@ -3,7 +3,7 @@
 #to map to a map of cropids which in turn map to average yields and fractional
 #land usage.
 
-import os, sys, time, numpy, glob, re, pickle
+import os, sys, time, numpy, glob, re, struct
 from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
@@ -70,6 +70,22 @@ def verifyGeotransformData(filenames):
             die("pixelWidth not the same: " + str(pixelWidth) + ' ' + str(geotransform[1]))
         if pixelHeight != geotransform[5]:
             die("pixelWidth not the same: " + str(pixelHeight) + ' ' + str(geotransform[5]))
+
+def pickleBinaryMap(map,fileName):
+    with open(fileName,'wb') as outFile:
+        outFile.write(struct.pack('!i',len(map))) # ncoords
+        for coord in map: 
+            outFile.write(struct.pack('!h',coord[0])) # x coord
+            outFile.write(struct.pack('!h',coord[1])) # y coord
+            outFile.write(struct.pack('!b',len(map[coord]))) # n crops
+            for cropId in map[coord]:
+                outFile.write(struct.pack('!b',cropId)) # cropId
+                for val in map[coord][cropId]: # crop value (either area or yield)
+                    if val != None:
+                        outFile.write(struct.pack('!f',val))
+                    else:
+                        outFile.write(struct.pack('!f',-1.0))
+
 
 #main script
 
@@ -144,6 +160,5 @@ for filename in filenames:
     print ', '+ str(currentTime) 
     sys.stdout.flush()
 print "totalTime , " + str(totalTime)
-outputFile = open('globalMap.pkl', 'wb')
-pickle.dump(globalMap,outputFile)
+pickleBinaryMap(globalMap,'globalMap_bin.pkl')
 sys.stdout.flush()
