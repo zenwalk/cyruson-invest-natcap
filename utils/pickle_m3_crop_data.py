@@ -110,7 +110,7 @@ print 'Verify geotransform data...',
 verifyGeotransformData(filenames)
 print 'passed!'
 
-MAXRUNS = 2
+MAXRUNS = len(filenames)
 runs= 0
 
 totalTime = 0
@@ -121,6 +121,7 @@ for filename in filenames:
         break
     runs += 1
     
+    
     #Group 1 has the path, group 2 will have the filename in it 
     cropName = cropNameRe.match(filename).group(2) 
     
@@ -128,7 +129,7 @@ for filename in filenames:
     if cropName not in cropIds:
         cropIds[cropName] = len(cropIds)
     
-    print cropName,
+    print cropName + ': ' + str(runs) + ' of ' + str(MAXRUNS),
 
     #for timing runs
     startTime = time.time()
@@ -157,7 +158,7 @@ for filename in filenames:
     currentTime = time.time()-startTime
     totalTime += currentTime
     
-    print ', '+ str(currentTime) 
+    print ' time: '+ str(currentTime) 
     sys.stdout.flush()
 print "totalTime , " + str(totalTime)
 pickleBinaryMap(globalMap,'globalMap_bin.pkl')
