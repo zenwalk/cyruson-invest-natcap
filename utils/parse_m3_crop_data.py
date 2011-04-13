@@ -12,14 +12,6 @@ BANDIDS = {'yield':0, 'harvestArea':1}
 MAXBANDS = len(BANDIDS)
 PATH = '../tmp_data/175crops/'
 
-def createCropIdMap(cropNames):
-    """Build up cropId table"""
-    cropIds = {}
-    for cropName in cropNames: 
-        if cropName not in cropIds:
-            cropIds[cropName] = len(cropIds)
-    return cropIds
-
 def die(message):
     """Error handler"""
     print message
@@ -49,9 +41,9 @@ gdal.AllRegister()
 
 globalMap = {}
 filenames = glob.glob(os.path.join(PATH, '*.nc'))
-cropNameRe = re.compile("^(.*/)([^/]*)_globalMap = {}5min")
+cropNameRe = re.compile("^(.*/)([^/]*)_5min")
 cropNames = [cropNameRe.match(filename).group(2) for filename in filenames]
-cropIds = createCropIdMap(filenames)
+cropIds = {}
 
 for filename in filenames:
     
