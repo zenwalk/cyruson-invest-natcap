@@ -26,5 +26,5 @@ inFile = open(FILE,'rb')
 globalMap = pickle.load(inFile)
 for coord in globalMap:
     for crop in  globalMap[coord]:
-        print globalMap[coord][crop]
+        print str(coord) + ', ' + str(crop) + ',' + str(globalMap[coord][crop])
 sys.stdout.flush()
