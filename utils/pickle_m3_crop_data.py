@@ -77,9 +77,9 @@ def pickleBinaryMap(map,fileName):
         for coord in map: 
             outFile.write(struct.pack('!h',coord[0])) # x coord
             outFile.write(struct.pack('!h',coord[1])) # y coord
-            outFile.write(struct.pack('!b',len(map[coord]))) # n crops
+            outFile.write(struct.pack('!B',len(map[coord]))) # n crops 
             for cropId in map[coord]:
-                outFile.write(struct.pack('!b',cropId)) # cropId
+                outFile.write(struct.pack('!B',cropId)) # cropId
                 for val in map[coord][cropId]: # crop value (either area or yield)
                     if val != None:
                         outFile.write(struct.pack('!f',val))
