@@ -61,8 +61,8 @@ with open(FILENAME,'r+b') as inFile:
 #globalMap is loaded, for fun look up some crop data    
 for coord in globalMap:
     print coord, globalMap[coord], getCropData(inFileMap, globalMap[coord])
-    keys = getCropData(inFileMap, globalMap[coord]).keys()
-    keys.sort()
-    print keys
-    sys.stdout.flush()
+    cropData = getCropData(inFileMap, globalMap[coord])
+    for key in cropData:        
+        print cropData[key][0]
+        sys.stdout.flush()
     sys.exit(0)
