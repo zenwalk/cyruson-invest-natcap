@@ -43,6 +43,8 @@ def verifyGeotransformData(filenames):
     originY = None
     pixelWidth = None
     pixelHeight = None
+    xnorthup = None
+    ynorthup = None
     nBands = None
     bandX = None
     bandY = None
@@ -61,6 +63,8 @@ def verifyGeotransformData(filenames):
             originY = geotransform[3]
             pixelWidth = geotransform[1]
             pixelHeight = geotransform[5]
+            xnorthup = geotransform[2]
+            ynorthup = geotransform[4]
             
         #check main variables, they should all be the same for each dataset    
         if originX != geotransform[0]:
@@ -76,6 +80,8 @@ def verifyGeotransformData(filenames):
         print 'originY', originY
         print 'pixelWidth', pixelWidth
         print 'pixelHeight', pixelHeight
+        print 'xnorthup', xnorthup
+        print 'ynorthup', ynorthup
 
 def pickleBinaryMap(map,fileName):
     with open(fileName,'wb') as outFile:
