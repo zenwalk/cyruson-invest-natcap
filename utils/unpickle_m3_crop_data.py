@@ -5,7 +5,7 @@
 
 import os, sys, time, numpy, glob, re, struct, mmap
 
-FILENAME = './globalMap_bin.pkl'
+FILENAME = '../core_data/m3crop_invest.bin'
 
 #Functions
 
