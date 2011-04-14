@@ -29,13 +29,17 @@ def unpickleBinaryMap(filename):
         print nCoords
         globalMap = {}
         for i in range(nCoords):
+            if i % 100 == 0: #follow progress
+                percent = i/float(nCoords)
+                print percent
+                sys.stdout.flush()
             coord = (struct.unpack_from('!h',inFile.read(2))[0],struct.unpack_from('!h',inFile.read(2))[0]) # x, y coord
             #print coord
-            nCrops = struct.unpack_from('!b',inFile.read(1))[0] #n crops
+            nCrops = struct.unpack_from('!B',inFile.read(1))[0] #n crops
             #print nCrops
             cropMap = {}
             for j in range(nCrops):
-                cropId = struct.unpack_from('!b',inFile.read(1))[0] #cropId
+                cropId = struct.unpack_from('!B',inFile.read(1))[0] #cropId
                 #print cropId 
                 cropArray = [None,None]
                 for k in range(2):
