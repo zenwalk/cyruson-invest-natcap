@@ -70,7 +70,12 @@ def verifyGeotransformData(filenames):
         if pixelWidth != geotransform[1]:
             die("pixelWidth not the same: " + str(pixelWidth) + ' ' + str(geotransform[1]))
         if pixelHeight != geotransform[5]:
-            die("pixelWidth not the same: " + str(pixelHeight) + ' ' + str(geotransform[5]))
+            die("pixelHeight not the same: " + str(pixelHeight) + ' ' + str(geotransform[5]))
+            
+        print 'originX', originX
+        print 'originY', originY
+        print 'pixelWidth', pixelWidth
+        print 'pixelHeight', pixelHeight
 
 def pickleBinaryMap(map,fileName):
     with open(fileName,'wb') as outFile:
