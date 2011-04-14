@@ -13,6 +13,7 @@ from osgeo.gdalconst import *
 BANDIDS = {'yield':0, 'harvestArea':1}
 MAXBANDS = len(BANDIDS)
 PATH = '../tmp_data/175crops/'
+OUTFILE = '../core_data/m3crop_invest.bin'
 
 #Functions
 
@@ -161,5 +162,5 @@ for filename in filenames:
     print ' time: '+ str(currentTime) 
     sys.stdout.flush()
 print "totalTime , " + str(totalTime)
-pickleBinaryMap(globalMap,'globalMap_bin.pkl')
+pickleBinaryMap(globalMap,OUTFILE)
 sys.stdout.flush()
