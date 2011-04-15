@@ -93,26 +93,49 @@ def pickleBinaryMap(cropMap, geoTransform, cropIds, fileName):
         #file = mmap.mmap(f.fileno(),0)
 
         #dump the list of crops and their ids
-        write('!b', len(cropIds), file) # number of crop ids
+        write('!B', len(cropIds), file) # number of crop ids
         for cropName in cropIds:
-            write('!b',len(cropName),file) #length of the crop name
+            write('!B',len(cropName),file) #length of the crop name
             write('!'+str(len(cropName))+'s',cropName,file) #the crop name
-            write('!b',cropIds[cropName],file)
+            write('!B',cropIds[cropName],file)
         
         #write geotransform
         #write lngOrig, latOrig, lngWidth, latWidth  - from http://www.gdal.org/gdal_tutorial.html
         for v in [geoTransform[0], geoTransform[3], geoTransform[1], geoTransform[5]]:
-            write('!f', v, file)
+            write('!d', v, file)
+
+        latMax = 0
+        lngMax = 0
 
         write('!i', len(cropMap), file) # ncoords
         for coord in cropMap: 
-            write('!h', coord[0], file) #latIndex
+            write('!h', -coord[0], file) #latIndex (invert the latitude so it works on earth)
             write('!h', coord[1], file) #lngIndex
+            #print 'lat',coord[0], coord[0]*geoTransform[5]+geoTransform[3] #lat
+            #print 'lng',coord[1], coord[1]*geoTransform[1]+geoTransform[0] #lng
+            #print
+            if coord[0] > latMax:
+                latMax = coord[0]
+            if coord[1] > lngMax:
+                lngMax = coord[1]
+            
             write('!B', len(cropMap[coord]), file) # n crops 
             for cropId in cropMap[coord]:
                 write('!B', cropId, file) # cropId
                 for val in cropMap[coord][cropId]: # crop value (either area or yield)
                     write('!f', val if val != None else - 1.0, file)
+
+        #print latMax,lngMax
+        
+def latLngToCoord(lat, lng):
+    originLng = -180.0
+    originLat = -90.0
+    dimLng = 0.08333333
+    dimLat = 0.08333333  
+
+    latIndex = int((lat - originLat) / dimLat)
+    lngIndex = int((lng - originLng) / dimLng)
+    
 
 #main script
 
@@ -128,7 +151,7 @@ cropNameRe = re.compile("^(.*/)([^/]*)_5min")
 cropIds = {}
 
 
-filenames = glob.glob(os.path.join(PATH, 'banana*.nc'))
+filenames = glob.glob(os.path.join(PATH, '*.nc'))
 
 #verify that all geotransform data is the same across all files
 print 'Verify geotransform data...',
