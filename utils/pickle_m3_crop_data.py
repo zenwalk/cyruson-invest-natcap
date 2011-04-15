@@ -3,17 +3,17 @@
 #to map to a map of cropids which in turn map to average yields and fractional
 #land usage.
 
-import os, sys, time, numpy, glob, re, struct
+import os, sys, time, numpy, glob, re, struct, mmap
 from osgeo import gdal
 from osgeo import osr
 from osgeo.gdalconst import *
 
 #Global constants
 
-BANDIDS = {'yield':0, 'harvestArea':1}
+BANDIDS = {'harvestArea':0, 'yield':1}
 MAXBANDS = len(BANDIDS)
 PATH = '../tmp_data/175crops/'
-OUTFILE = '../core_data/m3crop_invest.bin'
+OUTFILE = '../tmp_data/m3pickle.bin'
 
 #Functions
 
@@ -31,11 +31,12 @@ def addValidCropDataToMap(band, cropId, map, bandId):
     nonzeroValidIndices = numpy.where((array2d != noDataValue) & (array2d != 0))
     values = array2d[nonzeroValidIndices]
     for i in range(len(values)):
+        #nonzeroValidIndices are in the form row/col (lat/lng)
         coord = (nonzeroValidIndices[0][i], nonzeroValidIndices[1][i])
         if coord not in map:
             map[coord] = {} #default map of crops
         if cropId not in map[coord]:
-            map[coord][cropId] = [None]*MAXBANDS #default array of band types for that crop at that coordinate
+            map[coord][cropId] = [None] * MAXBANDS #default array of band types for that crop at that coordinate
         map[coord][cropId][bandId] = values[i]
 
 def verifyGeotransformData(filenames):
@@ -83,25 +84,37 @@ def verifyGeotransformData(filenames):
         print 'xnorthup', xnorthup
         print 'ynorthup', ynorthup
 
-def pickleBinaryMap(map,fileName):
-    with open(fileName,'wb') as outFile:
-        outFile.write(struct.pack('!i',len(map))) # ncoords
-        for coord in map: 
-            outFile.write(struct.pack('!h',coord[0])) # x coord
-            outFile.write(struct.pack('!h',coord[1])) # y coord
-            outFile.write(struct.pack('!B',len(map[coord]))) # n crops 
-            for cropId in map[coord]:
-                outFile.write(struct.pack('!B',cropId)) # cropId
-                for val in map[coord][cropId]: # crop value (either area or yield)
-                    if val != None:
-                        outFile.write(struct.pack('!f',val))
-                    else:
-                        outFile.write(struct.pack('!f',-1.0))
+def pickleBinaryMap(cropMap, geoTransform, cropIds, fileName):
+    def write(format, var, file):
+        """Simplifies writing to a file using struct compression"""
+        file.write(struct.pack(format, var))
 
+    with open(fileName, 'wb') as file:
+        #file = mmap.mmap(f.fileno(),0)
+
+        #dump the list of crops and their ids
+        write('!b', len(cropIds), file) # number of crop ids
+        for cropName in cropIds:
+            write('!b',len(cropName),file) #length of the crop name
+            write('!'+str(len(cropName))+'s',cropName,file) #the crop name
+            write('!b',cropIds[cropName],file)
+        
+        #write geotransform
+        #write lngOrig, latOrig, lngWidth, latWidth  - from http://www.gdal.org/gdal_tutorial.html
+        for v in [geoTransform[0], geoTransform[3], geoTransform[1], geoTransform[5]]:
+            write('!f', v, file)
+
+        write('!i', len(cropMap), file) # ncoords
+        for coord in cropMap: 
+            write('!h', coord[0], file) #latIndex
+            write('!h', coord[1], file) #lngIndex
+            write('!B', len(cropMap[coord]), file) # n crops 
+            for cropId in cropMap[coord]:
+                write('!B', cropId, file) # cropId
+                for val in cropMap[coord][cropId]: # crop value (either area or yield)
+                    write('!f', val if val != None else - 1.0, file)
 
 #main script
-
-
 
 #Register all drivers at once
 gdal.AllRegister()
@@ -115,24 +128,24 @@ cropNameRe = re.compile("^(.*/)([^/]*)_5min")
 cropIds = {}
 
 
-filenames = glob.glob(os.path.join(PATH, '*.nc'))
+filenames = glob.glob(os.path.join(PATH, 'banana*.nc'))
 
 #verify that all geotransform data is the same across all files
 print 'Verify geotransform data...',
 verifyGeotransformData(filenames)
 print 'passed!'
 
-MAXRUNS = len(filenames)
-runs= 0
-
+totalRuns = len(filenames)
+runNumber = 0
 totalTime = 0
+
+geoTransform = None
 
 for filename in filenames:
     
-    if runs >= MAXRUNS:
+    if runNumber >= totalRuns:
         break
-    runs += 1
-    
+    runNumber += 1
     
     #Group 1 has the path, group 2 will have the filename in it 
     cropName = cropNameRe.match(filename).group(2) 
@@ -140,10 +153,15 @@ for filename in filenames:
     #create a cropId if that crop hasn't been seen before
     if cropName not in cropIds:
         cropIds[cropName] = len(cropIds)
+        #if cropName == 'banana':
+        #    print cropName, cropIds[cropName]
+        #    sys.exit(0)
     
-    print cropName + ': ' + str(runs) + ' of ' + str(MAXRUNS),
+    #continue
+    
+    print cropName + ': ' + str(runNumber) + ' of ' + str(totalRuns),
 
-    #for timing runs
+    #for timing runNumber
     startTime = time.time()
     
     #open file
@@ -153,11 +171,7 @@ for filename in filenames:
         die('Could not open ' + filename)
     
     #Get geotransform data which will later be saved
-    geotransform = dataset.GetGeoTransform()
-    originX = geotransform[0]
-    originY = geotransform[3]
-    pixelWidth = geotransform[1]
-    pixelHeight = geotransform[5]
+    geoTransform = dataset.GetGeoTransform()
     
     harvestedAreaBand = dataset.GetRasterBand(1)
     yieldBand = dataset.GetRasterBand(2)
@@ -167,11 +181,12 @@ for filename in filenames:
     
     del dataset # cause python garbage collection to deallocate
     
-    currentTime = time.time()-startTime
+    currentTime = time.time() - startTime
     totalTime += currentTime
     
-    print ' time: '+ str(currentTime) 
+    print ' time: ' + str(currentTime) 
     sys.stdout.flush()
-print "totalTime , " + str(totalTime)
-pickleBinaryMap(globalMap,OUTFILE)
+print "read time , " + str(totalTime)
+pickleBinaryMap(globalMap, geoTransform, cropIds, OUTFILE)
+print "pickle time , " + str(time.time()-startTime)
 sys.stdout.flush()
