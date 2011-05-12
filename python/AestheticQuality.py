@@ -5,8 +5,7 @@
 
 # import modules
 import sys, string, os, datetime
-import arcgisscripting, numpy
-from scipy import stats
+import arcgisscripting
 from math import *
 
 # create the geoprocessor object
@@ -24,6 +23,21 @@ msgArguments = "\nProblem with arguments."
 msgDataPrep = "\nError in preparing data."
 msgVShed = "\nError conducting viewshed and population analysis."
 msgIntersect = "\nError calculating overlap between viewshed output and visual polygons."
+msgNumPyNo = "NumPy extension is required to run the Aesthetic Quality model.  Please consult the Marine InVEST FAQ for instructions on how to install."
+msgSciPyNo = "SciPy extension is required to run the Aesthetic Quality model.  Please consult the Marine InVEST FAQ for instructions on how to install."
+
+# import modules
+try:
+    import numpy
+except:
+    gp.AddError(msgNumPyNo)
+    raise Exception
+
+try:
+    from scipy import stats
+except:
+    gp.AddError(msgSciPyNo)
+    raise Exception
 
 try:
     try:

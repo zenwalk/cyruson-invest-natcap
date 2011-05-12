@@ -4,9 +4,8 @@
 # 02/16/11
 
 # import modules
-import sys, string, os, datetime
-import arcgisscripting, shlex, numpy
-from win32com.client import Dispatch
+import sys, string, os, datetime, shlex
+import arcgisscripting
 from math import *
 
 # create the geoprocessor object
@@ -21,6 +20,21 @@ msgArguments = "\nProblem with arguments."
 msgFarmOp = "\nError reading in farm operation data."
 msgGrowthSim = "\nError during growth simulation."
 msgPopTables = "\nError while tallying results and creating outputs."
+msgNumPyNo = "NumPy extension is required to run the Finfish Aquaculture Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
+msgWin32ComNo = "PythonWin extension is required to run the Finfish Aquaculture Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
+
+# import modules
+try:
+    import numpy
+except:
+    gp.AddError(msgNumPyNo)
+    raise Exception
+    
+try:
+    from win32com.client import Dispatch
+except:
+    gp.AddError(msgWin32ComNo)
+    raise Exception
 
 try:
     try:
