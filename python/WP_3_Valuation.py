@@ -7,11 +7,11 @@
 # Driss Ennaanay, Guillermo Mendoza, Marc Conte 
 # for the Natural Capital Project
 #
-# Last edited: 2/6/2011
+# Last edited: 4/25/2011
 #
-# Second script for Water Purification.
+# Third script for Water Purification.
 # Calculates the value of the landscape for keeping
-#   nutrient pollution out of water 
+#   nutrient pollution out of streams 
 # ---------------------------------------------------------------------------
 
 # Import system modules
@@ -46,11 +46,11 @@ try:
         gp.workspace = sys.argv[1]
         parameters.append("Workspace: " + gp.workspace)
 
-        # Shapefile of the watershed contributing to the point of interest
+        # Watersheds shapefile
         watershed = sys.argv[2]
-        parameters.append("Watershed: " + watershed)
+        parameters.append("Watersheds: " + watershed)
 
-        # Shapefile of sub-watersheds
+        # Sub-watersheds shapefile
         sub_watersheds = sys.argv[3]
         parameters.append("Sub-watersheds: " + sub_watersheds)
 
@@ -58,15 +58,15 @@ try:
         retention = sys.argv[4]
         parameters.append("Nutrient retention (sum): " + retention)
 
-        # Watershed nutrient export table from biophysical script
-        ws_export_table = sys.argv[5]
-        parameters.append("Watershed nutrient export table: " + ws_export_table)
+        # Watershed nutrient table from biophysical script
+        ws_nut_table = sys.argv[5]
+        parameters.append("Watershed nutrient table: " + ws_nut_table)
 
-        # Sub-watershed nutrient export table from biophysical script
-        sws_export_table = sys.argv[6]
-        parameters.append("Sub-watershed nutrient export table: " + sws_export_table)
+        # Sub-watershed nutrient table from biophysical script
+        sws_nut_table = sys.argv[6]
+        parameters.append("Sub-watershed nutrient table: " + sws_nut_table)
 
-        # Table with model values for the watershed/point of interest
+        # Table with model values for the watersheds/points of interest
         wp_table = sys.argv[7]
         parameters.append("Water purification table: " + wp_table)
 
@@ -94,7 +94,7 @@ try:
             if not gp.exists(gp.workspace+folder):
                 gp.CreateFolder_management(gp.workspace, folder)
     except:
-        gp.AddError( "\nError creating folders: " + gp.GetMessages(2))
+        gp.AddError( "\nError creating output folders: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -111,7 +111,6 @@ try:
         watershed_join2 = interws + "ws_join2"
         watershed_join3 = interws + "q_ws_join3"
         watershed_cost = interws + "ws_cost"
-##        watershed_annual_load = interws + "ws_annld"
         watershed_max_cnl = interws + "ws_max_cnl"
         retention_value1 = interws + "ret_val1"
         wshed_ras = interws + "wshed_ras"
@@ -123,7 +122,6 @@ try:
 
         # Water Purification input table field names
         wp_id_field = "ws_id"
-        calib_field = "calib"
         annual_load_field = "ann_load"
         cost_field = "cost"
         time_field = "time_span"
@@ -174,7 +172,7 @@ try:
         # Make sure all temporary files go in the Intermediate folder
         gp.workspace = interws
     except:
-        gp.AddError( "\nError configuring output resolution: " + gp.GetMessages(2))
+        gp.AddError( "\nError setting geoprocessing environment: " + gp.GetMessages(2))
         raise Exception
         
 
@@ -213,7 +211,7 @@ try:
     try:
 
         # Verify input table fields
-        checkfields([wp_id_field, calib_field, cost_field], wp_table)
+        checkfields([wp_id_field, cost_field], wp_table)
 
         gp.AddMessage("\nCalculating present value...")
         
@@ -224,13 +222,15 @@ try:
         
         gp.CopyRows_management(wp_table, "wp_tmp.dbf")
         gp.FeatureToRaster_conversion(watershed, wshed_id_field, wshed_ras, cell_size)
+        gp.BuildRasterAttributeTable_management(wshed_ras)
         gp.MakeRasterLayer_management(wshed_ras, "wsheds_tmp3")
         gp.AddJoin_management("wsheds_tmp3", "Value", "wp_tmp.dbf", wp_id_field)
         gp.CopyRaster_management("wsheds_tmp3", watershed_join)
-##        gp.Lookup_sa(watershed_join, annual_load_field, watershed_annual_load)
         gp.Lookup_sa(watershed_join, cost_field, watershed_cost)
-        # Delete now or Arc won't delete the Intermediate folder later
-        gp.Delete_management("wsheds_tmp3")
+
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management("wp_tmp.dbf")
+            gp.Delete_management("wsheds_tmp3")
 
         # Create temporary output table to hold discount values
         try:
@@ -261,6 +261,7 @@ try:
             wtable_row = wtable_rows.Reset
             wtable_row = wtable_rows.Next()
 
+            # Find watershed in nutrient valuation table that matches watershed shapefile
             while (int(wtable_row.getValue(wp_id_field)) <> int(ws_row.getValue(wshed_id_field))):
                 wtable_row = wtable_rows.Next()
 
@@ -279,7 +280,7 @@ try:
                     pv += 1 / pow(1 + (station_discount / 100), t)
                             
             except:
-                gp.AddError("\nError calculating Present Value: " + gp.GetMessages())
+                gp.AddError("\nError calculating present value: " + gp.GetMessages())
                 raise Exception
 
             # Add new field values to discount table
@@ -292,7 +293,10 @@ try:
                 pv_row.setValue(pv_table_pv_field, float(pv))
                 pv_rows.UpdateRow(pv_row)
 
+                pv_rows = gp.UpdateCursor(pv_table)
+                pv_row = pv_rows.Reset
                 pv_row = pv_rows.Next()
+                
                 wtable_row = wtable_rows.Next()
             
             except:
@@ -314,9 +318,11 @@ try:
         gp.AddJoin_management("wshed_tmp_wq3", "Value", "pv_tmp_wq.dbf", wp_id_field)
         gp.CopyRaster_management("wshed_tmp_wq3", watershed_join3)
         gp.Lookup_sa(watershed_join3, pv_table_pv_field, watershed_pv)
-        # Delete now or Arc won't delete the Intermediate folder later
-        gp.Delete_management("wshed_tmp_wq3")
-        gp.Delete_management(watershed_join3)
+
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management("pv_tmp_wq.dbf")
+            gp.Delete_management("wshed_tmp_wq3")
+        
 
         # Value of landscape for retaining pollution
         gp.SingleOutputMapAlgebra_sa(watershed_pv + " * " + watershed_cost + " * " + retention, retention_value1)
@@ -330,35 +336,33 @@ try:
         gp.AddError("\nError calculating nutrient retention value:" + gp.GetMessages(2))
         raise Exception
 
-    # Populate output tables with retention/value
+    # Populate output tables with value
     
     try:
         
-        # Create output tables - one for sub-basins, one for basins
+        # Create output tables - one for sub-watersheds, one for watersheds
+        # Add new fields to tables created in the biophysical script
 
         out_table_retention_field = "nut_ret"
         out_table_value_field = "nut_value"
 
         gp.CreateTable_management(servicews, nut_sws_value_table_name)
         nut_sws_value_table = servicews + nut_sws_value_table_name
-        gp.CopyRows_management(sws_export_table, nut_sws_value_table)
+        gp.CopyRows_management(sws_nut_table, nut_sws_value_table)
 
-        gp.AddField(nut_sws_value_table, out_table_retention_field, "double")
         gp.AddField(nut_sws_value_table, out_table_value_field, "double")
 
         gp.CreateTable_management(servicews, nut_ws_value_table_name)
         nut_ws_value_table = servicews + nut_ws_value_table_name
-        gp.CopyRows_management(ws_export_table, nut_ws_value_table)
+        gp.CopyRows_management(ws_nut_table, nut_ws_value_table)
 
-        gp.AddField(nut_ws_value_table, out_table_retention_field, "double")
         gp.AddField(nut_ws_value_table, out_table_value_field, "double")
 
         gp.AddMessage("\nCreating sub-watershed output table...")
 
         # Sub-watershed table
         
-        # Make tables of retention/value to map to sub-watersheds
-        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, retention, subws_ret_zstat, "DATA")
+        # Aggregate by sub-watersheds
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, retention_value, subws_val_zstat, "DATA")
 
         # Zonal stats field name changed in Arc10
@@ -376,26 +380,20 @@ try:
 
         while(swsval_row):
 
-            retz_rows = gp.SearchCursor(subws_ret_zstat, "", "", "", zstat_id_field + " A")
-            retz_row = retz_rows.Reset
-            retz_row = retz_rows.Next()
-
             valz_rows = gp.SearchCursor(subws_val_zstat, "", "", "", zstat_id_field + " A")
             valz_row = valz_rows.Reset
             valz_row = valz_rows.Next()
 
-            while (int(swsval_row.getValue(subwshed_id_field)) <> int(retz_row.getValue(zstat_id_field))):
-                retz_row = retz_rows.Next()
+            # Find matching sub-watersheds in output table and aggregation table
+            while (int(swsval_row.getValue(subwshed_id_field)) <> int(valz_row.getValue(zstat_id_field))):
                 valz_row = valz_rows.Next()
 
             # Can use mean because there's only one value per sub-watershed
-
-            swsval_row.setValue(out_table_retention_field, float(retz_row.getValue("MEAN")))
             swsval_row.setValue(out_table_value_field, float(valz_row.getValue("MEAN")))
             swsval_rows.UpdateRow(swsval_row)
             swsval_row = swsval_rows.Next()
 
-            del retz_row, retz_rows, valz_row, valz_rows
+            del valz_row, valz_rows
         
         gp.AddMessage("\n\tCreated sub-watershed output table: \n\t" + str(nut_sws_value_table))
     
@@ -404,7 +402,7 @@ try:
 
         # Watershed table
 
-        # Find all sub-watersheds within this watershed and sum their retention/value to create watershed output
+        # Find all sub-watersheds within this watershed and sum their value to create watershed output
 
         # Map sub-watersheds to their corresponding watersheds
         gp.SpatialJoin_analysis(sub_watersheds, watershed, watersheds_sjoin, "JOIN_ONE_TO_ONE", "KEEP_ALL", "#", "IS_WITHIN")
@@ -415,14 +413,10 @@ try:
 
         while (wsval_row):
 
-            # Order watersheds, retention and value by subwatershed id
+            # Order watersheds and value by subwatershed id
             sj_rows = gp.SearchCursor(watersheds_sjoin, "", "", "", subwshed_id_field + " A")
             sj_row = sj_rows.Reset
             sj_row = sj_rows.Next()
-
-            retz_rows = gp.SearchCursor(subws_ret_zstat, "", "", "", zstat_id_field + " A")
-            retz_row = retz_rows.Reset
-            retz_row = retz_rows.Next()
 
             valz_rows = gp.SearchCursor(subws_val_zstat, "", "", "", zstat_id_field + " A")
             valz_row = valz_rows.Reset
@@ -433,22 +427,20 @@ try:
 
             while (sj_row):
 
+                # Find matching watersheds in spatial join shapefile and value table
                 if (int(sj_row.getValue(wshed_id_field)) == int(wsval_row.getValue(wshed_id_field))):
-                    ret_sum += retz_row.getValue("MEAN")
                     val_sum += valz_row.getValue("MEAN")
 
                 sj_row = sj_rows.Next()
-                retz_row = retz_rows.Next()
                 valz_row = valz_rows.Next()
 
             # Fill in table values for this watershed
-            wsval_row.setValue(out_table_retention_field, float(ret_sum))
             wsval_row.setValue(out_table_value_field, float(val_sum))
             wsval_rows.UpdateRow(wsval_row)
 
             wsval_row = wsval_rows.Next()
             
-            del sj_rows, sj_row, retz_row, retz_rows, valz_row, valz_rows
+            del sj_row, sj_rows, valz_row, valz_rows
         
         gp.AddMessage("\n\tCreated watershed output table: \n\t" + str(nut_ws_value_table))
         
@@ -461,7 +453,7 @@ try:
     try:
         parameters.append("Script location: " + os.path.dirname(sys.argv[0]) + "\\" + os.path.basename(sys.argv[0]))
         gp.workspace = gp.GetParameterAsText(0)
-        parafile = open(gp.workspace + "\\Output\\Water_Purification_Valuation_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
+        parafile = open(gp.workspace + "\\Output\\WP_Valuation_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
         parafile.writelines("WATER PURIFICATION 3 - VALUATION MODEL PARAMETERS\n")
         parafile.writelines("_________________________________________________\n\n")
 
@@ -477,7 +469,8 @@ try:
     # Clean up temporary files
     gp.AddMessage("\nCleaning up temporary files...\n")
     try:
-        del ws_rows, ws_row, wtable_rows, wtable_row, pv_rows, pv_row, wsval_row, wsval_rows
+        del ws_row, ws_rows, wtable_row, wtable_rows, pv_row, pv_rows, wsval_row, wsval_rows
+        del swsval_row, swsval_rows
         gp.Delete_management(interws)
     except:
         gp.AddError("\nError cleaning up temporary files:  " + gp.GetMessages(2))
@@ -485,5 +478,5 @@ try:
 
     
 except:
-    gp.AddError ("\nError running script.")
+    gp.AddError ("\nError running script")
     raise Exception

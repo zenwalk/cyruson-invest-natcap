@@ -4,11 +4,8 @@
 # 02/16/11
 
 # import modules
-from scipy.interpolate import interp2d
-import numpy as np
-import shlex
-from win32com.client import Dispatch
 import sys, string, os, datetime
+import shlex
 from math import *
 import arcgisscripting
 
@@ -29,6 +26,25 @@ msgWEcalc = "\nError during wave energy calculations."
 msgValuation = "\nError during economic valuation."
 msgClipWaveData = "\nError clipping wave data."
 msgCalcDepth = "\nError calculating depth of wave points for wave power calculations.  Check that DEM covers the extent of the selected wave points."
+
+# import modules
+try:
+    import numpy as np
+except:
+    gp.AddError(msgNumPyNo)
+    raise Exception
+
+try:
+    from scipy.interpolate import interp2d
+except:
+    gp.AddError(msgSciPyNo)
+    raise Exception
+    
+try:
+    from win32com.client import Dispatch
+except:
+    gp.AddError(msgWin32ComNo)
+    raise Exception
 
 try:
     try:
