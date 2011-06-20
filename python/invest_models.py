@@ -43,29 +43,29 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     for i in range(n):
         for j in range(m):
             #diagonal element i,j
-            sourceIndex = calc_index(i, j)
+            rowIndex = calc_index(i, j)
             b.append(0) #initialize source vector
 
             #formulate elements as a single array 
             elements = [
-             (calc_index(i, j), -8.0 * E[sourceIndex] + 2 * h * h * K[sourceIndex]),
-             (calc_index(i + 1, j), 2 * E[sourceIndex] - Ux[sourceIndex] * h),
-             (calc_index(i - 1, j), 2 * E[sourceIndex] + Ux[sourceIndex] * h),
-             (calc_index(i, j + 1), 2 * E[sourceIndex] - Uy[sourceIndex] * h),
-             (calc_index(i, j - 1), 2 * E[sourceIndex] + Uy[sourceIndex] * h)]
+             (calc_index(i, j), -8.0 * E[rowIndex] + 2 * h * h * K[rowIndex]),
+             (calc_index(i + 1, j), 2 * E[rowIndex] - Ux[rowIndex] * h),
+             (calc_index(i - 1, j), 2 * E[rowIndex] + Ux[rowIndex] * h),
+             (calc_index(i, j + 1), 2 * E[rowIndex] - Uy[rowIndex] * h),
+             (calc_index(i, j - 1), 2 * E[rowIndex] + Uy[rowIndex] * h)]
 
             #process elements.  might be a source, might not...
-            for tmpIndex, term in elements:
-                if tmpIndex >= 0:
-                    if tmpIndex not in s0:
-                        row.append(sourceIndex)
-                        col.append(tmpIndex)
+            for colIndex, term in elements:
+                if colIndex >= 0:
+                    if colIndex not in s0:
+                        row.append(rowIndex)
+                        col.append(colIndex)
                         data.append(term)
                     else:
-                        b[sourceIndex] += s0[tmpIndex] * (-term)
-                        if i == j:
-                            row.append(sourceIndex)
-                            col.append(sourceIndex)
+                        b[rowIndex] += s0[colIndex] * (-term)
+                        if rowIndex == colIndex:
+                            row.append(rowIndex)
+                            col.append(colIndex)
                             data.append(1)
 
     #stamp into numpy formulation to be solved
