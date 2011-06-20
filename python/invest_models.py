@@ -45,22 +45,16 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
             #diagonal element i,j
             sourceIndex = calc_index(i, j)
             b.append(0) #initialize source vector
-            term = 8.0 * E[sourceIndex] + 2 * h * h * K[sourceIndex]
-            if sourceIndex not in s0:
-                row.append(sourceIndex)
-                col.append(sourceIndex)
-                data.append(-term)
-            else:
-                b[sourceIndex] += s0[sourceIndex] * term
 
-            #formulate the nondiagonal elements as a single array 
+            #formulate elements as a single array 
             elements = [
+             (calc_index(i, j), -8.0 * E[sourceIndex] + 2 * h * h * K[sourceIndex]),
              (calc_index(i + 1, j), 2 * E[sourceIndex] - Ux[sourceIndex] * h),
              (calc_index(i - 1, j), 2 * E[sourceIndex] + Ux[sourceIndex] * h),
              (calc_index(i, j + 1), 2 * E[sourceIndex] - Uy[sourceIndex] * h),
              (calc_index(i, j - 1), 2 * E[sourceIndex] + Uy[sourceIndex] * h)]
 
-            #process nondiagonal elements.  might be a source, might not...
+            #process elements.  might be a source, might not...
             for tmpIndex, term in elements:
                 if tmpIndex >= 0:
                     if tmpIndex not in s0:
@@ -71,10 +65,6 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
                         b[sourceIndex] += s0[tmpIndex] * (-term)
 
     #stamp into numpy formulation to be solved
-    print row
-    print col
-    print data
-    print b
     row = array(row)
     col = array(col)
     data = array(data)
