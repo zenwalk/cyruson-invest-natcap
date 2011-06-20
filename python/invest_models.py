@@ -19,5 +19,4 @@ def water_quality(grid, E, U, K, s0, h):
 
 
 if __name__ == "__main__":
-    #put unit tests here
-    return True
+    pass #put unit tests here
