@@ -1,6 +1,8 @@
 from scipy.sparse import *
 from scipy import *
 from scipy.sparse.linalg import spsolve
+import numpy as np
+import matplotlib.pyplot as plt
 
 def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     """2D Water quality model to track a pollutant in the ocean
@@ -48,8 +50,8 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
             b.append(0) #initialize source vector
 
             #formulate the nondiagonal elements as a single array 
-            elements = [(calc_index(i + 1, j), 2 * E[sourceIndex] -
-                         Ux[sourceIndex] * h),
+            elements = [
+             (calc_index(i + 1, j), 2 * E[sourceIndex] - Ux[sourceIndex] * h),
              (calc_index(i - 1, j), 2 * E[sourceIndex] + Ux[sourceIndex] * h),
              (calc_index(i, j + 1), 2 * E[sourceIndex] - Uy[sourceIndex] * h),
              (calc_index(i, j - 1), 2 * E[sourceIndex] + Uy[sourceIndex] * h)]
@@ -77,7 +79,7 @@ if __name__ == "__main__":
 
     #water quality test with all water
     #allow an n*m rectangular grid
-    n, m = 3, 3
+    n, m = 100, 100
 
     #define land
     grid = [True] * n * m
@@ -87,8 +89,8 @@ if __name__ == "__main__":
 
     #define constants
     E = map(lambda x: 1.0, grid)
-    Ux = map(lambda x: 1.0, grid)
-    Uy = map(lambda x: 1.0, grid)
+    Ux = map(lambda x: 0.0, grid)
+    Uy = map(lambda x: 0.0, grid)
     K = map(lambda x: 1.0, grid)
 
     #define a source right in the middle
@@ -96,5 +98,24 @@ if __name__ == "__main__":
     col = m / 2
     s0 = {row * m + col: 1}
 
+    X, Y = np.meshgrid(np.arange(0, n) * h, np.arange(0, m) * h)
+
     result = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
+
+    #fast method to re-roll a numpy array into 2D
+    def rolling(a, window):
+        shape = (a.size - window + 1, window)
+        strides = (a.itemsize, a.itemsize)
+        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+
+    Z = rolling(result, m)
+    print X.ndim
+    print Y.ndim
+    print Z.ndim
+    plt.figure()
+    plt.pcolor(X, Y, Z)
+    plt.colorbar()
+    plt.show()
+
+    print type(result)
 
