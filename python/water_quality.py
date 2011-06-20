@@ -19,27 +19,30 @@ if __name__ == "__main__":
     E = map(lambda x: 0.1, grid)
     Ux = map(lambda x: 0.0, grid)
     Uy = map(lambda x: 0.0, grid)
-    K = map(lambda x: 0.1, grid)
+    K = map(lambda x: 0.0, grid)
 
     #define a source right in the middle
     row = n / 2
     col = m / 2
     s0 = {row * m + col: 1}
 
-    X, Y = np.meshgrid(np.arange(0, n), np.arange(0, m))
+    X, Y = np.meshgrid(np.arange(0, m), np.arange(0, n))
 
     result = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
 
-    #fast method to re-roll a numpy array into 2D
-    def rolling(a, window):
-        shape = (a.size - window + 1, window)
-        strides = (a.itemsize, a.itemsize)
-        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+    #reroll into a 2D array
+    Z = np.zeros(shape=(n, m), dtype=np.float)
+    for i in range(n): Z[i, :] = result[i * m:i * m + m]
+    print Z
 
-    Z = rolling(result, m)
     print X.ndim
     print Y.ndim
     print Z.ndim
+    print X
+    print Y
+    print result
+    print Z
+    print s0
     plt.figure()
     plt.pcolor(X, Y, Z)
     plt.colorbar()
