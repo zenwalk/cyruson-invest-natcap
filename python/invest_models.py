@@ -2,7 +2,7 @@ from scipy.sparse import *
 from scipy import *
 from scipy.sparse.linalg import spsolve
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     """2D Water quality model to track a pollutant in the ocean
@@ -44,10 +44,14 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
         for j in range(m):
             #diagonal element i,j
             sourceIndex = calc_index(i, j)
-            row.append(sourceIndex)
-            col.append(sourceIndex)
-            data.append(-(8.0 * E[sourceIndex] + 2 * h * h * K[sourceIndex]))
             b.append(0) #initialize source vector
+            term = 8.0 * E[sourceIndex] + 2 * h * h * K[sourceIndex]
+            if sourceIndex not in s0:
+                row.append(sourceIndex)
+                col.append(sourceIndex)
+                data.append(-term)
+            else:
+                b[sourceIndex] += s0[sourceIndex] * term
 
             #formulate the nondiagonal elements as a single array 
             elements = [
@@ -67,55 +71,14 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
                         b[sourceIndex] += s0[tmpIndex] * (-term)
 
     #stamp into numpy formulation to be solved
+    print row
+    print col
+    print data
+    print b
     row = array(row)
     col = array(col)
     data = array(data)
     b = array(b)
     matrix = csr_matrix((data, (row, col)), shape=(n * m, n * m))
     return spsolve(matrix, b)
-
-if __name__ == "__main__":
-    pass #put unit tests here
-
-    #water quality test with all water
-    #allow an n*m rectangular grid
-    n, m = 100, 100
-
-    #define land
-    grid = [True] * n * m
-
-    #cell size
-    h = 0.01
-
-    #define constants
-    E = map(lambda x: 1.0, grid)
-    Ux = map(lambda x: 0.0, grid)
-    Uy = map(lambda x: 0.0, grid)
-    K = map(lambda x: 1.0, grid)
-
-    #define a source right in the middle
-    row = n / 2
-    col = m / 2
-    s0 = {row * m + col: 1}
-
-    X, Y = np.meshgrid(np.arange(0, n) * h, np.arange(0, m) * h)
-
-    result = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
-
-    #fast method to re-roll a numpy array into 2D
-    def rolling(a, window):
-        shape = (a.size - window + 1, window)
-        strides = (a.itemsize, a.itemsize)
-        return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
-
-    Z = rolling(result, m)
-    print X.ndim
-    print Y.ndim
-    print Z.ndim
-    plt.figure()
-    plt.pcolor(X, Y, Z)
-    plt.colorbar()
-    plt.show()
-
-    print type(result)
 
