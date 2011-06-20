@@ -62,11 +62,15 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
                         col.append(colIndex)
                         data.append(term)
                     else:
-                        b[rowIndex] += s0[colIndex] * (-term)
+                        #test to see if current row is a source
                         if rowIndex == colIndex:
                             row.append(rowIndex)
                             col.append(colIndex)
                             data.append(1)
+                            b[rowIndex] = s0[colIndex]
+                            break
+                        else :
+                            b[rowIndex] += s0[colIndex] * (-term)
 
     #stamp into numpy formulation to be solved
     row = array(row)
