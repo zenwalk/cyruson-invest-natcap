@@ -48,7 +48,7 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
 
             #formulate elements as a single array 
             elements = [
-             (calc_index(i, j), -8.0 * E[rowIndex] + 2 * h * h * K[rowIndex]),
+             (calc_index(i, j), -(8.0 * E[rowIndex] + 2 * h * h * K[rowIndex])),
              (calc_index(i + 1, j), 2 * E[rowIndex] - Ux[rowIndex] * h),
              (calc_index(i - 1, j), 2 * E[rowIndex] + Ux[rowIndex] * h),
              (calc_index(i, j + 1), 2 * E[rowIndex] - Uy[rowIndex] * h),
