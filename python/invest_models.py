@@ -8,7 +8,7 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     """2D Water quality model to track a pollutant in the ocean
     
     Keyword arguments:
-    n,m -- the number of rows,coluumns in the 2D grid.  Used to determine 
+    n,m -- the number of rows, columns in the 2D grid.  Used to determine 
         indices into list parameters 'grid', 'E', 'Ux', 'Uy', and 'K' via
         sourceIndex (i,j) is position i*m+j in a list
     grid -- 1D list n*m elements long of booleans indicating land/water.  True
