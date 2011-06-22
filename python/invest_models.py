@@ -96,16 +96,19 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     #truncate the unused columns off of the sparse matrix arrays
     print 'building sparse matrix ...',
     t0 = time.clock()
+
     #truncate the elements we don't need
     col = np.delete(col, np.s_[currentIndex::])
     row = np.delete(row, np.s_[currentIndex::])
     data = np.delete(data, np.s_[currentIndex::])
+
+    #create sparse matrix
     matrix = csc_matrix((data, (row, col)), shape=(n * m, n * m))
 
     print '(' + str(time.clock() - t0) + 's elapsed)'
-    print 'solving ...',
     t0 = time.clock()
+
+    print 'solving ...',
     result = spsolve(matrix, b)
     print '(' + str(time.clock() - t0) + 's elapsed)'
     return result
-
