@@ -74,7 +74,7 @@ def test1():
     h = 0.01 #0.01km
 
     #square size
-    dimx, dimy = 2, 2 #5km
+    dimx, dimy = 10, 10
 
     n, m = int(dimy / h), int(dimx / h)
 
@@ -82,7 +82,7 @@ def test1():
     grid = [True] * n * m
 
     #define constants
-    E = map(lambda x: 0.1, grid) #5 km/day 
+    E = map(lambda x: 4.0, grid) #5 km/day 
     Ux = map(lambda x:0, grid) #8.64 km/day
     Uy = map(lambda x:0, grid)
     K = map(lambda x: 0.1, grid) #0.1%/day
@@ -91,8 +91,6 @@ def test1():
     row = int(n / 2)
     col = int(m / 2)
     s0 = {row * m + col: 1}
-
-    print row, col
 
     result = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
     plotResult(grid, result, n, m, dimx, dimy, h)
