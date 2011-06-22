@@ -50,14 +50,10 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     #iterate over the non-zero elnp.array([])ts in grid to build the linear system
     print 'building system ...',
     t0 = time.clock()
-    case1 = 0
-    case2 = 0
-    case3 = 0
-    case4 = 0
     for i in range(n):
         for j in range(m):
             #diagonal element i,j
-            rowIndex = calc_index(i, j)
+            rowIndex = i * m + j
 
             #check for boundary condition. if i,j on source or land
             if not grid[rowIndex] or rowIndex in s0:
@@ -67,42 +63,41 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
                 currentIndex += 1
                 if rowIndex in s0:
                     b[rowIndex] = s0[rowIndex]
-                    case3 += 1
-                case1 += 1
                 continue
 
-            #formulate elements as a single array 
+            #formulate elements as a single array
+            termA = 2 * E[rowIndex]
+            Uxtmp = Ux[rowIndex] * h
+            Uytmp = Uy[rowIndex] * h
+
             elements = [
-             (rowIndex, -(8.0 * E[rowIndex] + 2 * h * h * K[rowIndex])),
-             (calc_index(i + 1, j), 2 * E[rowIndex] - Ux[rowIndex] * h),
-             (calc_index(i - 1, j), 2 * E[rowIndex] + Ux[rowIndex] * h),
-             (calc_index(i, j + 1), 2 * E[rowIndex] - Uy[rowIndex] * h),
-             (calc_index(i, j - 1), 2 * E[rowIndex] + Uy[rowIndex] * h)]
+             (rowIndex, -4.0 * (termA + h * h * K[rowIndex])),
+             (calc_index(i + 1, j), termA - Uxtmp),
+             (calc_index(i - 1, j), termA + Uxtmp),
+             (calc_index(i, j + 1), termA - Uytmp),
+             (calc_index(i, j - 1), termA + Uytmp)]
             #process elements.  might be a source, might not...
             startIndex = currentIndex
 
             for colIndex, term in elements:
                 if colIndex >= 0: #make sure we're in the grid
-                    if not grid[colIndex]:
-                        #handle the land boundary case s_ij' = s_ij
-                        data[startIndex] += term
-                        case2 += 1
-                    else:
+                    if grid[colIndex]:
                         row[currentIndex] = rowIndex
                         col[currentIndex] = colIndex
                         data[currentIndex] = term
                         currentIndex += 1
-                        case4 += 1
+                    else:
+                        #handle the land boundary case s_ij' = s_ij
+                        data[startIndex] += term
 
-    print case1, case2, case3, case4
     print '(' + str(time.clock() - t0) + 's elapsed)'
     #truncate the unused columns off of the sparse matrix arrays
     print 'building sparse matrix ...',
     t0 = time.clock()
+    #truncate the elements we don't need
     col = np.delete(col, np.s_[currentIndex::])
     row = np.delete(row, np.s_[currentIndex::])
     data = np.delete(data, np.s_[currentIndex::])
-    #stamp into numpy formulation to be solved
     matrix = csc_matrix((data, (row, col)), shape=(n * m, n * m))
 
     print '(' + str(time.clock() - t0) + 's elapsed)'
