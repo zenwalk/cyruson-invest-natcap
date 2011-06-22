@@ -36,8 +36,8 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
             return - 1
 
     #set up variables to hold the sparse system of equations
-    #upper bound  n*m*5 elements minus 4*the number of land cells
-    maxElements = n * m * 5 - grid.count(True) * 4
+    #upper bound  n*m*5 elements
+    maxElements = n * m * 5
     col = np.empty(maxElements)
     row = np.empty(maxElements)
     data = np.empty(maxElements)
@@ -52,7 +52,7 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     t0 = time.clock()
     for i in range(n):
         for j in range(m):
-            #diagonal element i,j
+            #diagonal element i,j always in bounds, calculate directly
             rowIndex = i * m + j
 
             #check for boundary condition. if i,j on source or land
