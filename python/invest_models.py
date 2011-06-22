@@ -55,14 +55,16 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
             #diagonal element i,j always in bounds, calculate directly
             rowIndex = i * m + j
 
-            #check for boundary condition. if i,j on source or land
-            if not grid[rowIndex] or rowIndex in s0:
-                #not water, just set to 0 and quit
+            #if not land, don't bother making an entry
+            if not grid[rowIndex]:
+                continue
+
+            #if source, define value and quit
+            if rowIndex in s0:
                 row[currentIndex] = col[currentIndex] = rowIndex
                 data[currentIndex] = 1
                 currentIndex += 1
-                if rowIndex in s0:
-                    b[rowIndex] = s0[rowIndex]
+                b[rowIndex] = s0[rowIndex]
                 continue
 
             #formulate elements as a single array
