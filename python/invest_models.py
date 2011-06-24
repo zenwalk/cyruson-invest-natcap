@@ -115,15 +115,24 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     matrix = spdiags(A, [-m, -1, 0, 1, m], n * m, n * m, "csr")
     print '(' + str(time.clock() - t0) + 's elapsed)'
 
-    t0 = time.clock()
-    print 'solving ...',
 
-    if True:
+    if False:
+        t0 = time.clock()
+        print 'solving ...',
         result = spsolve(matrix, b)
     else:
-        print ' system too large trying iteration'
-        result = scipy.sparse.linalg.gmres(matrix, b)
-        result = result[0]
-        print result
+        print 'generating preconditioner via sparse ilu ',
+        #P = scipy.sparse.linalg.splu(matrix)
+        P = scipy.sparse.linalg.spilu(matrix, drop_tol=1e-5)
+        print '(' + str(time.clock() - t0) + 's elapsed)'
+        t0 = time.clock()
+        print 'solving ...',
+        result = P.solve(b)
+        #print 'gmres iteration starting ',
+        #M_x = lambda x: P.solve(x)
+        #M = scipy.sparse.linalg.LinearOperator((n * m, n * m), M_x)
+        #result = scipy.sparse.linalg.lgmres(matrix, b, tol=1e-4, M=M)
+        #result = result[0]
+        #print result
     print '(' + str(time.clock() - t0) + 's elapsed)'
     return result
