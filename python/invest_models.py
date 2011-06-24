@@ -1,5 +1,4 @@
 from scipy.sparse import *
-from scipy.sparse.linalg import *
 from scipy import *
 from scipy.sparse.linalg import spsolve
 import numpy as np
@@ -39,18 +38,14 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
 
     #set up variables to hold the sparse system of equations
     #upper bound  n*m*5 elements
-    maxElements = n * m * 5
-    col = np.empty(maxElements)
-    row = np.empty(maxElements)
-    data = np.empty(maxElements)
     b = np.zeros(n * m)
-    currentIndex = 0
     print '(' + str(time.clock() - t0) + 's elapsed)'
     t0 = time.clock()
     #this map is used to quickly test if a neighboring element is a water cell
 
+    A = np.zeros((5,n*m))
     #iterate over the non-zero elnp.array([])ts in grid to build the linear system
-    print 'building system ...',
+    print 'building system A...',
     t0 = time.clock()
     for i in range(n):
         for j in range(m):
@@ -59,16 +54,12 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
 
             #if land then s = 0 and quit
             if not grid[rowIndex]:
-                row[currentIndex] = col[currentIndex] = rowIndex
-                data[currentIndex] = 1
-                currentIndex += 1
+                A[2,rowIndex] = 1
                 continue
 
             #if source, define source value and quit
             if rowIndex in s0:
-                row[currentIndex] = col[currentIndex] = rowIndex
-                data[currentIndex] = 1
-                currentIndex += 1
+                A[2,rowIndex] = 1
                 b[rowIndex] = s0[rowIndex]
                 continue
 
@@ -78,60 +69,59 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
             Uytmp = Uy[rowIndex] * h
 
             elements = [
-             (rowIndex, 4.0 * (termA + h * h * K[rowIndex])),
-             (calc_index(i + 1, j), -termA + Uxtmp),
-             (calc_index(i - 1, j), -termA - Uxtmp),
-             (calc_index(i, j + 1), -termA + Uytmp),
-             (calc_index(i, j - 1), -termA - Uytmp)]
+             (2,0,rowIndex, 4.0 * (termA + h * h * K[rowIndex])),
+             (4,m,calc_index(i + 1, j), -termA + Uxtmp),
+             (0,-m,calc_index(i - 1, j), -termA - Uxtmp),
+             (3,1,calc_index(i, j + 1), -termA + Uytmp),
+             (1,-1,calc_index(i, j - 1), -termA - Uytmp)]
             #process elements.  might be a source, might not...
-            startIndex = currentIndex
 
-            for colIndex, term in elements:
+            for k,offset,colIndex, term in elements:
                 if colIndex >= 0: #make sure we're in the grid
                     if grid[colIndex]:
-                        row[currentIndex] = rowIndex
-                        col[currentIndex] = colIndex
-                        data[currentIndex] = term
-                        currentIndex += 1
+                        A[k,rowIndex+offset] = term
                     else:
                         #handle the land boundary case s_ij' = s_ij
-                        data[startIndex] += term
-
+                        A[2,rowIndex+offset] += term
     print '(' + str(time.clock() - t0) + 's elapsed)'
-    #truncate the unused columns off of the sparse matrix arrays
+    
     print 'building sparse matrix ...',
     t0 = time.clock()
 
-    #truncate the elements we don't need
-    col = np.delete(col, np.s_[currentIndex::])
-    row = np.delete(row, np.s_[currentIndex::])
-    data = np.delete(data, np.s_[currentIndex::])
-
     #create sparse matrix
-    matrix = csc_matrix((data, (row, col)), shape=(n * m, n * m))
+    matrix = spdiags(A,[-m,-1,0,1,m],n*m,n*m,"csr")
+    print '(' + str(time.clock() - t0) + 's elapsed)'
+    
+    
+    
+    t0 = time.clock()
+    print 'doing 1d solution to prime iterative solution ...',
+    
+    import math
+    
+    x0 = np.zeros(n*m)
+    for i in range(n):
+        for j in range(m):
+            index = i * m + j
+            if Ux[index] == 0:
+                continue
+            alpha = Ux[index]/(2*E[index])*(1-math.sqrt(1+4*K[index]*E[index]/(Ux[index]*Ux[index])))
+            for p in s0:
+                i0,j0=p%m,p/m
+                val = s0[p]
+                d=math.sqrt(math.pow(h*(i-i0),2)+math.pow(h*(j-j0),2))
+                x0[index] += val*math.exp(d*alpha)
+    #return x0
+    
     print '(' + str(time.clock() - t0) + 's elapsed)'
     t0 = time.clock()
-
     print 'solving ...',
-
-    M_x = lambda x: spsolve(spdiags(matrix.diagonal(),0,n*m,n*m,"csc"),x)
-    M = LinearOperator((n*m, n*m), M_x)
-
-    #x = spsolve(matrix, b)
-    x = scipy.sparse.linalg.gmres(matrix,b,restrt=1,tol=1e-2,M=spdiags(1.0/matrix.diagonal(),0,n*m,n*m,"csr"))[0]
-
+    if True:
+        result = spsolve(matrix,b)
+    else:
+        print ' system too large trying iteration'
+        result = scipy.sparse.linalg.gmres(matrix,b)
+        result = result[0]
+        print result
     print '(' + str(time.clock() - t0) + 's elapsed)'
-
-
-    #solve = splu(matrix)
-    #result = solve.solve(b)
-    #result = splr(matrix,b)[0]
-    #result = scipy.linalg.solve(matrix,b)
-    t0 = time.clock()
-    print 'iterating ...',
-    result = scipy.sparse.linalg.gmres(matrix,b,x0=x,restrt=40,tol=1e-5,M=spdiags(1.0/matrix.diagonal(),0,n*m,n*m,"csr"))[0]
-    print '(' + str(time.clock() - t0) + 's elapsed)'
-    #solve = splu(matrix)
-    #result = solve.solve(b)
-    print result
     return result
