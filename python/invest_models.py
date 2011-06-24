@@ -4,6 +4,8 @@ from scipy import *
 from scipy.sparse.linalg import spsolve
 import numpy as np
 import time
+import matplotlib
+import scipy.linalg
 
 def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     """2D Water quality model to track a pollutant in the ocean
@@ -55,11 +57,14 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
             #diagonal element i,j always in bounds, calculate directly
             rowIndex = i * m + j
 
-            #if not land, don't bother making an entry
+            #if land then s = 0 and quit
             if not grid[rowIndex]:
+                row[currentIndex] = col[currentIndex] = rowIndex
+                data[currentIndex] = 1
+                currentIndex += 1
                 continue
 
-            #if source, define value and quit
+            #if source, define source value and quit
             if rowIndex in s0:
                 row[currentIndex] = col[currentIndex] = rowIndex
                 data[currentIndex] = 1
@@ -73,11 +78,11 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
             Uytmp = Uy[rowIndex] * h
 
             elements = [
-             (rowIndex, -4.0 * (termA + h * h * K[rowIndex])),
-             (calc_index(i + 1, j), termA - Uxtmp),
-             (calc_index(i - 1, j), termA + Uxtmp),
-             (calc_index(i, j + 1), termA - Uytmp),
-             (calc_index(i, j - 1), termA + Uytmp)]
+             (rowIndex, 4.0 * (termA + h * h * K[rowIndex])),
+             (calc_index(i + 1, j), -termA + Uxtmp),
+             (calc_index(i - 1, j), -termA - Uxtmp),
+             (calc_index(i, j + 1), -termA + Uytmp),
+             (calc_index(i, j - 1), -termA - Uytmp)]
             #process elements.  might be a source, might not...
             startIndex = currentIndex
 
@@ -104,11 +109,29 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
 
     #create sparse matrix
     matrix = csc_matrix((data, (row, col)), shape=(n * m, n * m))
-
     print '(' + str(time.clock() - t0) + 's elapsed)'
     t0 = time.clock()
 
     print 'solving ...',
-    result = spsolve(matrix, b)
+
+    M_x = lambda x: spsolve(spdiags(matrix.diagonal(),0,n*m,n*m,"csc"),x)
+    M = LinearOperator((n*m, n*m), M_x)
+
+    #x = spsolve(matrix, b)
+    x = scipy.sparse.linalg.gmres(matrix,b,restrt=1,tol=1e-2,M=spdiags(1.0/matrix.diagonal(),0,n*m,n*m,"csr"))[0]
+
     print '(' + str(time.clock() - t0) + 's elapsed)'
+
+
+    #solve = splu(matrix)
+    #result = solve.solve(b)
+    #result = splr(matrix,b)[0]
+    #result = scipy.linalg.solve(matrix,b)
+    t0 = time.clock()
+    print 'iterating ...',
+    result = scipy.sparse.linalg.gmres(matrix,b,x0=x,restrt=40,tol=1e-5,M=spdiags(1.0/matrix.diagonal(),0,n*m,n*m,"csr"))[0]
+    print '(' + str(time.clock() - t0) + 's elapsed)'
+    #solve = splu(matrix)
+    #result = solve.solve(b)
+    print result
     return result
