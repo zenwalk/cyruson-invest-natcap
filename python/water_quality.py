@@ -66,20 +66,21 @@ def test2():
 
     plotResult(grid, result, n, m, dimx, dimy, h)
 
-
 def test1():
     #water quality test with all water
 
     #cell size
-    h = 0.01 #0.01km
+    h = 0.005 #0.01km
 
     #square size
-    dimx, dimy = 10, 10
+    dimx, dimy = 1, 1
 
     n, m = int(dimy / h), int(dimx / h)
 
     #define land
     grid = [True] * n * m
+
+    print "elements: ", n*m
 
     #define constants
     E = map(lambda x: 4.0, grid) #5 km/day 
@@ -96,5 +97,5 @@ def test1():
     plotResult(grid, result, n, m, dimx, dimy, h)
 
 if __name__ == "__main__":
-    test2()
+    test1()
     #cProfile.run('test1()', 'test1prof')
