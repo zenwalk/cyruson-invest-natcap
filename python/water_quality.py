@@ -70,10 +70,10 @@ def test1():
     #water quality test with all water
 
     #cell size
-    h = 0.005 #0.01km
+    h = 0.01 #0.01km
 
     #square size
-    dimx, dimy = 1, 1
+    dimx = dimy = 3
 
     n, m = int(dimy / h), int(dimx / h)
 
@@ -83,10 +83,10 @@ def test1():
     print "elements: ", n*m
 
     #define constants
-    E = map(lambda x: 4.0, grid) #5 km/day 
-    Ux = map(lambda x:0, grid) #8.64 km/day
-    Uy = map(lambda x:0, grid)
-    K = map(lambda x: 0.1, grid) #0.1%/day
+    E = map(lambda x: 0.1, grid) #5 km/day 
+    Ux = map(lambda x:0.1, grid) #8.64 km/day
+    Uy = map(lambda x:0.1, grid)
+    K = map(lambda x: 0.2, grid) #0.1%/day
 
     #define a source right in the middle
     row = int(n / 2)
