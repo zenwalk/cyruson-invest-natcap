@@ -225,7 +225,7 @@ try:
         gp.AddMessage("\nChecking the inputs...")  
         # call various checking functions
         checkGeometry(AOI, "Polygon", "Area of Interest (AOI)")
-        checkGeometry(NegPoints, "Point", "Features contributing to negative aesthetic quality")
+        ##checkGeometry(NegPoints, "Point", "Features contributing to negative aesthetic quality")
         ckProjection(NegPoints)
         ckProjection(DEM) 
         compareProjections(NegPoints, DEM)
