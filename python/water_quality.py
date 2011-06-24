@@ -1,4 +1,4 @@
-from invest_models import water_quality
+from invest_models import *
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -6,7 +6,7 @@ def plotResult(land, result, n, m, dimx, dimy, h):
     print 'generate mesh'
     X, Y = np.meshgrid(np.arange(0, dimx, h), np.arange(0, dimy, h))
 
-    fig = plt.figure()
+
 
     print 'prepare result plot'
     result = np.array(result).reshape((n, m))
@@ -20,10 +20,6 @@ def plotResult(land, result, n, m, dimx, dimy, h):
         Zmask = np.ma.array(Z, mask=land)
         print 'plot land grid'
         plt.pcolormesh(X, Y, Zmask, cmap=plt.cm.BrBG)
-    plt.axes().set_aspect('equal', 'datalim')
-    fig.savefig('case1.png', format='png')
-    plt.show()
-
 
 def test2():
     #water quality test with all water
@@ -61,9 +57,15 @@ def test2():
 
     print row, col
 
-    result = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
+    result2d = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
+    result1d = water_quality_1d(n, m, E, Ux, Uy, K, s0, h)
 
-    plotResult(grid, result, n, m, dimx, dimy, h)
+    fig = plt.figure()
+    f = fig.add_subplot(211, aspect='equal')
+    plotResult(grid, result2d, n, m, dimx, dimy, h)
+    f = fig.add_subplot(212, aspect='equal')
+    plotResult(grid, result1d, n, m, dimx, dimy, h)
+
 
 def test1():
     #water quality test with all water
@@ -72,8 +74,8 @@ def test1():
     h = 0.5 #0.01km
 
     #square size
-    dimx = 50
-    dimy = 50
+    dimx = 100
+    dimy = 100
 
     n, m = int(dimy / h), int(dimx / h)
 
@@ -83,8 +85,8 @@ def test1():
     print "elements: ", n * m
 
     #define constants
-    E = map(lambda x: 2, grid)
-    Ux = map(lambda x:-1.0, grid)
+    E = map(lambda x: 4, grid)
+    Ux = map(lambda x:1.0, grid)
     Uy = map(lambda x:0.0, grid)
     K = map(lambda x: 0.1, grid)
 
@@ -93,8 +95,17 @@ def test1():
     col = int(m / 2)
     s0 = {row * m + col: 1}
 
-    result = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
-    plotResult(grid, result, n, m, dimx, dimy, h)
+    result2d = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
+    result1d = water_quality_1d(n, m, E, Ux, Uy, K, s0, h)
+
+    fig = plt.figure()
+    f = fig.add_subplot(211, aspect='equal')
+    plotResult(grid, result2d, n, m, dimx, dimy, h)
+    f = fig.add_subplot(212, aspect='equal')
+    plotResult(grid, result1d, n, m, dimx, dimy, h)
+
 
 if __name__ == "__main__":
+    test1()
     test2()
+    plt.show()
