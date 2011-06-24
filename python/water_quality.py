@@ -1,7 +1,6 @@
 from invest_models import water_quality
 import numpy as np
 import matplotlib.pyplot as plt
-import cProfile
 
 def plotResult(land, result, n, m, dimx, dimy, h):
     print 'generate mesh'
@@ -21,7 +20,7 @@ def plotResult(land, result, n, m, dimx, dimy, h):
         Zmask = np.ma.array(Z, mask=land)
         print 'plot land grid'
         plt.pcolormesh(X, Y, Zmask, cmap=plt.cm.BrBG)
-    plt.axis('tight')
+    plt.axes().set_aspect('equal', 'datalim')
     fig.savefig('case1.png', format='png')
     plt.show()
 
@@ -50,10 +49,10 @@ def test2():
     dimx, dimy = m * h, n * h
 
     #define constants
-    E = map(lambda x: 4.0, grid) #5 km/day 
-    Ux = map(lambda x:0.0, grid) #8.64 km/day
-    Uy = map(lambda x:0, grid)
-    K = map(lambda x: 0.1, grid) #0.1%/day
+    E = map(lambda x: 4.0, grid)
+    Ux = map(lambda x:0.0707, grid)
+    Uy = map(lambda x:0.0, grid)
+    K = map(lambda x: 0.04, grid)
 
     #define a source right in the middle
     row = 291
@@ -70,23 +69,24 @@ def test1():
     #water quality test with all water
 
     #cell size
-    h = 0.01 #0.01km
+    h = 0.5 #0.01km
 
     #square size
-    dimx = dimy = 3
+    dimx = 50
+    dimy = 50
 
     n, m = int(dimy / h), int(dimx / h)
 
     #define land
     grid = [True] * n * m
 
-    print "elements: ", n*m
+    print "elements: ", n * m
 
     #define constants
-    E = map(lambda x: 0.1, grid) #5 km/day 
-    Ux = map(lambda x:0.1, grid) #8.64 km/day
-    Uy = map(lambda x:0.1, grid)
-    K = map(lambda x: 0.2, grid) #0.1%/day
+    E = map(lambda x: 2, grid)
+    Ux = map(lambda x:-1.0, grid)
+    Uy = map(lambda x:0.0, grid)
+    K = map(lambda x: 0.1, grid)
 
     #define a source right in the middle
     row = int(n / 2)
@@ -97,5 +97,4 @@ def test1():
     plotResult(grid, result, n, m, dimx, dimy, h)
 
 if __name__ == "__main__":
-    test1()
-    #cProfile.run('test1()', 'test1prof')
+    test2()
