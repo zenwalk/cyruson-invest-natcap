@@ -58,6 +58,7 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
         else:
             return - 1
 
+
     #set up variables to hold the sparse system of equations
     #upper bound  n*m*5 elements
     b = np.zeros(n * m)
@@ -72,17 +73,11 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
     for i in range(n):
         for j in range(m):
             #diagonal element i,j always in bounds, calculate directly
-            rowIndex = i * m + j
+            rowIndex = calc_index(i, j)
 
             #if land then s = 0 and quit
             if not grid[rowIndex]:
                 A[2, rowIndex] = 1
-                continue
-
-            #if source, define source value and quit
-            if rowIndex in s0:
-                A[2, rowIndex] = 1
-                b[rowIndex] = s0[rowIndex]
                 continue
 
             #formulate elements as a single array
@@ -92,33 +87,37 @@ def water_quality(n, m, grid, E, Ux, Uy, K, s0, h):
 
             elements = [
              (2, 0, rowIndex, -4.0 * (termA + h * h * K[rowIndex])),
-             (4, m, calc_index(i + 1, j), termA - Uxtmp),
-             (0, -m, calc_index(i - 1, j), termA + Uxtmp),
-             (3, 1, calc_index(i, j + 1), termA - Uytmp),
-             (1, -1, calc_index(i, j - 1), termA + Uytmp)]
-            #process elements.  might be a source, might not...
+             (4, m, calc_index(i + 1, j), termA - Uytmp),
+             (0, -m, calc_index(i - 1, j), termA + Uytmp),
+             (3, 1, calc_index(i, j + 1), termA - Uxtmp),
+             (1, -1, calc_index(i, j - 1), termA + Uxtmp)]
 
             for k, offset, colIndex, term in elements:
                 if colIndex >= 0: #make sure we're in the grid
-                    if grid[colIndex]:
+                    if grid[colIndex]: #if water
                         A[k, rowIndex + offset] += term
                     else:
                         #handle the land boundary case s_ij' = s_ij
                         A[2, rowIndex] += term
+
+    #define sources by erasing the rows in the matrix that have already been set
+    for rowIndex in s0:
+        for i, offset in [(4, m), (0, -m), (3, 1), (1, -1)]:
+            #zero out that row
+            A[i, rowIndex + offset] = 0
+        A[2, rowIndex] = 1
+        b[rowIndex] = s0[rowIndex]
+
     print '(' + str(time.clock() - t0) + 's elapsed)'
 
     print 'building sparse matrix ...',
     t0 = time.clock()
-
-    #create sparse matrix
     matrix = spdiags(A, [-m, -1, 0, 1, m], n * m, n * m, "csr")
     print '(' + str(time.clock() - t0) + 's elapsed)'
 
-
-
-
     t0 = time.clock()
     print 'solving ...',
+
     if True:
         result = spsolve(matrix, b)
     else:
