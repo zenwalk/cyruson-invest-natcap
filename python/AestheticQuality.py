@@ -127,6 +127,11 @@ try:
         if gp.Describe(thedata).ShapeType <> Type:
             raise Exception, "\nInvalid input: "+thedata+"\n"+Message+" must be of geometry type "+Type+"."
 
+    def checkGeometry2(thedata):
+        if gp.Describe(thedata).ShapeType <> "Point" and gp.Describe(thedata).ShapeType <> "Polyline":
+            gp.AddError("\nInvalid input: "+thedata+" must be either of point or line geometry, and not polygon.")
+            raise Exception
+
     def checkDatum(thedata):
         desc = gp.describe(thedata)
         SR = desc.SpatialReference
@@ -182,12 +187,12 @@ try:
         gp.AddMessage("\nChecking the inputs...")  
         # call various checking functions
         checkGeometry(AOI, "Polygon", "Area of Interest (AOI)")
-        checkGeometry(NegPointsCur, "Point", "Features contributing to negative aesthetic quality")
+        checkGeometry2(NegPointsCur)
         ckProjection(NegPointsCur)
         ckProjection(DEM) 
         compareProjections(NegPointsCur, DEM)
         if NegPointsFut:
-            checkGeometry(NegPointsFut, "Point", "Features contributing to negative aesthetic quality")
+            checkGeometry2(NegPointsFut)
             ckProjection(NegPointsFut) 
             compareProjections(NegPointsFut, DEM)
         
@@ -461,13 +466,13 @@ try:
         parafile.writelines("\n")
     parafile.close()
 
-##    # delete superfluous intermediate data
-##    del1 = [AOI_lyr, DEM_2poly, DEM_2poly_lyr, DEM_1_rc, DEM_land, DEM_sea, DEM_sea_rc, vshed_rcc, vshed_rcf]
-##    del2 = [vp_inter_lyr, vp_inter, vp_inter2, zstatsPop_cur, zstatsPop_fut]
-##    deletelist = del1 + del2
-##    for data in deletelist:
-##        if gp.exists(data):
-##            gp.delete_management(data)
+    # delete superfluous intermediate data
+    del1 = [AOI_lyr, DEM_2poly, DEM_2poly_lyr, DEM_1_rc, DEM_land, DEM_sea, DEM_sea_rc, vshed_rcc, vshed_rcf]
+    del2 = [vp_inter_lyr, vp_inter, vp_inter2, zstatsPop_cur, zstatsPop_fut]
+    deletelist = del1 + del2
+    for data in deletelist:
+        if gp.exists(data):
+            gp.delete_management(data)
     del gp
     
 except Exception, ErrorDesc:
