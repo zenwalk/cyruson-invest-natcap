@@ -91,26 +91,23 @@ try:
     DEM_sea_rc = interws + "DEM_sea_rc"
     DEM_vs = interws + "DEM_vs"
     vshed_cur = interws + "vshed_cur"
-    vshed_rcc = interws + "vshed_rcc"
     vshed_fut = interws + "vshed_fut"
+    vshed_rcc = interws + "vshed_rcc"
     vshed_rcf = interws + "vshed_rcf"
-    vshed_poly = interws + "vshed_poly.shp"    
-    vshed_2poly = interws + "vshed_2poly.shp"
-    vp_prj = interws + "vp_inter.shp"
-    vp_prj_lyr = interws + "vp_prj_lyr.lyr"
-    vp_prj_lyr2 = interws + "vp_prj_lyr2.lyr"
-    vshed_vp_intrsct = interws + "vshed_vp_intrsct.shp"
-    vshed_vp_intrsct_lyr = interws + "vshed_vp_intrsct.lyr"
+    vp_inter = interws + "vp_inter.shp"
+    vp_inter_lyr = interws + "vp_inter.lyr"
+    vp_inter2 = interws + "vp_inter2.shp"
     zstatsPop_cur = interws + "zstatsPop_cur.dbf"
     zstatsPop_fut = interws + "zstatsPop_fut.dbf"
     zstats_vp_cur = interws + "zstats_vp_cur.dbf"
     zstats_vp_fut = interws + "zstats_vp_fut.dbf"
 
-    vp_overlap = outputws + "vp_overlap.shp"
+    vp_overlap_shp = outputws + "vp_overlap.shp"
+    vp_ovlap_cur = outputws + "vp_ovlap_cur"
+    vp_ovlap_dif = outputws + "vp_ovlap_dif"
     vshed_qualc = outputws + "vshed_qualc"
     vshed_qualf = outputws + "vshed_qualf"
     vshed_diff = outputws + "vshed_diff"
-
     PopHTML = outputws + "populationStats_"+now.strftime("%Y-%m-%d-%H-%M")+".html"
 
 
@@ -418,79 +415,38 @@ try:
     try:
         if visualPolys:
             gp.AddMessage("\nCalculating overlap between viewshed output and visual polygons...\n")
-            gp.RasterToPolygon_conversion(vshed_rcc, vshed_poly, "NO_SIMPLIFY", "Value")
-            gp.Select_analysis(vshed_poly, vshed_2poly, "\"GRIDCODE\" = 2")
-            gp.Select_analysis(visualPolys, vp_prj, "")
-            HabVariable = AddField(vp_prj, "VALUE", "SHORT", "0", "0")  
-            gp.CalculateField_management(vp_prj, "VALUE", "[FID]+1", "VB")            
+            gp.Select_analysis(visualPolys, vp_inter, "")
+            vp_inter = AddField(vp_inter, "VALUE", "SHORT", "0", "0")  
+            gp.CalculateField_management(vp_inter, "VALUE", "[FID]+1", "VB")            
     
-            # intersect clipped visual polys with reclassed viewshed poly
-            expr = str(vshed_2poly)+" 1; "+str(vp_prj)+" 2"
-            gp.Intersect_analysis(expr, vshed_vp_intrsct, "ALL", "", "INPUT")
-
             # add three fields
-            vshed_vp_intrsct = AddField(vshed_vp_intrsct, "AreaVS", "DOUBLE", "0", "0")
-            vp_prj = AddField(vp_prj, "AreaVP", "DOUBLE", "0", "0")
-            vp_prj = AddField(vp_prj, "AreaVShed", "SHORT", "0", "0")
-            vp_prj = AddField(vp_prj, "RateCur", "DOUBLE", "0", "0")
+            vp_inter = AddField(vp_inter, "RateCur", "DOUBLE", "0", "0")
             if NegPointsFut:
-                vp_prj = AddField(vp_prj, "RateFut", "DOUBLE", "0", "0")
-                vp_prj = AddField(vp_prj, "RateDiff", "DOUBLE", "0", "0")
+                vp_inter = AddField(vp_inter, "RateFut", "DOUBLE", "0", "0")
+                vp_inter = AddField(vp_inter, "RateDiff", "DOUBLE", "0", "0")
 
-            # calculate two fields
-            gp.CalculateField_management(vshed_vp_intrsct, "AreaVS", "!shape.area@acres!", "PYTHON", "")
-            gp.CalculateField_management(vp_prj, "AreaVP", "!shape.area@acres!", "PYTHON", "")
-
-            # make feature layer for viewshed and visual poly fc intersection
-            gp.MakeFeatureLayer_management(vshed_vp_intrsct, vshed_vp_intrsct_lyr, "", "", "")
-
-            # run through visual poly layer one by one and calculate area overlap
-            cur = gp.UpdateCursor(vp_prj, "", "", "AreaVP; AreaVShed; VALUE")
-            row = cur.Next()
-
-            while row:
-                vpArea = float(row.GetValue("AreaVP"))
-                Value = row.GetValue("VALUE")
-                gp.MakeFeatureLayer_management(vp_prj, vp_prj_lyr, "\"VALUE\" = "+str(Value), "", "")
-                selectVshed = gp.SelectLayerByLocation_management(vshed_vp_intrsct_lyr, "INTERSECT", vp_prj_lyr, "", "NEW_SELECTION")
-
-                cur2 = gp.UpdateCursor(selectVshed, "", "", "AreaVS")
-                row2 = cur2.Next()
-                AreaVSSum = 0.0
-                while row2:
-                    AreaVSSum = AreaVSSum + float(row2.GetValue("AreaVS"))
-                    cur2.UpdateRow(row2)
-                    row2 = cur2.Next()
-                del cur2    
-                del row2
-                 
-                PctOverlap = ceil((AreaVSSum/vpArea)*100)
-                if PctOverlap > 100:
-                    PctOverlap = 100
-                if PctOverlap == 0:
-                    row.SetValue("AreaVShed", 0)
-                else:
-                    row.SetValue("AreaVShed", PctOverlap)
-                cur.UpdateRow(row)
-                row = cur.Next()
-            del cur    
-            del row
-
-            gp.MakeFeatureLayer_management(vp_prj, vp_prj_lyr2, "", "", "")
-            gp.ZonalStatisticsAsTable_sa(vp_prj, "VALUE", vshed_qualc, zstats_vp_cur, "DATA")
-            gp.AddJoin_management(vp_prj_lyr2, "VALUE", zstats_vp_cur, "VALUE", "KEEP_COMMON")
-            gp.CalculateField_management(vp_prj_lyr2, "vp_inter.RateCur", "[zstats_vp_cur.MEAN]", "VB", "")
-            gp.RemoveJoin_management(vp_prj_lyr2, "zstats_vp_cur")
+            gp.MakeFeatureLayer_management(vp_inter, vp_inter_lyr, "", "", "")
+            gp.ZonalStatisticsAsTable_sa(vp_inter, "VALUE", vshed_qualc, zstats_vp_cur, "DATA")
+            gp.AddJoin_management(vp_inter_lyr, "VALUE", zstats_vp_cur, "VALUE", "KEEP_COMMON")
+            gp.CalculateField_management(vp_inter_lyr, "vp_inter.RateCur", "[zstats_vp_cur.MEAN]", "VB", "")
+            gp.RemoveJoin_management(vp_inter_lyr, "zstats_vp_cur")
             
             if NegPointsFut:
-                gp.ZonalStatisticsAsTable_sa(vp_prj, "VALUE", vshed_qualf, zstats_vp_fut, "DATA")
-                gp.AddJoin_management(vp_prj_lyr2, "VALUE", zstats_vp_fut, "VALUE", "KEEP_COMMON")
-                gp.CalculateField_management(vp_prj_lyr2, "vp_inter.RateFut", "[zstats_vp_fut.MEAN]", "VB", "")
-                gp.RemoveJoin_management(vp_prj_lyr2, "zstats_vp_fut")
+                gp.ZonalStatisticsAsTable_sa(vp_inter, "VALUE", vshed_qualf, zstats_vp_fut, "DATA")
+                gp.AddJoin_management(vp_inter_lyr, "VALUE", zstats_vp_fut, "VALUE", "KEEP_COMMON")
+                gp.CalculateField_management(vp_inter_lyr, "vp_inter.RateFut", "[zstats_vp_fut.MEAN]", "VB", "")
+                gp.RemoveJoin_management(vp_inter_lyr, "zstats_vp_fut")
 
-            gp.FeatureClassToFeatureClass_conversion(vp_prj_lyr2, outputws, "vp_overlap.shp", "")
+            gp.FeatureClassToFeatureClass_conversion(vp_inter_lyr, interws, "vp_inter2.shp", "")
+                
             if NegPointsFut:
-                gp.CalculateField_management(vp_overlap, "RateDiff", "!RateCur! - !RateFut!", "PYTHON") 
+                gp.CalculateField_management(vp_inter2, "RateDiff", "!RateCur! - !RateFut!", "PYTHON")
+                gp.Select_analysis(vp_inter2, vp_overlap_shp, "NOT \"RateDiff\" = 0")
+                gp.FeatureToRaster_conversion(vp_overlap_shp, "RateDiff", vp_ovlap_dif, str(int(cellsize)))
+            else:
+                gp.Select_analysis(vp_inter2, vp_overlap_shp, "")
+                gp.FeatureToRaster_conversion(vp_inter2, "RateCur", vp_ovlap_cur, str(int(cellsize)))
+
     except:
         raise Exception, msgIntersect
 
@@ -507,7 +463,7 @@ try:
 
 ##    # delete superfluous intermediate data
 ##    del1 = [AOI_lyr, DEM_2poly, DEM_2poly_lyr, DEM_1_rc, DEM_land, DEM_sea, DEM_sea_rc, vshed_rcc, vshed_rcf]
-##    del2 = [vshed_poly, vshed_2poly, vp_prj_lyr, vp_prj_lyr2, vp_prj, vshed_vp_intrsct,vshed_vp_intrsct_lyr, zstatsPop_cur, zstatsPop_fut]
+##    del2 = [vp_inter_lyr, vp_inter, vp_inter2, zstatsPop_cur, zstatsPop_fut]
 ##    deletelist = del1 + del2
 ##    for data in deletelist:
 ##        if gp.exists(data):
