@@ -71,7 +71,7 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSol
 
     print 'initialize ...',
     t0 = time.clock()
-
+    print h, dt
     #used to abstract the 2D to 1D index calculation below
     def calc_index(i, j):
         if i >= 0 and i < n and j >= 0 and j < m:
@@ -102,16 +102,12 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSol
                 continue
 
             #formulate elements as a single array
-            termA = 2 * E[rowIndex]
-            Uxtmp = Ux[rowIndex] * h
-            Uytmp = Uy[rowIndex] * h
-
             elements = [
-             (2, 0, rowIndex, -(2*dt*(2*E[rowIndex]+2*E[rowIndex]+K[rowIndex]*h*h)+4*h*h)),
-             (4, m, calc_index(i+1, j), dt*(termA + Uxtmp)),
-             (0, -m, calc_index(i - 1, j), dt*(termA - Uxtmp)),
-             (3, 1, calc_index(i, j + 1), dt*(termA + Uytmp)),
-             (1, -1, calc_index(i, j - 1), dt*(termA - Uytmp))]
+             (0, -m, calc_index(i - 1, j), dt * (2 * E[rowIndex] - Ux[rowIndex] * h)),
+             (1, -1, calc_index(i, j - 1), dt * (2 * E[rowIndex] - Uy[rowIndex] * h)),
+             (2, 0, rowIndex, -2 * dt * (2 * E[rowIndex] + 2 * E[rowIndex] + K[rowIndex] * h * h) - 4 * h * h),
+             (3, 1, calc_index(i, j + 1), dt * (2 * E[rowIndex] + Uy[rowIndex] * h)),
+             (4, m, calc_index(i + 1, j), dt * (2 * E[rowIndex] + Ux[rowIndex] * h))]
 
             for k, offset, colIndex, term in elements:
                 if colIndex >= 0: #make sure we're in the grid
@@ -145,51 +141,51 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSol
         #create linear operator for precondioner
     M_x = lambda x: P.solve(x)
     M = scipy.sparse.linalg.LinearOperator((n * m, n * m), M_x)
-    
+
     result = None
     #initial solution vector
-    x=b
+    x = b
     for step in range(tsteps):
         print "gmres iteration starting step", step, "of ", tsteps,
-        x = scipy.sparse.linalg.lgmres(matrix, b, x0=x,tol=1e-5, M=M)[0]
         print 'sum x: ', np.sum(x)
+        print 'sum b: ', np.sum(b)
+        x = scipy.sparse.linalg.lgmres(matrix, b, x0=x, tol=1e-5, M=M)[0]
+
         if result == None:
             result = x
         else:
-            result=np.append(result,x)
+            result = np.append(result, x)
         #update b vector for next timestep
         for i in range(n):
             for j in range(m):
                 rowIndex = calc_index(i, j)
-                b[rowIndex] = 0
+                b[rowIndex] = -4 * h * h * x[rowIndex]
 
                 #formulate elements as a single array
-                termA = 2 * E[rowIndex]
-                Uxtmp = Ux[rowIndex] * h
-                Uytmp = Uy[rowIndex] * h
-
                 elements = [
-                    (2, 0, rowIndex, -2*dt*(2*E[rowIndex]+2*E[rowIndex]+K[rowIndex]*h*h)-8*h*h),
-                    (4, m, calc_index(i+1, j), dt*(termA + Uxtmp)),
-                    (0, -m, calc_index(i - 1, j), dt*(termA - Uxtmp)),
-                    (3, 1, calc_index(i, j + 1), dt*(termA + Uytmp)),
-                    (1, -1, calc_index(i, j - 1), dt*(termA - Uytmp))]
-
+                    (0, -m, calc_index(i - 1, j), -dt * (2 * E[rowIndex] - Ux[rowIndex] * h)),
+                    (1, -1, calc_index(i, j - 1), -dt * (2 * E[rowIndex] - Uy[rowIndex] * h)),
+                    (2, 0, rowIndex, 2 * dt * (2 * E[rowIndex] + 2 * E[rowIndex] + K[rowIndex] * h * h)),
+                    (3, 1, calc_index(i, j + 1), -dt * (2 * E[rowIndex] + Uy[rowIndex] * h)),
+                    (4, m, calc_index(i + 1, j), -dt * (2 * E[rowIndex] + Ux[rowIndex] * h))]
                 for k, offset, colIndex, term in elements:
                     if colIndex >= 0: #make sure we're in the grid
                         if inWater[colIndex]: #if water
-                            b[rowIndex] += x[colIndex]*term
-        b[rowIndex] = -b[rowIndex]
+                            #if term != 0 and x[colIndex] != 0:
+                            #    print i, j, term, x[colIndex]
+                            b[rowIndex] += x[colIndex] * term
+                        else:
+                            b[rowIndex] += x[rowIndex] * term
 
         #define sources by erasing the rows in the matrix that have already been set
         for rowIndex in s0:
             b[rowIndex] = s0[rowIndex]
-                    
+
         print '(' + str(time.clock() - t0) + 's elapsed)'
         t0 = time.clock()
 
     print 'done returning', len(result)
-    return result.reshape(tsteps,n*m)
+    return result.reshape(tsteps, n * m)
 
 
 
