@@ -152,19 +152,16 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSol
     for step in range(tsteps):
         print "gmres iteration starting step", step, "of ", tsteps,
         x = scipy.sparse.linalg.lgmres(matrix, b, x0=x,tol=1e-5, M=M)[0]
-        print x[20100]
-        print b[20100]
         print 'sum x: ', np.sum(x)
         if result == None:
             result = x
         else:
             result=np.append(result,x)
-        print len(result)
         #update b vector for next timestep
         for i in range(n):
             for j in range(m):
                 rowIndex = calc_index(i, j)
-                b[rowIndex] = 4*h*h*x[rowIndex]
+                b[rowIndex] = 0
 
                 #formulate elements as a single array
                 termA = 2 * E[rowIndex]
@@ -172,7 +169,7 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSol
                 Uytmp = Uy[rowIndex] * h
 
                 elements = [
-                    (2, 0, rowIndex, -(2*dt*(2*E[rowIndex]+2*E[rowIndex]+K[rowIndex]*h*h)+4*h*h)),
+                    (2, 0, rowIndex, -2*dt*(2*E[rowIndex]+2*E[rowIndex]+K[rowIndex]*h*h)-8*h*h),
                     (4, m, calc_index(i+1, j), dt*(termA + Uxtmp)),
                     (0, -m, calc_index(i - 1, j), dt*(termA - Uxtmp)),
                     (3, 1, calc_index(i, j + 1), dt*(termA + Uytmp)),
@@ -186,7 +183,6 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSol
 
         #define sources by erasing the rows in the matrix that have already been set
         for rowIndex in s0:
-            print rowIndex
             b[rowIndex] = s0[rowIndex]
                     
         print '(' + str(time.clock() - t0) + 's elapsed)'

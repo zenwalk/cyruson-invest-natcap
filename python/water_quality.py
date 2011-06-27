@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def plotResult(land, result, n, m, dimx, dimy, h):
-    print 'generate mesh'
+    #print 'generate mesh'
     X, Y = np.meshgrid(np.arange(0, dimx, h), np.arange(0, dimy, h))
 
 
@@ -12,7 +12,7 @@ def plotResult(land, result, n, m, dimx, dimy, h):
     result = np.array(result).reshape((n, m))
 #    print 'plot result'
     plt.pcolormesh(X, Y, result, cmap=plt.cm.gist_earth)
-#    plt.colorbar()
+    plt.colorbar()
 
     if False in land:
         print 'generate land mask'
@@ -30,7 +30,7 @@ def test4():
     #square size
     dimx = 100
     dimy = 100
-    dt = 0.01
+    dt = 0.1
     tsteps = 9
 
     n, m = int(dimy / h), int(dimx / h)
@@ -41,7 +41,7 @@ def test4():
     print "elements: ", n * m
 
     #define constants
-    E = map(lambda x: 4, grid)
+    E = map(lambda x: 40, grid)
     Ux = map(lambda x:2.0, grid)
     Uy = map(lambda x:2.0, grid)
     K = map(lambda x: 0.1, grid)
@@ -55,8 +55,9 @@ def test4():
 
     fig = plt.figure()
     for step in range(tsteps):
-        f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
         plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
+        plt.savefig('out'+str(step+1)+'.png')
 
 def test3():
     #time domain test
@@ -69,7 +70,7 @@ def test3():
     h = float(f.readline())
     gridText = f.readline()
     dt = 0.1
-    tsteps = 2
+    tsteps = 5
     print n, m, h
 
     grid = []
@@ -97,13 +98,11 @@ def test3():
     print row, col
 
     result2d_td = water_quality_time(n, m, tsteps, grid, E, Ux, Uy, K, s0, h, dt)
-
     fig = plt.figure()
-    f = fig.add_subplot(121, aspect='equal')
-    plotResult(grid, result2d_td[0], n, m, dimx, dimy, h)
-    f = fig.add_subplot(122, aspect='equal')
-    plotResult(grid, result2d_td[1], n, m, dimx, dimy, h)
-
+    for step in range(tsteps):
+        #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
+        plt.savefig('out'+'0'*int(np.log(step+1)/np.log(10))+str(step+1)+'.png')
 
 def test2():
     #water quality test with all water
@@ -190,5 +189,5 @@ def test1():
 
 
 if __name__ == "__main__":
-    test4()
+    test3()
     plt.show()
