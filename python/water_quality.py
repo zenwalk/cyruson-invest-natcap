@@ -25,13 +25,13 @@ def test4():
     #water quality test with all water
 
     #cell size
-    h = 0.5 #0.01km
+    h = 0.25 #0.01km
 
     #square size
-    dimx = 100
-    dimy = 100
+    dimx = 30
+    dimy = 30
     dt = 0.1
-    tsteps = 9
+    tsteps = 50
 
     n, m = int(dimy / h), int(dimx / h)
 
@@ -41,10 +41,10 @@ def test4():
     print "elements: ", n * m
 
     #define constants
-    E = map(lambda x: 40, grid)
-    Ux = map(lambda x:2.0, grid)
-    Uy = map(lambda x:2.0, grid)
-    K = map(lambda x: 0.1, grid)
+    E = map(lambda x: 4, grid)
+    Ux = map(lambda x:4.0, grid)
+    Uy = map(lambda x:4.0, grid)
+    K = map(lambda x: 1.4, grid)
 
     #define a source right in the middle
     row = int(n / 2)
@@ -55,9 +55,12 @@ def test4():
 
     fig = plt.figure()
     for step in range(tsteps):
+        print 'ploting ' + str(step + 1) + ' of ' + str(tsteps)
+        plt.clf()
         #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
         plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
-        plt.savefig('out'+str(step+1)+'.png')
+        plt.suptitle('time: ' + str(dt * step))
+        plt.savefig('out' + ('0' * int(2 - np.log(step + 1) / np.log(10))) + str(step) + '.png')
 
 def test3():
     #time domain test
@@ -101,8 +104,10 @@ def test3():
     fig = plt.figure()
     for step in range(tsteps):
         #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        plt.clf()
+        plt.suptitle('time: ' + str(dt * step))
         plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
-        plt.savefig('out'+'0'*int(np.log(step+1)/np.log(10))+str(step+1)+'.png')
+        plt.savefig('out' + '0' * int(np.log(step + 1) / np.log(10)) + str(step + 1) + '.png')
 
 def test2():
     #water quality test with all water
@@ -189,5 +194,4 @@ def test1():
 
 
 if __name__ == "__main__":
-    test3()
-    plt.show()
+    test4()
