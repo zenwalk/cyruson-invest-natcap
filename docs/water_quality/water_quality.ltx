@@ -94,28 +94,36 @@ $$A^ns_{i-1,j}^n+
   B^ns_{i,j-1}^n+
   C^ns_{i,j}^n+
   D^ns_{i,j+1}^n+
-  E^ns_{i+1,j}^n = F$$
+  E^ns_{i+1,j}^n+-\frac{2}{\Delta t}s^n_{i,j} = F-\frac{2}{\Delta t}s^{n-1}_{i,j}$$
 
 \noindent where
 
 \begin{align}
   A^m &=\frac{E^m_x}{\Delta h^2}-\frac{U^m_x}{2\Delta h}\\
   B^m &=\frac{E^m_y}{\Delta h^2}-\frac{U^m_y}{2\Delta h}\\
-  C^m &=-\frac{2E^m_x}{\Delta h^2}-\frac{2E^m_y}{\Delta h^2}-\frac{2}{\Delta t}-K^m\\
+  C^m &=-\frac{2E^m_x}{\Delta h^2}-\frac{2E^m_y}{\Delta h^2}-K^m\\
   D^m &=\frac{E^m_y}{\Delta h^2}+\frac{U^m_y}{2\Delta h}\\
   E^m &=\frac{E^m_x}{\Delta h^2}+\frac{U^m_x}{2\Delta h}\\
-  F &=-\left[A^{n-1}s_{i-1,j}^{n-1}+B^{n-1}s_{i,j-1}^{n-1}+C^{n-1}s_{i,j}^{n-1}+D^{n-1}s_{i,j+1}^{n-1}+E^{n-1}s_{i+1,j}^{n-1}+\frac{2}{\Delta t}s_{i,j}^{n-1}\right]
+  F &=-\left[A^{n-1}s_{i-1,j}^{n-1}+B^{n-1}s_{i,j-1}^{n-1}+C^{n-1}s_{i,j}^{n-1}+D^{n-1}s_{i,j+1}^{n-1}+E^{n-1}s_{i+1,j}^{n-1}\right]
 \end{align}
 
-\noindent multiplying through by $2\Delta h^2 \Delta t$ yields a more computationally stable set of constants
+\noindent multiplying through by $2\Delta h^2 \Delta t$ removes any division operators
+
+$$\bar{A}^ns_{i-1,j}^n+
+  \bar{B}^ns_{i,j-1}^n+
+  \bar{C}^ns_{i,j}^n+
+  \bar{D}^ns_{i,j+1}^n+
+  \bar{E}^ns_{i+1,j}^n+-4h^2s^n_{i,j} = \bar{F}-4h^2s^{n-1}_{i,j}$$
+
+\noindent
 
 \begin{align}
-  A^m &=\Delta t\left(2E^m_x-U^m_x\Delta h\right)\\
-  B^m &=\Delta t\left(2E^m_y-U^m_y\Delta h\right)\\
-  C^m &=-\left[2\Delta t\;(2E^m_x+2E^m_y+K^m\Delta h^2)+4\Delta h^2\right]\\
-  D^m &=\Delta t\left(2E^m_y+U^m_y\Delta h\right)\\
-  E^m &=\Delta t\left(2E^m_x+U^m_x\Delta h\right)\\
-  F &=-\left[A^{n-1}s_{i-1,j}^{n-1}+B^{n-1}s_{i,j-1}^{n-1}+C^{n-1}s_{i,j}^{n-1}+D^{n-1}s_{i,j+1}^{n-1}+E^{n-1}s_{i+1,j}^{n-1}+4\Delta h^2s_{i,j}^{n-1}\right]
+  \bar{A}^m &=\Delta t\left(2E^m_x-U^m_x\Delta h\right)\\
+  \bar{B}^m &=\Delta t\left(2E^m_y-U^m_y\Delta h\right)\\
+  \bar{C}^m &=-2\Delta t\;(2E^m_x+2E^m_y+K^m\Delta h^2)\\
+  \bar{D}^m &=\Delta t\left(2E^m_y+U^m_y\Delta h\right)\\
+  \bar{E}^m &=\Delta t\left(2E^m_x+U^m_x\Delta h\right)\\
+  \bar{F} &=-\left[\bar{A}^{n-1}s_{i-1,j}^{n-1}+\bar{B}^{n-1}s_{i,j-1}^{n-1}+\bar{C}^{n-1}s_{i,j}^{n-1}+\bar{D}^{n-1}s_{i,j+1}^{n-1}+\bar{E}^{n-1}s_{i+1,j}^{n-1}\right]
 \end{align}
 
 \end{document}
