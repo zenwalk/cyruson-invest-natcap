@@ -44,7 +44,7 @@ def water_quality_1d(n, m, E, Ux, Uy, K, s0, h):
 
     print '(' + str(time.clock() - t0) + 's elapsed)'
 
-def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSolve=False):
+def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, x0=None, directSolve=False):
     """2D Water quality model to track a pollutant in the ocean
     
     Keyword arguments:
@@ -116,6 +116,29 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, directSol
                     else:
                         #handle the land boundary case s_ij' = s_ij
                         A[2, rowIndex] += term
+
+    if x0 != None:
+        x=x0
+        for i in range(n):
+            for j in range(m):
+                rowIndex = calc_index(i, j)
+                b[rowIndex] = -4 * h * h * x[rowIndex]
+
+                #formulate elements as a single array
+                elements = [
+                    (0, -m, calc_index(i - 1, j), -dt * (2 * E[rowIndex] - Ux[rowIndex] * h)),
+                    (1, -1, calc_index(i, j - 1), -dt * (2 * E[rowIndex] - Uy[rowIndex] * h)),
+                    (2, 0, rowIndex, 2 * dt * (2 * E[rowIndex] + 2 * E[rowIndex] + K[rowIndex] * h * h)),
+                    (3, 1, calc_index(i, j + 1), -dt * (2 * E[rowIndex] + Uy[rowIndex] * h)),
+                    (4, m, calc_index(i + 1, j), -dt * (2 * E[rowIndex] + Ux[rowIndex] * h))]
+                for k, offset, colIndex, term in elements:
+                    if colIndex >= 0: #make sure we're in the grid
+                        if inWater[colIndex]: #if water
+                            #if term != 0 and x[colIndex] != 0:
+                            #    print i, j, term, x[colIndex]
+                            b[rowIndex] += x[colIndex] * term
+                        else:
+                            b[rowIndex] += x[rowIndex] * term
 
     #define sources by erasing the rows in the matrix that have already been set
     for rowIndex in s0:
