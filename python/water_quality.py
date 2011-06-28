@@ -21,8 +21,8 @@ def plotResult(land, result, n, m, dimx, dimy, h):
         print 'plot land grid'
         plt.pcolormesh(X, Y, Zmask, cmap=plt.cm.BrBG)
 
-def test4():
-    #water quality test with all water
+def test5():
+#water quality test with all water
 
     #cell size
     h = 0.25 #0.01km
@@ -31,7 +31,7 @@ def test4():
     dimx = 30
     dimy = 30
     dt = 0.1
-    tsteps = 50
+    tsteps = 20
 
     n, m = int(dimy / h), int(dimx / h)
 
@@ -50,6 +50,102 @@ def test4():
     row = int(n / 2)
     col = int(m / 2)
     s0 = {row * m + col: 1}
+
+    result2d_td = water_quality_time(n, m, tsteps, grid, E, Ux, Uy, K, s0, h, dt)
+
+    fig = plt.figure()
+    for step in range(tsteps):
+        print 'ploting ' + str(step + 1) + ' of ' + str(tsteps)
+        plt.clf()
+        #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
+        plt.suptitle('time: ' + str(dt * step))
+        plt.savefig('out' + ('0' * int(2 - np.log(step + 1) / np.log(10))) + str(step) + '.png')
+
+    Ux = map(lambda x:-4.0, grid)
+    Uy = map(lambda x:4.0, grid)
+
+    result2d_td = water_quality_time(n, m, tsteps, grid, E, Ux, Uy, K, s0, h, dt, x0=result2d_td[tsteps-1])
+    for step in range(tsteps):
+        print 'ploting ' + str(step + 1) + ' of ' + str(tsteps)
+        plt.clf()
+        #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
+        step = step+tsteps
+        plt.suptitle('time: ' + str(dt * step))
+        plt.savefig('out' + ('0' * int(2 - np.log(step + 1) / np.log(10))) + str(step) + '.png')
+        
+    Ux = map(lambda x:-4.0, grid)
+    Uy = map(lambda x:-4.0, grid)
+
+    result2d_td = water_quality_time(n, m, tsteps, grid, E, Ux, Uy, K, s0, h, dt, x0=result2d_td[tsteps-1])
+    for step in range(tsteps):
+        print 'ploting ' + str(step + 1) + ' of ' + str(tsteps)
+        plt.clf()
+        #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
+        step = step+tsteps*2
+        plt.suptitle('time: ' + str(dt * step))
+        plt.savefig('out' + ('0' * int(2 - np.log(step + 1) / np.log(10))) + str(step) + '.png')
+
+    Ux = map(lambda x:4.0, grid)
+    Uy = map(lambda x:-4.0, grid)
+
+    result2d_td = water_quality_time(n, m, tsteps, grid, E, Ux, Uy, K, s0, h, dt, x0=result2d_td[tsteps-1])
+    for step in range(tsteps):
+        print 'ploting ' + str(step + 1) + ' of ' + str(tsteps)
+        plt.clf()
+        #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
+        step = step+tsteps*3
+        plt.suptitle('time: ' + str(dt * step))
+        plt.savefig('out' + ('0' * int(2 - np.log(step + 1) / np.log(10))) + str(step) + '.png')
+
+    Ux = map(lambda x:0.0, grid)
+    Uy = map(lambda x:0.0, grid)
+    s0 = {}
+
+    result2d_td = water_quality_time(n, m, tsteps, grid, E, Ux, Uy, K, s0, h, dt, x0=result2d_td[tsteps-1])
+    for step in range(tsteps):
+        print 'ploting ' + str(step + 1) + ' of ' + str(tsteps)
+        plt.clf()
+        #f = fig.add_subplot("1"+str(tsteps)+str(step+1), aspect='equal')
+        plotResult(grid, result2d_td[step], n, m, dimx, dimy, h)
+        step = step+tsteps*3
+        plt.suptitle('time: ' + str(dt * step))
+        plt.savefig('out' + ('0' * int(2 - np.log(step + 1) / np.log(10))) + str(step) + '.png')
+
+
+
+def test4():
+    #water quality test with all water
+
+    #cell size
+    h = 0.25 #0.01km
+
+    #square size
+    dimx = 30
+    dimy = 30
+    dt = 0.1
+    tsteps = 5
+
+    n, m = int(dimy / h), int(dimx / h)
+
+    #define land
+    grid = [True] * n * m
+
+    print "elements: ", n * m
+
+    #define constants
+    E = map(lambda x: 4, grid)
+    Ux = map(lambda x:4.0, grid)
+    Uy = map(lambda x:4.0, grid)
+    K = map(lambda x: 1.4, grid)
+
+    #define a source right in the middle
+    row = int(n / 2)
+    col = int(m / 2)
+    s0 = {row * m + col: 0.001}
 
     result2d_td = water_quality_time(n, m, tsteps, grid, E, Ux, Uy, K, s0, h, dt)
 
@@ -194,4 +290,4 @@ def test1():
 
 
 if __name__ == "__main__":
-    test4()
+    test5()
