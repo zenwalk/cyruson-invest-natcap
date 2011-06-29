@@ -232,7 +232,7 @@ def test2():
     E = map(lambda x: 4.0, grid)
     Ux = map(lambda x:0.0707, grid)
     Uy = map(lambda x:0.0, grid)
-    K = map(lambda x: 0.04, grid)
+    K = map(lambda x: 0.1, grid)
 
     #define a source right in the middle
     row = 342
@@ -242,13 +242,14 @@ def test2():
     print row, col
 
     result2d = water_quality(n, m, grid, E, Ux, Uy, K, s0, h)
-    result1d = water_quality_1d(n, m, E, Ux, Uy, K, s0, h)
+    #result1d = water_quality_1d(n, m, E, Ux, Uy, K, s0, h)
 
     fig = plt.figure()
-    f = fig.add_subplot(211, aspect='equal')
+    f = fig.add_subplot(111, aspect='equal')
     plotResult(grid, result2d, n, m, dimx, dimy, h)
-    f = fig.add_subplot(212, aspect='equal')
-    plotResult(grid, result1d, n, m, dimx, dimy, h)
+    #f = fig.add_subplot(212, aspect='equal')
+    #plotResult(grid, result1d, n, m, dimx, dimy, h)
+    plt.savefig('test2.png')
 
 
 def test1():
@@ -290,4 +291,4 @@ def test1():
 
 
 if __name__ == "__main__":
-    test5()
+    test2()
