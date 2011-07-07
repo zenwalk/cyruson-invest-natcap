@@ -732,22 +732,19 @@ try:
             xlSheet = xlBook1.Worksheets(WECsheet[:-1])
 
             row = 1
-            col = 1
+            col = 2
             bottom = row
             while xlSheet.Cells(bottom+1, col).Value not in [None, '']:
                 bottom += 1
             while counter <= bottom:
-                x = xlSheet.Cells(counter,2).Value
-                y = xlSheet.Cells(counter,3).Value
-                Pttype = str(xlSheet.Cells(counter,4).Value)
-                name = xlSheet.Cells(counter,5).Value
-                PttypeU = Pttype.upper()
-                if PttypeU == "LAND":
-                    landstring = str(counter-1)+" "+ str(y)+" "+str(x)+"\n"
-                    land.writelines(landstring)
-                if PttypeU == "GRID":
-                    gridstring = str(counter-1)+" "+ str(y)+" "+str(x)+"\n"
-                    grid.writelines(gridstring)
+                xl = xlSheet.Cells(counter,2).Value
+                yl = xlSheet.Cells(counter,3).Value
+                xg = xlSheet.Cells(counter,5).Value
+                yg = xlSheet.Cells(counter,6).Value
+                landstring = str(counter-1)+" "+ str(yl)+" "+str(xl)+"\n"
+                land.writelines(landstring)
+                gridstring = str(counter-1)+" "+ str(yg)+" "+str(xg)+"\n"
+                grid.writelines(gridstring)
                 counter = counter + 1
             thestring = "END"
             land.writelines(thestring)
@@ -759,12 +756,13 @@ try:
             gp.CreateFeaturesFromTextFile_samples(LandPtsTxt, ".", LandPts_WGS84, "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];IsHighPrecision")
             gp.CreateFeaturesFromTextFile_samples(GridPtTxt, ".", GridPt_WGS84, "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];IsHighPrecision")
 
-            # check that GridPt has only one point and LandPts have more one or more points
-            if gp.GetCount_management(GridPt_WGS84) <> 1:
+            # check that there is at least one grid and one landing point input
+            if gp.GetCount_management(GridPt_WGS84) < 1:
                 gp.AddError("Model takes only one grid point location as input.")
                 raise Exception
             else:
                 gp.Project_management(GridPt_WGS84, GridPt_prj, projection, "")
+                
             if gp.GetCount_management(LandPts_WGS84) < 1:
                 gp.AddError("Model must have at least one landing point location as input.")
                 raise Exception
@@ -847,7 +845,7 @@ try:
             j = 0
             while row:
                 row.SetValue("W2L_MDIST", W2L_Dist[j])
-                LANDID =int(W2L_ID[j])
+                LANDID = int(W2L_ID[j])
                 row.SetValue("LAND_ID", LANDID)
                 row.SetValue("L2G_MDIST", L2G_Dist[LANDID])
                 cur.UpdateRow(row)
