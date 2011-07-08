@@ -132,24 +132,6 @@ try:
             gp.AddError("\nInvalid input: "+thedata+" must be either of point or line geometry, and not polygon.")
             raise Exception
 
-    def checkDatum(thedata):
-        desc = gp.describe(thedata)
-        SR = desc.SpatialReference
-        if SR.Type == "Geographic":
-            strDatum = SR.DatumName         
-        else:
-            gp.OutputCoordinateSystem = SR
-            strSR = str(gp.OutputCoordinateSystem)
-            gp.OutputCoordinateSystem = ""
-            n1 = strSR.find("DATUM[\'")
-            n2 = strSR.find("\'",n1+7)
-            strDatum = strSR[n1+7:n2]
-        if strDatum == "D_WGS_1984":
-            pass
-        else:
-            gp.AddError(thedata+" is not a valid input.\nThe model requires data inputs and a projection with the \"WGS84\" datum.\nSee InVEST FAQ document for how to reproject datasets.")
-            raise Exception
-
     def ckProjection(data):
         dataDesc = gp.describe(data)
         spatreflc = dataDesc.SpatialReference
@@ -241,9 +223,9 @@ try:
         raise Exception, msgDataPrep
 
 
-    ##########################################################
-    ############## VIEWSHED & POPULATION ANALYSIS#############
-    ##########################################################
+    ###########################################################
+    ############## VIEWSHED & POPULATION ANALYSIS #############
+    ###########################################################
     try:
         gp.AddMessage("\nConducting the viewshed analysis...")  
         gp.Viewshed_sa(DEM_vs, NegPointsCur, vshed_cur, "1", "CURVED_EARTH", str(RefractCoeff))
