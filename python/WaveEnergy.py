@@ -133,7 +133,7 @@ try:
         strSR = str(gp.OutputCoordinateSystem)
         return strSR
 
-    # percentiles list (10, 25, 50, 75, 90)
+    # percentiles list (25, 50, 75, 90)
     def getPercentiles(list):
         PctList = []
         PctList.append(stats.scoreatpercentile(list, 25))
@@ -336,23 +336,23 @@ try:
             # benchmark
             if int(PointCount*0.25) == Count:
                 gp.AddMessage("...25% completed")
-            if int(PointCount*0.50) == Count:
+            elif int(PointCount*0.50) == Count:
                 gp.AddMessage("...50% completed")
-            if int(PointCount*0.75) == Count:
+            elif int(PointCount*0.75) == Count:
                 gp.AddMessage("...75% completed")
             
             # find I and J in txt document
             if PointArray[Count][0] < 10:
                 I="  "+str(int(PointArray[Count][0]))
-            if PointArray[Count][0] >= 10 and PointArray[Count][0] < 100:
+            elif PointArray[Count][0] >= 10 and PointArray[Count][0] < 100:
                 I=" "+str(int(PointArray[Count][0]))
-            if PointArray[Count][0] >= 100:
+            else:
                 I=str(int(PointArray[Count][0]))
             if PointArray[Count][1] < 10:
                 J="  "+str(int(PointArray[Count][1]))
-            if PointArray[Count][1] >= 10 and PointArray[Count][1] < 100:
+            elif PointArray[Count][1] >= 10 and PointArray[Count][1] < 100:
                 J=" "+str(int(PointArray[Count][1]))
-            if PointArray[Count][1] >= 100:
+            else:
                 J=str(int(PointArray[Count][1]))
                 
             # compare I and J values with PointArray values
@@ -893,7 +893,7 @@ try:
 
             # reclass NPV raster
             gp.BuildRasterAttributeTable_management(outputNPV, "Overwrite")
-            outputNPV = AddField(outputNPV, "NPV_BREAKS", "LONG", "", "")            
+            outputNPV = AddField(outputNPV, "NPV_BREAKS", "SHORT", "", "")            
             NPVList = []
             cur = gp.UpdateCursor(outputNPV)
             row = cur.Next()
