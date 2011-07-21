@@ -3,6 +3,7 @@
 #to map to a map of cropids which in turn map to average yields and fractional
 #land usage.
 
+
 import os, sys, time, numpy, glob, re, struct, mmap
 
 class M3Loader:
