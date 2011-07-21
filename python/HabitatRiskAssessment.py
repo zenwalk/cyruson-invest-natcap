@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Gregg Verutes, Joey Bernhardt, Katie Arkema, Jeremy Davies 
-# 05/09/11
+# 07/21/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -84,11 +84,13 @@ try:
     interws = gp.GetParameterAsText(0) + os.sep + "intermediate" + os.sep
 
     try:
-        thefolders=["maps", "html_plots"]
+        if PlotBoolean == "true":
+            thefolders=["maps", "html_plots"]
+        else:    
+            thefolders=["maps"]
         for folder in thefolders:
             if not gp.exists(outputws+folder):
                 gp.CreateFolder_management(outputws, folder)
-            
     except:
         raise Exception, "Error creating folders"
 
@@ -102,7 +104,6 @@ try:
 
     # output
     ecosys_risk = maps + "ecosys_risk"
-    predom_hab = maps + "predom_hab"
     recov_potent = maps + "recov_potent"
 
     risk_plots = html_plots + "plots_risk.png"
@@ -262,37 +263,45 @@ try:
     try:
         gp.workspace = interws
         gp.Extent = GS_rst
-
+        gp.MakeFeatureLayer_management(GS_HQ, GS_HQ_lyr, "", "", "")
+        
         HabNoDataList = []
         for i in range(0,len(HabLyrList)):
             HabVariable = Hab_Directory+"\\"+HabLyrList[i]
             checkProjections(HabVariable)
             HabVariable = AddField(HabVariable, "VID", "SHORT", "0", "0")        
-            gp.CalculateField_management(HabVariable, "VID", "[FID]+1", "VB")
-            gp.FeatureToRaster_conversion(HabVariable, "VID", "Hab_"+str(i+1), "50")
-            try:
-                if gp.GetCount("Hab_"+str(i+1)) == 0:
-                    HabNoDataList.append("yes")
-                else:
-                    HabNoDataList.append("no")
-            except:
-                gp.BuildRasterAttributeTable_management("Hab_"+str(i+1), "Overwrite")
-                if gp.GetCount("Hab_"+str(i+1)) == 0:
-                    HabNoDataList.append("yes")
-                else:
-                    HabNoDataList.append("no")
-            
+            gp.CalculateField_management(HabVariable, "VID", 1, "VB") ## "[FID]+1"
+            gp.MakeFeatureLayer_management(HabVariable, HabLyrList[i][:-4]+".lyr", "", interws, "")
+            SelectHab = gp.SelectLayerByLocation_management(HabLyrList[i][:-4]+".lyr", "INTERSECT", GS_HQ_lyr, "", "NEW_SELECTION")
+            if gp.GetCount_management(SelectHab) == 0:
+                HabNoDataList.append("yes")
+            else:
+                gp.FeatureToRaster_conversion(HabVariable, "VID", "Hab_"+str(i+1), "50")
+                HabNoDataList.append("no")
+            gp.SelectLayerByAttribute_management(HabLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
+
+        StressNoDataList = []    
         for i in range(0,len(StressLyrList)):
             StressVariable = Stress_Directory+"\\"+StressLyrList[i]
             checkProjections(StressVariable)
             StressVariable = AddField(StressVariable, "VID", "SHORT", "0", "0")        
-            gp.CalculateField_management(StressVariable, "VID", "[FID]+1", "VB")
+            gp.CalculateField_management(StressVariable, "VID", 1, "VB") ## "[FID]+1"
             if StressBuffDistList[i] > 0:
-                gp.Buffer_analysis(StressVariable, StressLyrBuffList[i], str(StressBuffDistList[i]) + " Meters", "FULL", "ROUND", "NONE", "")        
-                gp.FeatureToRaster_conversion(StressLyrBuffList[i], "VID", "Stress_"+str(i+1), "50")
+                gp.Buffer_analysis(StressVariable, StressLyrBuffList[i], str(StressBuffDistList[i]) + " Meters", "FULL", "ROUND", "NONE", "")
+                gp.MakeFeatureLayer_management(StressLyrBuffList[i], StressLyrList[i][:-4]+".lyr", "", interws, "")
             else:
-                gp.FeatureToRaster_conversion(StressVariable, "VID", "Stress_"+str(i+1), "50")
-            
+                gp.MakeFeatureLayer_management(StressVariable, StressLyrList[i][:-4]+".lyr", "", interws, "")
+                
+            SelectStress = gp.SelectLayerByLocation_management(StressLyrList[i][:-4]+".lyr", "INTERSECT", GS_HQ_lyr, "", "NEW_SELECTION")
+            if gp.GetCount_management(SelectStress) == 0:
+                StressNoDataList.append("yes")
+            else:
+                StressNoDataList.append("no")
+                if StressBuffDistList[i] > 0:
+                    gp.FeatureToRaster_conversion(StressLyrBuffList[i], "VID", "Stress_"+str(i+1), "50")
+                else:
+                    gp.FeatureToRaster_conversion(StressVariable, "VID", "Stress_"+str(i+1), "50")
+            gp.SelectLayerByAttribute_management(StressLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
     except:
         gp.AddError(msgBuffRastHULayers)
         raise Exception        
@@ -306,31 +315,25 @@ try:
         OverlapNoDataList = []
         for i in range(0,len(HabLyrList)):
             for j in range(0,len(StressLyrList)):
-                CmbExpr = "Hab_"+str(i+1)+";"+"Stress_"+str(j+1)
-                gp.Combine_sa(CmbExpr, "H"+str(i+1)+"S"+str(j+1))
+                SelectOverlap = gp.SelectLayerByLocation_management(HabLyrList[i][:-4]+".lyr", "INTERSECT", StressLyrList[j][:-4]+".lyr", "", "NEW_SELECTION")
+                if gp.GetCount_management(SelectOverlap) == 0:
+                    OverlapNoDataList.append("yes")
+                else:
+                    OverlapNoDataList.append("no")
+                    CmbExpr = "Hab_"+str(i+1)+";"+"Stress_"+str(j+1)
+                    gp.Combine_sa(CmbExpr, "H"+str(i+1)+"S"+str(j+1))
                 OverlapList.append("H"+str(i+1)+"S"+str(j+1))
-                try:
-                    if gp.GetCount("H"+str(i+1)+"S"+str(j+1)) == 0:
-                        OverlapNoDataList.append("yes")
-                    else:
-                        OverlapNoDataList.append("no")
-                except:
-                    gp.BuildRasterAttributeTable_management("H"+str(i+1)+"S"+str(j+1), "Overwrite")
-                    if gp.GetCount("H"+str(i+1)+"S"+str(j+1)) == 0:
-                        OverlapNoDataList.append("yes")
-                    else:
-                        OverlapNoDataList.append("no")
-
+                gp.SelectLayerByAttribute_management(HabLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
+                
         for i in range(0,len(HabLyrList)):
             GS_HQ = AddField(GS_HQ, "H"+str(i+1)+"_A", "DOUBLE", "8", "2")
         for i in range(0,len(OverlapList)):
             GS_HQ = AddField(GS_HQ, OverlapList[i]+"_A", "DOUBLE", "8", "2")
             GS_HQ = AddField(GS_HQ, OverlapList[i]+"_PCT", "DOUBLE", "8", "2")
 
-        gp.MakeFeatureLayer_management(GS_HQ, GS_HQ_lyr, "", "", "")
         gp.snapRaster = GS_rst
         gp.cellsize = "MINOF"
-
+      
         for i in range(0,len(HabLyrList)):
             if HabNoDataList[i] == "no":
                 gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", "Hab_"+str(i+1), "zs_H"+str(i+1)+".dbf", "DATA")
@@ -388,7 +391,6 @@ try:
     DelExpr = DelExpr[:-1]
     gp.workspace = interws
     gp.DeleteField_management(GS_HQ_area, DelExpr)
-
 
     ##########################################################   
     ############ GRAB RATINGS FROM EXCEL TABLE  ##############
@@ -522,11 +524,11 @@ try:
     try:
         # add fields for risk calculations
         for i in range(0,StressCount):
-            GS_HQ_area = AddField(GS_HQ_area, "OLP_RNK_S"+str(i+1), "SHORT", "", "")
+            GS_HQ_area = AddField(GS_HQ_area, "OLP_RNK_S"+str(i+1), "SHORT", "", "")  ###
         for j in range(0,len(OverlapList)):
-            GS_HQ_area = AddField(GS_HQ_area, "RISK_"+OverlapList[j], "DOUBLE", "8", "2")
+            GS_HQ_area = AddField(GS_HQ_area, "RISK_"+OverlapList[j], "DOUBLE", "8", "2") ###
         for k in range(0,HabCount):
-            GS_HQ_area = AddField(GS_HQ_area, "CUMRISK_H"+str(k+1), "DOUBLE", "", "")            
+            GS_HQ_area = AddField(GS_HQ_area, "CUMRISK_H"+str(k+1), "DOUBLE", "", "")  ###            
         GS_HQ_area = AddField(GS_HQ_area, "RECOV_HAB", "DOUBLE", "", "")
         GS_HQ_area = AddField(GS_HQ_area, "ECOS_RISK", "DOUBLE", "", "")
 
@@ -664,7 +666,6 @@ try:
             gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRISK_H"+str(k+1), "cum_risk_h"+str(k+1), cellsize)
 
         gp.FeatureToRaster_conversion(GS_HQ_risk, "ECOS_RISK", ecosys_risk, cellsize)
-        gp.FeatureToRaster_conversion(GS_HQ_predom, "PREDOM_HAB", predom_hab, cellsize)
         gp.FeatureToRaster_conversion(GS_HQ_predom, "RECOV_HAB", recov_potent, cellsize)
 
     except:
