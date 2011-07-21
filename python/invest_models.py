@@ -7,6 +7,25 @@ import matplotlib
 import scipy.linalg
 import math
 
+def coastal_protection_2d(n, m, bathy, E, theta):
+    """2D Water quality model to track a pollutant in the ocean
+    
+    Keyword arguments:
+    n,m -- the number of rows, columns in the 2D grid.  Used to determine 
+        indices into list parameters 'water', 'E', 'Ux', 'Uy', and 'K' i*m+j in
+        a list
+    bathy -- 1D list n*m elements long of booleans indicating bathymetry
+    E -- initial wave energy on grid
+    directSolve -- if True uses a direct solver that may be faster, but use
+        more memory.  May crash in cases where memory is fragmented or low
+        Default False.
+    
+    returns a 2D grid of wave energy
+    """
+
+    print 'not implemented yet ...'
+
+
 def water_quality_1d(n, m, E, Ux, Uy, K, s0, h):
     """1D analytical solution to water quality model
     
@@ -209,10 +228,6 @@ def water_quality_time(n, m, tsteps, inWater, E, Ux, Uy, K, s0, h, dt, x0=None, 
 
     print 'done returning', len(result)
     return result.reshape(tsteps, n * m)
-
-
-
-
 
 def water_quality(n, m, inWater, E, Ux, Uy, K, s0, h, directSolve=False):
     """2D Water quality model to track a pollutant in the ocean
