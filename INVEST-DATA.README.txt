@@ -2,9 +2,7 @@ There is an svn repository for InVEST data files because Mecurial
 can't handle large data files.  Make sure you have an svn client installed
 (like http://tortoisesvn.net/) and check out the files from:
 
-http://ncp-vancouver.stanford.edu/svn/invest-data
+https://invest-data.googlecode.com/svn/trunk/
 
-Credentials to commit changes to the datasets:
-
-username: natcap
-password: invest
+or if you're not a committing member of that repository try this url:
+http://invest-data.googlecode.com/svn/trunk/
