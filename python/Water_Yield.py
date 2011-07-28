@@ -7,11 +7,12 @@
 # Driss Ennaanay, Guillermo Mendoza, Marc Conte
 # for the Natural Capital Project
 #
-# Last edit: 4/21/2011
+# Last edit: 7/19/2011
 #
 # Calculates actual evapotranspiration and surface water yield for each
 # sub-basin in a landscape
 # ---------------------------------------------------------------------------
+
 
 # Import system modules
 import sys, string, os, arcgisscripting, time, datetime
@@ -348,6 +349,7 @@ try:
         out_table_pet_field = "PET_mn"
         out_table_aet_field = "AET_mn"
         out_table_wyield_field = "wyield_mn"
+        out_table_wyield_sum_field = "wyield_sum"
 
         gp.CreateTable_management(outputws, ws_out_table_name)
         ws_out_table = outputws + ws_out_table_name
@@ -357,6 +359,7 @@ try:
         gp.AddField(ws_out_table, out_table_pet_field, "double")
         gp.AddField(ws_out_table, out_table_aet_field, "double")
         gp.AddField(ws_out_table, out_table_wyield_field, "double")
+        gp.AddField(ws_out_table, out_table_wyield_sum_field, "double")
         
         # Remove Field1 - it's added by default and not used
         gp.DeleteField_management(ws_out_table, "Field1")
@@ -403,6 +406,7 @@ try:
             ws_pet = float(pet_row.getValue("MEAN"))
             ws_aet = float(aet_row.getValue("MEAN"))
             ws_wyield = float(wyield_row.getValue("MEAN"))
+            ws_wyield_sum = float(wyield_row.getValue("SUM"))
             
             new_row = out_table_rows.NewRow()
             new_row.setValue(out_table_wshed_id_field, ws_id)
@@ -410,6 +414,7 @@ try:
             new_row.setValue(out_table_pet_field, ws_pet)
             new_row.setValue(out_table_aet_field, ws_aet)
             new_row.setValue(out_table_wyield_field, ws_wyield)
+            new_row.setValue(out_table_wyield_sum_field, ws_wyield_sum)
 
             out_table_rows.InsertRow(new_row)
             precip_row = precip_rows.Next()
@@ -437,6 +442,7 @@ try:
         out_table_pet_field = "PET_mn"
         out_table_aet_field = "AET_mn"
         out_table_wyield_field = "wyield_mn"
+        out_table_wyield_sum_field = "wyield_sum"
 
         gp.CreateTable_management(outputws, sws_out_table_name)
         sws_out_table = outputws + sws_out_table_name
@@ -447,6 +453,7 @@ try:
         gp.AddField(sws_out_table, out_table_pet_field, "double")
         gp.AddField(sws_out_table, out_table_aet_field, "double")
         gp.AddField(sws_out_table, out_table_wyield_field, "double")
+        gp.AddField(sws_out_table, out_table_wyield_sum_field, "double")
         
         # Remove Field1 - it's added by default and not used
         gp.DeleteField_management(sws_out_table, "Field1")
@@ -506,6 +513,7 @@ try:
             sws_pet = float(pet_row.getValue("MEAN"))
             sws_aet = float(aet_row.getValue("MEAN"))
             sws_wyield = float(wyield_row.getValue("MEAN"))
+            sws_wyield_sum = float(wyield_row.getValue("SUM"))
             
             new_row = out_table_rows.NewRow()
             new_row.setValue(out_table_wshed_id_field, int(sj_row.getValue(wshed_id_field)))
@@ -514,6 +522,7 @@ try:
             new_row.setValue(out_table_pet_field, sws_pet)
             new_row.setValue(out_table_aet_field, sws_aet)
             new_row.setValue(out_table_wyield_field, sws_wyield)
+            new_row.setValue(out_table_wyield_sum_field, sws_wyield_sum)
 
             out_table_rows.InsertRow(new_row)
             precip_row = precip_rows.Next()
