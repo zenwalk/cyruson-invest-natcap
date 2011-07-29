@@ -62,6 +62,10 @@ Section "InVEST Tools" SEC01
   SetOverwrite try
   File /r ..\python
   
+  SetOutPath "$INSTDIR"
+  SetOverwrite try
+  File /r ..\invest-data-tmp\*
+  
 SectionEnd
 
 ; Section descriptions
