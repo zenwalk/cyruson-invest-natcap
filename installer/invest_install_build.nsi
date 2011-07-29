@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "InVEST"
-!define PRODUCT_VERSION "2.1 beta"
+!define PRODUCT_VERSION "2.2 beta"
 !define PRODUCT_PUBLISHER "The Natural Capital Project"
 !define PRODUCT_WEB_SITE "http://www.naturalcapitalproject.org"
 !define MUI_HEADERIMAGE_BITMAP "natcap_logo.bmp"
@@ -22,14 +22,12 @@ SetCompressorDictSize 64
 ; License page
 !insertmacro MUI_PAGE_LICENSE "license.rtf"
 ; Components page
-!insertmacro MUI_PAGE_COMPONENTS
-; Directory page
 !insertmacro MUI_PAGE_DIRECTORY
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
 ; Finish page
-!define MUI_FINISHPAGE_SHOWREADME "InVEST_Documentation_v2.1.pdf"
-!insertmacro MUI_PAGE_FINISH
+;!define MUI_FINISHPAGE_SHOWREADME "InVEST_Documentation_v2.2.pdf"
+;!insertmacro MUI_PAGE_FINISH
 
 ; Language files
 !insertmacro MUI_LANGUAGE "English"
@@ -37,8 +35,8 @@ SetCompressorDictSize 64
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "InVEST_2.1_beta-Setup.exe"
-InstallDir "C:\InVEST21"
+OutFile "InVEST_2.2_beta-Setup.exe"
+InstallDir "C:\InVEST22"
 ShowInstDetails show
 
 Function .onInit
@@ -48,11 +46,6 @@ Function .onInit
  StrCmp $R0 0 +3
    MessageBox MB_OK|MB_ICONEXCLAMATION "The installer is already running."
    Abort
-
-   MessageBox MB_YESNO "This will install InVEST  tools in your computer. Continue?" IDYES NoAbort
-     Abort ; causes installer to quit.
-   NoAbort:
-   
 
 FunctionEnd
 
@@ -67,8 +60,3 @@ Section "InVEST Tools" SEC01
   File /r ..\invest-data-tmp\*
   
 SectionEnd
-
-; Section descriptions
-!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC01} "Installs InVEST tools. If you select this option only, the paths in the ArcMap documents and the preloaded data will not exist."
-!insertmacro MUI_FUNCTION_DESCRIPTION_END
