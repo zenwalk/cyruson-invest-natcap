@@ -1,6 +1,6 @@
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "InVEST"
-!define PRODUCT_VERSION "2.2 beta"
+!define PRODUCT_VERSION "${VERSION} beta"
 !define PRODUCT_PUBLISHER "The Natural Capital Project"
 !define PRODUCT_WEB_SITE "http://www.naturalcapitalproject.org"
 !define MUI_HEADERIMAGE_BITMAP "natcap_logo.bmp"
@@ -24,7 +24,7 @@ SetCompressorDictSize 64
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
 ; Finish page
-;!define MUI_FINISHPAGE_SHOWREADME "InVEST_Documentation_v2.2.pdf"
+;!define MUI_FINISHPAGE_SHOWREADME "InVEST_Documentation_v${VERSION}.pdf"
 ;!insertmacro MUI_PAGE_FINISH
 
 ; Language files
@@ -33,7 +33,7 @@ SetCompressorDictSize 64
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "InVEST_2.2_beta-Setup.exe"
+OutFile "InVEST_v${VERSION}_beta-Setup.exe"
 InstallDir "C:\InVEST22"
 ShowInstDetails show
 
