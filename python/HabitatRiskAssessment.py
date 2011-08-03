@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Gregg Verutes, Joey Bernhardt, Katie Arkema, Jeremy Davies 
-# 07/21/11
+# 08/03/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -77,11 +77,11 @@ try:
     except:
         raise Exception, "Error creating folders"
 
-    # local variables 
+    # local variables
+    interws = gp.GetParameterAsText(0) + os.sep + "intermediate" + os.sep
     outputws = gp.GetParameterAsText(0) + os.sep + "Output" + os.sep
     maps = outputws + os.sep + "maps" + os.sep
     html_plots = outputws + os.sep + "html_plots" + os.sep
-    interws = gp.GetParameterAsText(0) + os.sep + "intermediate" + os.sep
 
     try:
         if PlotBoolean == "true":
@@ -237,10 +237,14 @@ try:
         gp.AddMessage("... Habitat Count = "+str(HabInputCount))
         gp.AddMessage("... Stressor Count = "+str(StressInputCount))
 
+        # create buffer list
         StressBuffDistList = []
         counter = 2
         while counter < StressInputCount+2:
-            StressBuffDistList.append(int(cell.Range("e"+str(counter)).Value))
+            if cell.Range("e"+str(counter)).Value not in [None, '']:
+                StressBuffDistList.append(cell.Range("e"+str(counter)).Value)
+            else:
+                StressBuffDistList.append(0)
             counter += 1
             
         xlApp.ActiveWorkbook.Close(SaveChanges=0)
@@ -266,29 +270,33 @@ try:
         gp.MakeFeatureLayer_management(GS_HQ, GS_HQ_lyr, "", "", "")
         
         HabNoDataList = []
+        del_hab = []
         for i in range(0,len(HabLyrList)):
             HabVariable = Hab_Directory+"\\"+HabLyrList[i]
             checkProjections(HabVariable)
             HabVariable = AddField(HabVariable, "VID", "SHORT", "0", "0")        
-            gp.CalculateField_management(HabVariable, "VID", 1, "VB") ## "[FID]+1"
+            gp.CalculateField_management(HabVariable, "VID", 1, "VB")
             gp.MakeFeatureLayer_management(HabVariable, HabLyrList[i][:-4]+".lyr", "", interws, "")
             SelectHab = gp.SelectLayerByLocation_management(HabLyrList[i][:-4]+".lyr", "INTERSECT", GS_HQ_lyr, "", "NEW_SELECTION")
             if gp.GetCount_management(SelectHab) == 0:
                 HabNoDataList.append("yes")
             else:
-                gp.FeatureToRaster_conversion(HabVariable, "VID", "Hab_"+str(i+1), "50")
+                gp.FeatureToRaster_conversion(HabVariable, "VID", "hab_"+str(i+1), "50")
+                gp.CopyFeatures_management(HabVariable, HabLyrList[i][:-5]+"h"+HabLyrList[i][-5:], "", "0", "0", "0")
                 HabNoDataList.append("no")
+                del_hab.append("hab_"+str(i+1))
             gp.SelectLayerByAttribute_management(HabLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
 
-        StressNoDataList = []    
+        StressNoDataList = []
+        del_stress = []
         for i in range(0,len(StressLyrList)):
             StressVariable = Stress_Directory+"\\"+StressLyrList[i]
             checkProjections(StressVariable)
             StressVariable = AddField(StressVariable, "VID", "SHORT", "0", "0")        
-            gp.CalculateField_management(StressVariable, "VID", 1, "VB") ## "[FID]+1"
+            gp.CalculateField_management(StressVariable, "VID", 1, "VB")
             if StressBuffDistList[i] > 0:
-                gp.Buffer_analysis(StressVariable, StressLyrBuffList[i], str(StressBuffDistList[i]) + " Meters", "FULL", "ROUND", "NONE", "")
-                gp.MakeFeatureLayer_management(StressLyrBuffList[i], StressLyrList[i][:-4]+".lyr", "", interws, "")
+                gp.Buffer_analysis(StressVariable, StressLyrBuffList[i][:-4]+"_s"+str(i+1)+StressLyrBuffList[i][-4:], str(StressBuffDistList[i]) + " Meters", "FULL", "ROUND", "NONE", "")
+                gp.MakeFeatureLayer_management(StressLyrBuffList[i][:-4]+"_s"+str(i+1)+StressLyrBuffList[i][-4:], StressLyrList[i][:-4]+".lyr", "", interws, "")
             else:
                 gp.MakeFeatureLayer_management(StressVariable, StressLyrList[i][:-4]+".lyr", "", interws, "")
                 
@@ -297,34 +305,70 @@ try:
                 StressNoDataList.append("yes")
             else:
                 StressNoDataList.append("no")
+                del_stress.append("stress_"+str(i+1))
                 if StressBuffDistList[i] > 0:
-                    gp.FeatureToRaster_conversion(StressLyrBuffList[i], "VID", "Stress_"+str(i+1), "50")
+                    gp.FeatureToRaster_conversion(StressLyrBuffList[i][:-4]+"_s"+str(i+1)+StressLyrBuffList[i][-4:], "VID", "stress_"+str(i+1), "50")
                 else:
-                    gp.FeatureToRaster_conversion(StressVariable, "VID", "Stress_"+str(i+1), "50")
+                    gp.FeatureToRaster_conversion(StressVariable, "VID", "stress_"+str(i+1), "50")
+                    gp.CopyFeatures_management(StressVariable, StressLyrList[i][:-5]+"s"+StressLyrList[i][-5:], "", "0", "0", "0")
             gp.SelectLayerByAttribute_management(StressLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
     except:
         gp.AddError(msgBuffRastHULayers)
         raise Exception        
+
 
     #############################################################    
     ############ CALCULATE OVERLAP AND PREDOM HAB  ##############
     #############################################################
     try:
         gp.AddMessage("\nCalculating spatial overlap and predominant habitat...")
+
+        def difference(a, b): # show whats in list b which isn't in list a
+            return list(set(b).difference(set(a)))
+
+        # determine which hab and stress rasters weren't in GS AOI        
+        potHabList = range(1,HabCount+1)
+        potStressList = range(1,StressCount+1)        
+        rasterHabList = []
+        rasterStressList = []
+        gp.workspace = interws
+        rasters = gp.ListRasters("hab_*", "GRID")
+        rasters.Reset()
+        for i in range(0,HabCount):
+            raster = rasters.Next()
+            if raster != None:
+                rasterHabList.append(raster[4:])
+        del rasters
+        rasters = gp.ListRasters("stress_*", "GRID")
+        rasters.Reset()
+        for i in range(0,StressCount):
+            raster = rasters.Next()
+            if raster != None:
+                rasterStressList.append(raster[7:])                  
+        del rasters
+        rasterHabList = [int(s) for s in rasterHabList]        
+        rasterStressList = [int(s) for s in rasterStressList]
+        diffHabList = difference(rasterHabList, potHabList)
+        diffStressList = difference(rasterStressList, potStressList)
+
+        # combine hab and stress rasters that overlap
         OverlapList = []
         OverlapNoDataList = []
         for i in range(0,len(HabLyrList)):
             for j in range(0,len(StressLyrList)):
-                SelectOverlap = gp.SelectLayerByLocation_management(HabLyrList[i][:-4]+".lyr", "INTERSECT", StressLyrList[j][:-4]+".lyr", "", "NEW_SELECTION")
-                if gp.GetCount_management(SelectOverlap) == 0:
-                    OverlapNoDataList.append("yes")
-                else:
-                    OverlapNoDataList.append("no")
-                    CmbExpr = "Hab_"+str(i+1)+";"+"Stress_"+str(j+1)
+                if i+1 not in diffHabList and j+1 not in diffStressList:
+                    CmbExpr = "hab_"+str(i+1)+";"+"stress_"+str(j+1)
                     gp.Combine_sa(CmbExpr, "H"+str(i+1)+"S"+str(j+1))
-                OverlapList.append("H"+str(i+1)+"S"+str(j+1))
-                gp.SelectLayerByAttribute_management(HabLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
-                
+                    OverlapList.append("H"+str(i+1)+"S"+str(j+1))
+                    gp.BuildRasterAttributeTable_management("H"+str(i+1)+"S"+str(j+1), "Overwrite")
+                    if gp.GetCount("H"+str(i+1)+"S"+str(j+1)) == 0:
+                        OverlapNoDataList.append("yes")
+                    else:
+                        OverlapNoDataList.append("no")
+                else:
+                    OverlapList.append("H"+str(i+1)+"S"+str(j+1))
+                    OverlapNoDataList.append("yes")
+
         for i in range(0,len(HabLyrList)):
             GS_HQ = AddField(GS_HQ, "H"+str(i+1)+"_A", "DOUBLE", "8", "2")
         for i in range(0,len(OverlapList)):
@@ -336,7 +380,7 @@ try:
       
         for i in range(0,len(HabLyrList)):
             if HabNoDataList[i] == "no":
-                gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", "Hab_"+str(i+1), "zs_H"+str(i+1)+".dbf", "DATA")
+                gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", "hab_"+str(i+1), "zs_H"+str(i+1)+".dbf", "DATA")
                 gp.AddJoin_management(GS_HQ_lyr, "VALUE", "zs_H"+str(i+1)+".dbf", "VALUE", "KEEP_COMMON")
                 gp.CalculateField_management(GS_HQ_lyr, "GS_HQ.H"+str(i+1)+"_A", "[zs_H"+str(i+1)+".AREA]", "VB", "")
                 gp.RemoveJoin_management(GS_HQ_lyr, "zs_H"+str(i+1))
@@ -387,7 +431,7 @@ try:
     DelExpr = ""
     for i in range(0,len(HabLyrList)):
         for j in range(0,len(StressLyrList)):
-                DelExpr = DelExpr + "H"+str(i+1)+"S"+str(j+1)+"_A;"
+            DelExpr = DelExpr + "H"+str(i+1)+"S"+str(j+1)+"_A;"
     DelExpr = DelExpr[:-1]
     gp.workspace = interws
     gp.DeleteField_management(GS_HQ_area, DelExpr)
@@ -657,14 +701,19 @@ try:
     try:
         # create outputs
         gp.workspace = maps
-
         # create raster outputs of risk (where habitat exists)
         gp.Select_analysis(GS_HQ_area, GS_HQ_risk, "\"ECOS_RISK\" > 0")
         gp.Select_analysis(GS_HQ_area, GS_HQ_predom, "\"PREDOM_HAB\" > 0")
 
-        for k in range(0,HabCount):   
-            gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRISK_H"+str(k+1), "cum_risk_h"+str(k+1), cellsize)
+        # create raster output of each individual habitat's risk score from all stressors
+        del3 = []
+        for k in range(0,HabCount):
+            if HabNoDataList[k] == "no":
+                gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRISK_H"+str(k+1), interws+"cr_h"+str(k+1), cellsize)
+                gp.SetNull_sa(interws+"cr_h"+str(k+1), interws+"cr_h"+str(k+1), "cum_risk_h"+str(k+1), "\"VALUE\" <= 0")
+                del3.append("cr_h"+str(k+1))
 
+        # create raster output for ecosystem risk and habitat recovery      
         gp.FeatureToRaster_conversion(GS_HQ_risk, "ECOS_RISK", ecosys_risk, cellsize)
         gp.FeatureToRaster_conversion(GS_HQ_predom, "RECOV_HAB", recov_potent, cellsize)
 
@@ -1007,7 +1056,7 @@ try:
     for i in range(0,len(HabLyrList)):
         for j in range(0,len(StressLyrList)):
             del2.append("H"+str(i+1)+"S"+str(j+1))
-    deletelist = del1 + del2
+    deletelist = del1 + del2 + del3 + del_hab + del_stress
     for data in deletelist:
         if gp.exists(data):
             gp.delete_management(data)
