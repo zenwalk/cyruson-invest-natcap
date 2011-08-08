@@ -8,7 +8,7 @@
 # Driss Ennaanay, Guillermo Mendoza, Marc Conte
 # for the Natural Capital Project
 #
-# Last edit: 2/6/2011
+# Last edit: 5/2/2011
 #
 # Calculates the value of a landscape for providing water yield
 # for reservoir hydropower production.
@@ -55,28 +55,32 @@ try:
         consump_vol = gp.GetParameterAsText(2)
         parameters.append("Water consumption (volume): " + consump_vol)
 
-        # Watershed shapefile
+        # Watersheds shapefile
         watersheds = gp.GetParameterAsText(3)
         parameters.append("Watersheds: " + watersheds)
 
-        # Sub-watershed shapefile
+        # Sub-watersheds shapefile
         sub_watersheds = gp.GetParameterAsText(4)
         parameters.append("Sub-watersheds: " + sub_watersheds)
+
+        # Watershed scarcity output table from Scarcity script
+        ws_scarcity_table = gp.GetParameterAsText(5)
+        parameters.append("Watershed scarcity table: " + ws_scarcity_table)
         
-        # Hydropower output table (from scarcity script)
-        scarcity_table = gp.GetParameterAsText(5)
-        parameters.append("Scarcity table: " + scarcity_table)
+        # Sub-watershed scarcity output table from Scarcity script
+        sws_scarcity_table = gp.GetParameterAsText(6)
+        parameters.append("Sub-watershed scarcity table: " + sws_scarcity_table)
 
         # Hydropower station table 
-        station_table = gp.GetParameterAsText(6)
+        station_table = gp.GetParameterAsText(7)
         parameters.append("Hydropower table: " + station_table)
 
         # Output resolution
-        resolution = gp.GetParameterAsText(7)
+        resolution = gp.GetParameterAsText(8)
         parameters.append("Output resolution: " + str(resolution))
         
-        # Results suffx
-        Suffix = gp.GetParameterAsText(8)
+        # Results suffix
+        Suffix = gp.GetParameterAsText(9)
         parameters.append("Suffix: " + Suffix)
 
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -98,7 +102,7 @@ try:
                 gp.CreateFolder_management(gp.workspace, folder)
                 
     except:
-        gp.AddError("\nError creating folders: " + gp.GetMessages(2))
+        gp.AddError("\nError creating output folders: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -141,6 +145,8 @@ try:
     watersheds_sjoin = interws + "wsheds_sjoin.shp"
     sub_watersheds_join = interws + "subws_join.shp"
     wsheds_sjoin_copy = interws + "wsheds_sjoin_copy.shp"
+    ws_value = interws + "hp_val_ws"
+    ws_energy = interws + "hp_en_ws"
     
     # Fields in hydropower station table
     station_id_field = "ws_id"
@@ -162,11 +168,9 @@ try:
     subwshed_id_field = "subws_id"
     
     # Output files
-    ws_value = servicews + "hp_val_ws"
-    ws_energy = servicews + "hp_en_ws"
-    subws_value = servicews + "hp_val_sws"
-    subws_energy = servicews + "hp_en_sws"
-    
+
+    subws_value = servicews + "hp_val"
+    subws_energy = servicews + "hp_energy"
     hp_ws_table_name = "hydropower_value_watershed" + Suffix + ".dbf"
     hp_subws_table_name = "hydropower_value_subwatershed" + Suffix + ".dbf"
 
@@ -174,7 +178,7 @@ try:
     # Add suffix to end of output filenames
     # Verify length of output rasters does not exceed 13 characters
     try:
-        Outputnames = [ws_value, ws_energy, subws_value, subws_energy]
+        Outputnames = [subws_value, subws_energy]
         num = 0
         for x in Outputnames:
             y = x.split("\\")
@@ -189,10 +193,8 @@ try:
             else:
                 Outputnames[num] = x + Suffix
             num = num + 1       
-        ws_value =  str(Outputnames[0])
-        ws_energy = str(Outputnames[1])
-        subws_value = str(Outputnames[2])
-        subws_energy = str(Outputnames[3])
+        subws_value = str(Outputnames[0])
+        subws_energy = str(Outputnames[1])
     except:
         gp.AddError ("\nError validating output filenames: " + gp.GetMessages(2))
         raise Exception
@@ -245,30 +247,25 @@ try:
 
         gp.AddMessage("\nCreating output tables...")
 
-        # Table for whole watershed - new table
+        # Table for whole watershed - add value fields to watershed scarcity table
         gp.CreateTable_management(servicews, hp_ws_table_name)
         hp_ws_table = servicews + hp_ws_table_name
+        gp.CopyRows_management(ws_scarcity_table, hp_ws_table)
 
         # output table field names
         out_table_sid_field = "ws_id"
         out_table_value_field = "hp_value"
         out_table_energy_field = "hp_energy"
-        out_table_cyield_field = "cyield_vl"
-        out_table_consump_field = "consump_vl"
         out_table_rsupply_field = "rsupply_vl"
 
-        gp.AddField(hp_ws_table, out_table_sid_field, "long")
-        gp.AddField(hp_ws_table, out_table_cyield_field, "double")
-        gp.AddField(hp_ws_table, out_table_consump_field, "double")
-        gp.AddField(hp_ws_table, out_table_rsupply_field, "double")
         gp.AddField(hp_ws_table, out_table_energy_field, "double")
         gp.AddField(hp_ws_table, out_table_value_field, "double")
 
-        # Table for sub-watersheds - add value fields to scarcity table
+        # Table for sub-watersheds - add value fields to sub-watershed scarcity table
 
         gp.CreateTable_management(servicews, hp_subws_table_name)
         hp_subws_table = servicews + hp_subws_table_name
-        gp.CopyRows_management(scarcity_table, hp_subws_table)
+        gp.CopyRows_management(sws_scarcity_table, hp_subws_table)
 
         gp.AddField(hp_subws_table, out_table_energy_field, "double")
         gp.AddField(hp_subws_table, out_table_value_field, "double")
@@ -287,7 +284,7 @@ try:
         checkfields([station_id_field, kwval_field, height_field, efficiency_field, fraction_field, time_field, discount_field, cost_field], station_table)
 
         # Total water supply and consumption for each watershed come from scarcity table
-        y_rows = gp.SearchCursor(scarcity_table)
+        y_rows = gp.SearchCursor(sws_scarcity_table)
         y_row = y_rows.Reset
         y_row = y_rows.Next()
 
@@ -300,28 +297,26 @@ try:
 
         # Map sub-watersheds to their corresponding watersheds using Spatial Join
         # Will sum volumes from sub-watersheds to create the Vin for corresponding watershed
-        gp.MakeTableView_management(scarcity_table, "scarcity_view")
+        gp.MakeTableView_management(sws_scarcity_table, "scarcity_view")
 
         gp.SpatialJoin_analysis(sub_watersheds, watersheds, watersheds_sjoin, "JOIN_ONE_TO_ONE", "KEEP_ALL", "#", "IS_WITHIN")
         gp.MakeFeatureLayer_management(watersheds_sjoin, "wsheds_sjoin_layer")
         gp.AddJoin_management("wsheds_sjoin_layer", subwshed_id_field, "scarcity_view", out_table_swid_field)
         gp.CopyFeatures_management("wsheds_sjoin_layer", wsheds_sjoin_copy)
 
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management("scarcity_view")
+            gp.Delete_management("wsheds_sjoin_layer")
 
         while (wshed_row):
 
             gp.AddMessage("\nCalculating value for station id " + str(wshed_row.getValue(wshed_id_field)) + "...")
 
-            # Find corresponding station in hydropower info table
-
             stable_rows = gp.SearchCursor(station_table)
             stable_row = stable_rows.Reset
             stable_row = stable_rows.Next()
 
-            sj_rows = gp.SearchCursor(wsheds_sjoin_copy)
-            sj_row = sj_rows.Reset
-            sj_row = sj_rows.Next()
-
+            # Match hydropower station table watershed to a row in the watershed shapefile
             while (int(stable_row.getValue(station_id_field)) <> int(wshed_row.getValue(wshed_id_field))):
                 stable_row = stable_rows.Next()
 
@@ -332,31 +327,28 @@ try:
             station_fraction = float(stable_row.getValue(fraction_field))
             station_height = float(stable_row.getValue(height_field))
 
-            # Find all sub-watersheds within this watershed and sum their volume values
-            cyield_sum = 0
-            rsupply_sum = 0
-            consump_sum = 0
+            ws_sc_rows = gp.SearchCursor(ws_scarcity_table)
+            ws_sc_row = ws_sc_rows.Reset
+            ws_sc_row = ws_sc_rows.Next()
 
-            while (sj_row):
-                if (int(sj_row.getValue(wshed_id_field)) == int(wshed_row.getValue(wshed_id_field))):
-                    # ArcMap helpfully changes the field names during CopyFeatures
-                    cyield_sum += sj_row.getValue("water_sc_1")
-                    rsupply_sum += sj_row.getValue("water_sc_5")
-                    consump_sum += sj_row.getValue("water_sc_3")
+            # Match watershed in scarcity table to row in the watershed shapefile
+            while (int(ws_sc_row.getValue(station_id_field)) <> int(wshed_row.getValue(wshed_id_field))):
+                ws_sc_row = ws_sc_rows.Next()
 
-                sj_row = sj_rows.Next()
-
-            # Delete cursor so it can be reused for next watershed
-            del sj_row, sj_rows
-            
-            Vin = rsupply_sum
+            # Vin = realized water supply (yield - demand)
+            Vin = float(ws_sc_row.getValue(out_table_rsupply_field))
 
             # Energy production 
             energy = station_efficiency * station_fraction * station_height * Vin * .00272
 
             # Output table
-            o_rows = gp.InsertCursor(hp_ws_table)
-            o_row = o_rows.NewRow()
+            o_rows = gp.UpdateCursor(hp_ws_table)
+            o_row = o_rows.Reset
+            o_row = o_rows.Next()
+
+            # Match watershed in the output table with row in watershed shapefile
+            while (int(o_row.getValue(station_id_field)) <> int(wshed_row.getValue(wshed_id_field))):
+                o_row = o_rows.Next()
             
             station_kwval = float(stable_row.getValue(kwval_field))
             station_time = float(stable_row.getValue(time_field))
@@ -373,15 +365,12 @@ try:
             NPV = ((station_kwval * energy) -  station_cost) * dsum
                         
             # Add new field values to output table
-            o_row.setValue(out_table_sid_field, int(wshed_row.getValue(wshed_id_field)))
             o_row.setValue(out_table_energy_field, float(energy))
             o_row.setValue(out_table_value_field, float(NPV))
-            o_row.setValue(out_table_cyield_field, float(cyield_sum))
-            o_row.setValue(out_table_consump_field, float(consump_sum))
-            o_row.setValue(out_table_rsupply_field, Vin)
-
-            o_rows.InsertRow(o_row)
+            o_rows.UpdateRow(o_row)
             wshed_row = wshed_rows.Next()
+
+            del stable_row, stable_rows, ws_sc_row, ws_sc_rows
                         
     except:
         gp.AddError("\nError calculating present value: " + gp.GetMessages(2))
@@ -393,11 +382,11 @@ try:
 
         gp.AddMessage("\nCreating watershed output...")
         
-        # Remap hydropower watershed raster with calculated values
         dsc = gp.describe(cyield_vol)
         cell_size = str(dsc.MeanCellHeight)
         
         gp.FeatureToRaster_conversion(watersheds, wshed_id_field, wshed_ras, cell_size)
+        gp.BuildRasterAttributeTable_management(wshed_ras)
         gp.MakeRasterLayer_management(wshed_ras, "wsheds", "#", "#")
 
         gp.CreateTable_management(interws, "test_hp")
@@ -406,13 +395,18 @@ try:
         gp.MakeTableView(hp_test_table, "test_table_view")
         gp.AddJoin_management("wsheds", "VALUE", "test_table_view", out_table_sid_field)
         gp.CopyRaster_management("wsheds", wsheds_j)
-        # Delete this now or Arc10 won't delete the Intermediate folder at the end
-        gp.Delete_management("wsheds")
 
-        # Remap again with energy, NPV, supply
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management("test_table_view")
+
+        # Map watersheds to calculated energy/value to do subsequent raster math
         gp.Lookup_sa(wsheds_j, out_table_energy_field, ws_energy1)
         gp.Lookup_sa(wsheds_j, out_table_value_field, ws_value1)
         gp.Lookup_sa(wsheds_j, out_table_rsupply_field, ws_rsupply)
+
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management(wsheds_j)
+            gp.Delete_management("wsheds")
 
         # Map dam life spans to corresponding watersheds
         gp.MakeRasterLayer_management(wshed_ras, wsheds_tmp, "#", "#")
@@ -420,21 +414,17 @@ try:
         gp.AddJoin_management(wsheds_tmp, "VALUE", stable_tmp, station_id_field)
         gp.CopyRaster_management(wsheds_tmp, wsheds_j2)
         gp.Lookup_sa(wsheds_j2, time_field, dam_timespan)
-        # Delete this now or Arc won't delete the Intermediate folder at the end
-        gp.Delete_management(wsheds_tmp)
+        
         gp.Delete_management(stable_tmp)
+        gp.Delete_management(wsheds_tmp)
 
         # Energy per watershed over lifetime of dam
         gp.Times_sa(ws_energy1, dam_timespan, ws_energy2)
         
         # Change negative values to zeroes
         gp.SingleOutputMapAlgebra_sa("CON(" + ws_energy2 + " < 0, 0, " + ws_energy2 + ")", ws_energy)
-
-        # Change negative values to zeroes
         gp.SingleOutputMapAlgebra_sa("CON(" +  ws_value1 + " < 0, 0, " + ws_value1 + ")", ws_value)
 
-        gp.AddMessage("\n\tCreated energy per watershed output file: \n\t" + str(ws_energy))   
-        gp.AddMessage("\n\tCreated value per watershed output file: \n\t" + str(ws_value))
         gp.AddMessage("\n\tCreated watershed output table: \n\t" + str(hp_ws_table))
         
     except:
@@ -462,7 +452,8 @@ try:
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "Value"
-        
+
+        # Aggregate energy/value by sub-watershed
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, subws_energy_ann, subws_energy_zstat, "DATA")
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, subws_value, subws_value_zstat, "DATA")
 
@@ -474,6 +465,7 @@ try:
         sv_row = sv_rows.Reset
         sv_row = sv_rows.Next()
 
+        # Set energy/value outputs in sub-watershed table
         while (se_row):
 
         # Find corresponding station in output (formerly scarcity) table
@@ -482,6 +474,7 @@ try:
             swtable_row = swtable_rows.Reset
             swtable_row = swtable_rows.Next()
 
+            # Match output table subwatershed to row in energy/value tables
             while (int(swtable_row.getValue(out_table_swid_field)) <> int(se_row.getValue(zstat_id_field))):
                 swtable_row = swtable_rows.Next()
 
@@ -492,6 +485,7 @@ try:
 
             se_row = se_rows.Next()
             sv_row = sv_rows.Next()
+            
         gp.AddMessage("\n\tCreated energy per sub-watershed output file: \n\t" + str(subws_energy))   
         gp.AddMessage("\n\tCreated value per sub-watershed output file: \n\t" + str(subws_value))
         gp.AddMessage("\n\tCreated sub-watershed output table:\n\t" + str(hp_subws_table))
@@ -521,7 +515,7 @@ try:
     # Clean up temporary files
     gp.AddMessage("\nCleaning up temporary files...\n")
     try:
-        del stable_row, stable_rows, wshed_row, wshed_rows, y_row, y_rows
+        del wshed_row, wshed_rows, y_row, y_rows
         del o_row, o_rows, se_row, se_rows, sv_row, sv_rows, swtable_row, swtable_rows
         gp.Delete_management(interws)
 

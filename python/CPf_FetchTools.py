@@ -1,6 +1,7 @@
+# Marine InVEST: Fetch Tools
 # Author: David Finlayson
-# Coded for ArcGIS 9.3 and 10
-# 02/16/11
+# Coded for ArcGIS 9.3 and 10 by Gregg Verutes
+# 04/25/11
 
 import os
 
