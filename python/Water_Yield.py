@@ -7,11 +7,12 @@
 # Driss Ennaanay, Guillermo Mendoza, Marc Conte
 # for the Natural Capital Project
 #
-# Last edit: 2/6/2011
+# Last edit: 7/19/2011
 #
 # Calculates actual evapotranspiration and surface water yield for each
 # sub-basin in a landscape
 # ---------------------------------------------------------------------------
+
 
 # Import system modules
 import sys, string, os, arcgisscripting, time, datetime
@@ -63,11 +64,11 @@ try:
         landuse = gp.GetParameterAsText(5)
         parameters.append("Landcover: " + landuse)
 
-        # Watershed shapefile
+        # Watersheds shapefile
         watersheds = gp.GetParameterAsText(6)
         parameters.append("Watersheds: " + watersheds)
 
-        # Sub-watershed shapefile
+        # Sub-watersheds shapefile
         sub_watersheds = gp.GetParameterAsText(7)
         parameters.append("Sub-watersheds: " + sub_watersheds)
 
@@ -93,7 +94,7 @@ try:
             Suffix = "_" + Suffix
         
     except:
-        gp.AddMessage("\nError in input arguments" + gp.GetMessages(2))
+        gp.AddMessage("\nError in input arguments: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -110,7 +111,7 @@ try:
             gp.CreateFolder_management(pfparent, pixelfolder)
 
     except:
-        gp.AddError("\nError creating folders: " + gp.GetMessages(2))
+        gp.AddError("\nError creating output folders: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -138,6 +139,16 @@ try:
         tmp_v1000ETk = interws + "tmp_v1000ETk"
         sub_watersheds_areas = interws + "subws_areas.shp"
         subws_areas = interws + "subws_areas"
+        ws_precip_table = interws + "ws_precip_zstat.dbf"
+        ws_pet_table = interws + "ws_pet_zstat.dbf"
+        ws_aet_table = interws + "ws_aet_zstat.dbf"
+        ws_wyield_table = interws + "ws_wyield_zstat.dbf"
+        sws_precip_table = interws + "sws_precip_zstat.dbf"
+        sws_pet_table = interws + "sws_pet_zstat.dbf"
+        sws_aet_table = interws + "sws_aet_zstat.dbf"
+        sws_wyield_table = interws + "sws_wyield_zstat.dbf"
+        watersheds_sjoin = interws + "wsheds_sjoin.shp"
+        
 
         # Input Biophysical Model table field names
         lucode_field = "lucode"
@@ -157,6 +168,8 @@ try:
         wyield_mean = servicews + "wyield_mn"
         wyield_vol = servicews + "wyield_vol"
         wyield_ha = servicews + "wyield_ha"
+        ws_out_table_name = "water_yield_watershed" + Suffix + ".dbf"
+        sws_out_table_name = "water_yield_subwatershed" + Suffix + ".dbf"
 
     except:
         gp.AddError("\nError configuring local variables: " + gp.GetMessages(2))
@@ -197,6 +210,7 @@ try:
     # Check input raster projections - they should all be the same
 
     try:
+        gp.AddMessage("\nChecking input raster projections...")
         precipDesc = gp.describe(landuse)
         precipspatref = precipDesc.SpatialReference
         rasters = (eto, soil_depth, pawf)
@@ -211,7 +225,7 @@ try:
                 gp.AddError("\nError: " + x + " is not in the same coordinate system as the precipitation raster.  " + x + " is projected in " + spatreflc.name + " while the precipitation layer is in " + precipspatref.name + ".  Please project all rasters in the same projection and rerun this tool.  Exiting tool....")  
                 raise Exception
     except:
-        gp.AddError("\nError in validating projections: " + gp.GetMessages(2)) 
+        gp.AddError("\nError checking input raster projections: " + gp.GetMessages(2)) 
         raise Exception
 
 
@@ -221,9 +235,10 @@ try:
         gp.cellSize = resolution
         # Make sure all temporary files go in the Intermediate folder
         gp.workspace = interws
+        install_info = gp.GetInstallInfo("desktop")
 
     except:
-        gp.AddError("\nError setting output cell size: " + gp.GetMessages(2))
+        gp.AddError("\nError setting geoprocessing environment: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -303,7 +318,7 @@ try:
         # Aggregate results into sub-watersheds
         gp.ZonalStatistics_sa(sub_watersheds, subwshed_id_field, wyield, wyield_mean, "MEAN", "DATA")
 
-        # Create water yield volume output
+        # Water yield volume
         gp.CalculateAreas_stats(sub_watersheds, sub_watersheds_areas)
         cell_size = gp.GetRasterProperties_management(wyield, "CELLSIZEX")
         gp.FeatureToRaster_conversion(sub_watersheds_areas, "F_AREA", subws_areas, cell_size)
@@ -324,6 +339,208 @@ try:
     except:
         gp.AddError("\nError running Yield calculations:" + gp.GetMessages(2))
         raise Exception
+
+    # Table to hold generated output values per watershed
+    gp.AddMessage("\nCreating watershed yield output table...")
+    try:
+        # output table field names
+        out_table_wshed_id_field = "ws_id"
+        out_table_precip_field = "precip_mn"
+        out_table_pet_field = "PET_mn"
+        out_table_aet_field = "AET_mn"
+        out_table_wyield_field = "wyield_mn"
+        out_table_wyield_sum_field = "wyield_sum"
+
+        gp.CreateTable_management(outputws, ws_out_table_name)
+        ws_out_table = outputws + ws_out_table_name
+
+        gp.AddField(ws_out_table, out_table_wshed_id_field, "long")
+        gp.AddField(ws_out_table, out_table_precip_field, "double")
+        gp.AddField(ws_out_table, out_table_pet_field, "double")
+        gp.AddField(ws_out_table, out_table_aet_field, "double")
+        gp.AddField(ws_out_table, out_table_wyield_field, "double")
+        gp.AddField(ws_out_table, out_table_wyield_sum_field, "double")
+        
+        # Remove Field1 - it's added by default and not used
+        gp.DeleteField_management(ws_out_table, "Field1")
+
+        out_table_rows = gp.InsertCursor(ws_out_table)
+
+        # Aggregate values by watershed
+        gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, precip, ws_precip_table, "DATA")
+        gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, eto, ws_pet_table, "DATA")
+        gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, aet, ws_aet_table, "DATA")
+        gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, wyield, ws_wyield_table, "DATA")
+
+        # Zonal stats field name changed in Arc10
+        if (install_info["Version"] == "10.0"):
+            zstat_id_field = wshed_id_field
+        else:
+            zstat_id_field = "Value"
+
+        precip_rows = gp.SearchCursor(ws_precip_table, "", "", "", zstat_id_field + " A")
+        precip_row = precip_rows.Reset
+        precip_row = precip_rows.Next()
+
+        pet_rows = gp.SearchCursor(ws_pet_table, "", "", "", zstat_id_field + " A")
+        pet_row = pet_rows.Reset
+        pet_row = pet_rows.Next()
+
+        aet_rows = gp.SearchCursor(ws_aet_table, "", "", "", zstat_id_field + " A")
+        aet_row = aet_rows.Reset
+        aet_row = aet_rows.Next()
+
+        wyield_rows = gp.SearchCursor(ws_wyield_table, "", "", "", zstat_id_field + " A")
+        wyield_row = wyield_rows.Reset
+        wyield_row = wyield_rows.Next()
+
+        # Add values to table
+        while (precip_row):
+            # Zonal stats field name has changed in Arc 10
+            if (install_info["Version"] == "10.0"):
+                ws_id = precip_row.getValue(wshed_id_field)
+            else:
+                ws_id = precip_row.getValue("VALUE")
+                
+            ws_precip = float(precip_row.getValue("MEAN"))
+            ws_pet = float(pet_row.getValue("MEAN"))
+            ws_aet = float(aet_row.getValue("MEAN"))
+            ws_wyield = float(wyield_row.getValue("MEAN"))
+            ws_wyield_sum = float(wyield_row.getValue("SUM"))
+            
+            new_row = out_table_rows.NewRow()
+            new_row.setValue(out_table_wshed_id_field, ws_id)
+            new_row.setValue(out_table_precip_field, ws_precip)
+            new_row.setValue(out_table_pet_field, ws_pet)
+            new_row.setValue(out_table_aet_field, ws_aet)
+            new_row.setValue(out_table_wyield_field, ws_wyield)
+            new_row.setValue(out_table_wyield_sum_field, ws_wyield_sum)
+
+            out_table_rows.InsertRow(new_row)
+            precip_row = precip_rows.Next()
+            pet_row = pet_rows.Next()
+            aet_row = aet_rows.Next()
+            wyield_row = wyield_rows.Next()
+
+        del precip_row, precip_rows, pet_row, pet_rows, aet_row, aet_rows, wyield_row, wyield_rows
+        del out_table_rows, new_row
+
+        gp.AddMessage("\n\tCreated watershed water yield output table: \n\t" + str(ws_out_table))
+
+    except:
+        gp.AddError ("\nError creating watershed water yield output table:" + gp.GetMessages(2))
+        raise Exception
+
+
+    # Table to hold generated output values per sub-watershed
+    gp.AddMessage("\nCreating sub-watershed yield output table...")
+    try:
+        # output table field names
+        out_table_wshed_id_field = "ws_id"
+        out_table_subwshed_id_field = "subws_id"
+        out_table_precip_field = "precip_mn"
+        out_table_pet_field = "PET_mn"
+        out_table_aet_field = "AET_mn"
+        out_table_wyield_field = "wyield_mn"
+        out_table_wyield_sum_field = "wyield_sum"
+
+        gp.CreateTable_management(outputws, sws_out_table_name)
+        sws_out_table = outputws + sws_out_table_name
+
+        gp.AddField(sws_out_table, out_table_wshed_id_field, "long")
+        gp.AddField(sws_out_table, out_table_subwshed_id_field, "long")
+        gp.AddField(sws_out_table, out_table_precip_field, "double")
+        gp.AddField(sws_out_table, out_table_pet_field, "double")
+        gp.AddField(sws_out_table, out_table_aet_field, "double")
+        gp.AddField(sws_out_table, out_table_wyield_field, "double")
+        gp.AddField(sws_out_table, out_table_wyield_sum_field, "double")
+        
+        # Remove Field1 - it's added by default and not used
+        gp.DeleteField_management(sws_out_table, "Field1")
+
+        out_table_rows = gp.InsertCursor(sws_out_table)
+
+        # Map sub-watersheds to their corresponding watersheds
+        gp.SpatialJoin_analysis(sub_watersheds, watersheds, watersheds_sjoin, "JOIN_ONE_TO_ONE", "KEEP_ALL", "#", "IS_WITHIN")
+
+        # Aggregate values by sub-watershed
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, precip, sws_precip_table, "DATA")
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, eto, sws_pet_table, "DATA")
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, aet, sws_aet_table, "DATA")
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, wyield, sws_wyield_table, "DATA")
+
+        # Zonal stats field name changed in Arc10
+        if (install_info["Version"] == "10.0"):
+            zstat_id_field = subwshed_id_field
+        else:
+            zstat_id_field = "Value"
+
+        precip_rows = gp.SearchCursor(sws_precip_table, "", "", "", zstat_id_field + " A")
+        precip_row = precip_rows.Reset
+        precip_row = precip_rows.Next()
+
+        pet_rows = gp.SearchCursor(sws_pet_table, "", "", "", zstat_id_field + " A")
+        pet_row = pet_rows.Reset
+        pet_row = pet_rows.Next()
+
+        aet_rows = gp.SearchCursor(sws_aet_table, "", "", "", zstat_id_field + " A")
+        aet_row = aet_rows.Reset
+        aet_row = aet_rows.Next()
+
+        wyield_rows = gp.SearchCursor(sws_wyield_table, "", "", "", zstat_id_field + " A")
+        wyield_row = wyield_rows.Reset
+        wyield_row = wyield_rows.Next()
+
+        # Add values to table
+        while (precip_row):
+
+            sj_rows = gp.SearchCursor(watersheds_sjoin, "", "", "", subwshed_id_field + " A")
+            sj_row = sj_rows.Reset
+            sj_row = sj_rows.Next()
+
+            # Match subwatershed in spatial join to one in the precip table
+            while (int(sj_row.getValue(subwshed_id_field)) <> int(precip_row.getValue(zstat_id_field))):
+                sj_row = sj_rows.Next()           
+
+            
+            # Zonal stats field name has changed in Arc 10
+            if (install_info["Version"] == "10.0"):
+                sws_id = precip_row.getValue(subwshed_id_field)
+            else:
+                sws_id = precip_row.getValue("VALUE")
+                
+            sws_precip = float(precip_row.getValue("MEAN"))
+            sws_pet = float(pet_row.getValue("MEAN"))
+            sws_aet = float(aet_row.getValue("MEAN"))
+            sws_wyield = float(wyield_row.getValue("MEAN"))
+            sws_wyield_sum = float(wyield_row.getValue("SUM"))
+            
+            new_row = out_table_rows.NewRow()
+            new_row.setValue(out_table_wshed_id_field, int(sj_row.getValue(wshed_id_field)))
+            new_row.setValue(out_table_subwshed_id_field, sws_id)
+            new_row.setValue(out_table_precip_field, sws_precip)
+            new_row.setValue(out_table_pet_field, sws_pet)
+            new_row.setValue(out_table_aet_field, sws_aet)
+            new_row.setValue(out_table_wyield_field, sws_wyield)
+            new_row.setValue(out_table_wyield_sum_field, sws_wyield_sum)
+
+            out_table_rows.InsertRow(new_row)
+            precip_row = precip_rows.Next()
+            pet_row = pet_rows.Next()
+            aet_row = aet_rows.Next()
+            wyield_row = wyield_rows.Next()
+
+            del sj_row, sj_rows
+
+        del precip_row, precip_rows, pet_row, pet_rows, aet_row, aet_rows, wyield_row, wyield_rows
+        del out_table_rows, new_row
+
+        gp.AddMessage("\n\tCreated sub-watershed water yield output table: \n\t" + str(sws_out_table))
+
+    except:
+        gp.AddError ("\nError creating sub-watershed water yield output table:" + gp.GetMessages(2))
+        raise Exception
+    
 
     # Write input parameters to an output file for user reference
     try:

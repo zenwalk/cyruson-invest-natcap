@@ -8,7 +8,7 @@
 # Driss Ennaanay, Guillermo Mendoza, Marc Conte
 # for the Natural Capital Project
 #
-# Last edit: 2/6/2011
+# Last edit: 4/21/2011
 #
 # Creates grid of realized supply - water supply minus demand -
 # over the landscape, and a table of water supply and demand
@@ -50,11 +50,11 @@ try:
         gp.workspace = gp.GetParameterAsText(0)
         parameters.append("Workspace: " + gp.workspace)
         
-        # Water supply volume raster from Yield script
+        # Water yield volume raster from Yield script
         wyield_vol = gp.GetParameterAsText(1)
         parameters.append("Water yield (volume): " + wyield_vol)
 
-        # Water supply mean raster from Yield script
+        # Water yield mean raster from Yield script
         wyield_mean = gp.GetParameterAsText(2)
         parameters.append("Water yield (mean): " + wyield_mean)
 
@@ -70,20 +70,28 @@ try:
         sub_watersheds = gp.GetParameterAsText(5)
         parameters.append("Sub-watersheds: " + sub_watersheds)
 
+        # Watershed yield table from biophysical script
+        ws_yield_table = gp.GetParameterAsText(6)
+        parameters.append("Watershed yield table: " + ws_yield_table)
+
+        # Sub-watershed yield table from biophysical script
+        sws_yield_table = gp.GetParameterAsText(7)
+        parameters.append("Sub-watershed yield table: " + sws_yield_table)
+
         # Water demand table
-        demand_table = gp.GetParameterAsText(6)
+        demand_table = gp.GetParameterAsText(8)
         parameters.append("Water demand table: " + demand_table)
 
         # Hydropower station info table 
-        station_table = gp.GetParameterAsText(7)
+        station_table = gp.GetParameterAsText(9)
         parameters.append("Hydropower table: " + station_table)
 
         # Output resolution
-        resolution = gp.GetParameterAsText(8)
+        resolution = gp.GetParameterAsText(10)
         parameters.append("Output resolution: " + str(resolution))
         
         # Results suffx
-        Suffix = gp.GetParameterAsText(9)
+        Suffix = gp.GetParameterAsText(11)
         parameters.append("Suffix: " + Suffix)
 
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -105,7 +113,7 @@ try:
                 gp.CreateFolder_management(gp.workspace, folder)
                 
     except:
-        gp.AddError("\nError creating folders: " + gp.GetMessages(2))
+        gp.AddError("\nError creating output folders: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -125,12 +133,15 @@ try:
         watersheds_join = interws + "wsheds_join"
         watersheds_calib = interws + "wsheds_calib"
         wshed_ras = interws + "wshed_ras"
-        wyield_calib_zstat = interws + "wyield_calib.dbf"
-        wyield_mean_zstat = interws + "wyield_mean.dbf"
-        consump_vol_zstat = interws + "consum_vol.dbf"
-        consump_mean_zstat = interws + "consum_mean.dbf"
-        rsupply_vol_zstat = interws + "rsupply_vol.dbf"
-        rsupply_mean_zstat = interws + "rsupply_mean.dbf"
+        sws_wyield_calib_zstat = interws + "sws_wyield_calib.dbf"
+        sws_consump_vol_zstat = interws + "sws_consum_vol.dbf"
+        sws_consump_mean_zstat = interws + "sws_consum_mean.dbf"
+        sws_rsupply_vol_zstat = interws + "sws_rsupply_vol.dbf"
+        sws_rsupply_mean_zstat = interws + "sws_rsupply_mean.dbf"
+        watersheds_sjoin = interws + "wsheds_sjoin.shp"
+        wsheds_sjoin_copy = interws + "wsheds_sjoinc.shp"
+        ws_consump_mean_zstat = interws + "ws_consum_mean.dbf"
+        ws_rsupply_mean_zstat = interws + "ws_rsupply_mean.dbf"
 
         # Input table field names
         lucode_field = "lucode"
@@ -146,9 +157,10 @@ try:
         wyield_calib = outputws + "cyield_vol"
         consump_vol = outputws + "consum_vol"
         consump_mean = outputws + "consum_mn"
-        rsupply_vol = outputws + "rsupply_vol"
-        rsupply_mean = outputws + "rsupply_mn"
-        out_table_name = "water_scarcity"
+        rsupply_vol = outputws + "rsup_vol"
+        rsupply_mean = outputws + "rsup_mn"
+        ws_out_table_name = "water_scarcity_watershed" + Suffix + ".dbf"
+        sws_out_table_name = "water_scarcity_subwatershed" + Suffix + ".dbf"
 
     except:
         gp.AddError("\nError configuring local variables: " + gp.GetMessages(2))
@@ -192,7 +204,7 @@ try:
         gp.workspace = interws
 
     except:
-        gp.AddError( "Error configuring output resolution: " + gp.GetMessages(2))
+        gp.AddError( "Error setting geoprocessing environment: " + gp.GetMessages(2))
         raise Exception
     
 
@@ -243,15 +255,17 @@ try:
 
         desc = gp.describe(wyield_vol)
         cell_size = str(desc.MeanCellHeight)
-
+        
         gp.FeatureToRaster_conversion(watersheds, wshed_id_field, wshed_ras, cell_size)
+        gp.BuildRasterAttributeTable_management(wshed_ras)
         gp.MakeRasterLayer_management(wshed_ras, "wsheds_tmp")
         gp.AddJoin_management("wsheds_tmp", "Value", "stable_tmp.dbf", station_id_field)
         gp.CopyRaster_management("wsheds_tmp", watersheds_join)
         gp.Lookup_sa(watersheds_join, station_calib_field, watersheds_calib)
-        # Delete now or Arc won't delete the Intermediate folder later
-        gp.Delete_management("wsheds_tmp")
+        
         gp.Delete_management("stable_tmp.dbf")
+        gp.Delete_management("wsheds_tmp")
+
 
         # Supply times the calibration constant
         gp.Times_sa(watersheds_calib, wyield_vol, wyield_calib)
@@ -270,20 +284,19 @@ try:
         gp.Minus_sa(wyield_calib, consump_vol, rsupply_vol)
         gp.Minus_sa(wyield_mean, consump_mean, rsupply_mean)
 
-        gp.AddMessage("\nCreated calibrated yield output grid: \n\t" + str(wyield_calib))
-        gp.AddMessage("\nCreated consumption output grids: \n\t" + str(consump_vol) + "\n\t" + str(consump_mean))
-        gp.AddMessage("\nCreated realized supply output grids: \n\t" + str(rsupply_vol) + "\n\t" + str(rsupply_mean))
+        gp.AddMessage("\n\tCreated calibrated yield output grid: \n\t" + str(wyield_calib))
+        gp.AddMessage("\n\tCreated consumption output grids: \n\t" + str(consump_vol) + "\n\t" + str(consump_mean))
+        gp.AddMessage("\n\tCreated realized supply output grids: \n\t" + str(rsupply_vol) + "\n\t" + str(rsupply_mean))
 
     except:
         gp.AddError("\nError calculating water scarcity: " + gp.GetMessages(2))
         raise Exception
 
-    # Create and populate table with output values for supply and consumption
+    # Create and populate sub-watershed table with output values for supply and consumption
     try:
-        gp.AddMessage("\nCreating output table...")
+        gp.AddMessage("\nCreating sub-watershed output table...")
 
         # output table field names
-        out_table_swsid_field = "subws_id"
         out_table_cyield_vol_field = "cyield_vl"
         out_table_yield_mean_field = "yield_mn"
         out_table_consump_vol_field = "consump_vl"
@@ -291,31 +304,28 @@ try:
         out_table_supply_vol_field = "rsupply_vl"
         out_table_supply_mean_field = "rsupply_mn"
 
-        out_table_dbf = out_table_name + Suffix + ".dbf"
-        gp.CreateTable_management(outputws, out_table_dbf)
-        out_table = outputws + out_table_dbf
+        gp.CreateTable_management(outputws, sws_out_table_name)
+        sws_out_table = outputws + sws_out_table_name
+        gp.CopyRows_management(sws_yield_table, sws_out_table)
         
-        gp.AddField(out_table, out_table_swsid_field, "long")
-        gp.AddField(out_table, out_table_cyield_vol_field, "double")
-        gp.AddField(out_table, out_table_yield_mean_field, "double")
-        gp.AddField(out_table, out_table_consump_vol_field, "double")
-        gp.AddField(out_table, out_table_consump_mean_field, "double")
-        gp.AddField(out_table, out_table_yield_mean_field, "double")
-        gp.AddField(out_table, out_table_supply_vol_field, "double")
-        gp.AddField(out_table, out_table_supply_mean_field, "double")
+        gp.AddField(sws_out_table, out_table_cyield_vol_field, "double")
+        gp.AddField(sws_out_table, out_table_consump_vol_field, "double")
+        gp.AddField(sws_out_table, out_table_consump_mean_field, "double")
+        gp.AddField(sws_out_table, out_table_supply_vol_field, "double")
+        gp.AddField(sws_out_table, out_table_supply_mean_field, "double")
 
-        gp.DeleteField_management(out_table, "Field1")
+        gp.DeleteField_management(sws_out_table, "Field1")
 
-        out_table_rows = gp.InsertCursor(out_table)
+        sws_out_table_rows = gp.UpdateCursor(sws_out_table)
+        sws_out_table_row = sws_out_table_rows.Reset
+        sws_out_table_row = sws_out_table_rows.Next()
 
-        # Supply and consumption totals by sub-watershed
-        
-        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, wyield_calib, wyield_calib_zstat, "DATA")
-        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, wyield_mean, wyield_mean_zstat, "DATA")
-        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, consump_vol, consump_vol_zstat, "DATA")
-        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, consump_mean, consump_mean_zstat, "DATA")
-        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, rsupply_vol, rsupply_vol_zstat, "DATA")
-        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, rsupply_mean, rsupply_mean_zstat, "DATA")
+        # Aggregate supply and consumption totals by sub-watershed
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, wyield_calib, sws_wyield_calib_zstat, "DATA")
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, consump_vol, sws_consump_vol_zstat, "DATA")
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, consump_mean, sws_consump_mean_zstat, "DATA")
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, rsupply_vol, sws_rsupply_vol_zstat, "DATA")
+        gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, rsupply_mean, sws_rsupply_mean_zstat, "DATA")
 
         # Zonal stats field name changed in Arc10
         if (install_info["Version"] == "10.0"):
@@ -323,38 +333,40 @@ try:
         else:
             zstat_id_field = "Value"
 
-        # Set up cursors for each zonal stat table, sort to ensure matching sub-watersheds
-        
-        yc_rows = gp.SearchCursor(wyield_calib_zstat, "", "", "", zstat_id_field + " A")
-        yc_row = yc_rows.Reset
-        yc_row = yc_rows.Next()
-
-        ym_rows = gp.SearchCursor(wyield_mean_zstat, "", "", "", zstat_id_field + " A")
-        ym_row = ym_rows.Reset
-        ym_row = ym_rows.Next()
-
-        cv_rows = gp.SearchCursor(consump_vol_zstat, "", "", "", zstat_id_field + " A")
-        cv_row = cv_rows.Reset
-        cv_row = cv_rows.Next()
-
-        cm_rows = gp.SearchCursor(consump_mean_zstat, "", "", "", zstat_id_field + " A")
-        cm_row = cm_rows.Reset
-        cm_row = cm_rows.Next()
-
-        sv_rows = gp.SearchCursor(rsupply_vol_zstat, "", "", "", zstat_id_field + " A")
-        sv_row = sv_rows.Reset
-        sv_row = sv_rows.Next()
-
-        sm_rows = gp.SearchCursor(rsupply_mean_zstat, "", "", "", zstat_id_field + " A")
-        sm_row = sm_rows.Reset
-        sm_row = sm_rows.Next()
-
-        sws_rows = gp.SearchCursor(sub_watersheds)
-        sws_row = sws_rows.Reset
-        sws_row = sws_rows.Next()
 
         # Populate output table with supply/consumption values
-        while (yc_row):
+        while (sws_out_table_row):
+
+            # Set up cursors for each zonal stat table, sort to ensure matching sub-watersheds
+            
+            yc_rows = gp.SearchCursor(sws_wyield_calib_zstat, "", "", "", zstat_id_field + " A")
+            yc_row = yc_rows.Reset
+            yc_row = yc_rows.Next()
+
+            cv_rows = gp.SearchCursor(sws_consump_vol_zstat, "", "", "", zstat_id_field + " A")
+            cv_row = cv_rows.Reset
+            cv_row = cv_rows.Next()
+
+            cm_rows = gp.SearchCursor(sws_consump_mean_zstat, "", "", "", zstat_id_field + " A")
+            cm_row = cm_rows.Reset
+            cm_row = cm_rows.Next()
+
+            sv_rows = gp.SearchCursor(sws_rsupply_vol_zstat, "", "", "", zstat_id_field + " A")
+            sv_row = sv_rows.Reset
+            sv_row = sv_rows.Next()
+
+            sm_rows = gp.SearchCursor(sws_rsupply_mean_zstat, "", "", "", zstat_id_field + " A")
+            sm_row = sm_rows.Reset
+            sm_row = sm_rows.Next()
+
+            # Match output table subwatershed to a row in the zonal stats tables
+            while (int(sws_out_table_row.getValue(subwshed_id_field)) <> int(yc_row.getValue(zstat_id_field))):
+
+                yc_row = yc_rows.Next()
+                cv_row = cv_rows.Next()
+                cm_row = cm_rows.Next()
+                sv_row = sv_rows.Next()
+                sm_row = sm_rows.Next()
 
             subwshed_id = int(yc_row.getValue(zstat_id_field))
 
@@ -362,35 +374,139 @@ try:
             # the mean will be that value
 
             out_table_wyield_calib = float(yc_row.getValue("MEAN"))
-            out_table_wyield_mean = float(ym_row.getValue("MEAN"))
             out_table_consump_vol = float(cv_row.getValue("MEAN"))
             out_table_consump_mean = float(cm_row.getValue("MEAN"))
             out_table_rsupply_vol = float(sv_row.getValue("MEAN"))
             out_table_rsupply_mean = float(sm_row.getValue("MEAN"))
 
-            new_row = out_table_rows.NewRow()
-            new_row.setValue(out_table_swsid_field, subwshed_id)
-        
-            new_row.setValue(out_table_cyield_vol_field, out_table_wyield_calib)
-            new_row.setValue(out_table_yield_mean_field, out_table_wyield_mean)
-            new_row.setValue(out_table_consump_vol_field, out_table_consump_vol)
-            new_row.setValue(out_table_consump_mean_field, out_table_consump_mean)
-            new_row.setValue(out_table_supply_vol_field, out_table_rsupply_vol)
-            new_row.setValue(out_table_supply_mean_field, out_table_rsupply_mean)
-            
-            out_table_rows.InsertRow(new_row)
+            sws_out_table_row.setValue(out_table_cyield_vol_field, out_table_wyield_calib)
+            sws_out_table_row.setValue(out_table_consump_vol_field, out_table_consump_vol)
+            sws_out_table_row.setValue(out_table_consump_mean_field, out_table_consump_mean)
+            sws_out_table_row.setValue(out_table_supply_vol_field, out_table_rsupply_vol)
+            sws_out_table_row.setValue(out_table_supply_mean_field, out_table_rsupply_mean)
+            sws_out_table_rows.UpdateRow(sws_out_table_row)
 
-            yc_row = yc_rows.Next()
-            ym_row = ym_rows.Next()
-            cv_row = cv_rows.Next()
-            cm_row = cm_rows.Next()
-            sv_row = sv_rows.Next()
-            sm_row = sm_rows.Next()
+
+            del yc_row, yc_rows, cv_row, cv_rows, cm_row, cm_rows, sv_row, sv_rows, sm_row, sm_rows
+            sws_out_table_row = sws_out_table_rows.Next()
                 
-        gp.AddMessage("\nCreated output table: \n\t" + str(out_table))
+        gp.AddMessage("\n\tCreated sub-watershed output table: \n\t" + str(sws_out_table))
 
     except:
-        gp.AddError("\nError creating output table: " + gp.GetMessages(2))
+        gp.AddError("\nError creating sub-watershed output table: " + gp.GetMessages(2))
+        raise Exception
+
+        # Create and populate sub-watershed table with output values for supply and consumption
+    try:
+        gp.AddMessage("\nCreating watershed output table...")
+
+        # output table field names
+        out_table_cyield_vol_field = "cyield_vl"
+        out_table_yield_mean_field = "yield_mn"
+        out_table_consump_vol_field = "consump_vl"
+        out_table_consump_mean_field = "consump_mn"
+        out_table_supply_vol_field = "rsupply_vl"
+        out_table_supply_mean_field = "rsupply_mn"
+
+        gp.CreateTable_management(outputws, ws_out_table_name)
+        ws_out_table = outputws + ws_out_table_name
+        gp.CopyRows_management(ws_yield_table, ws_out_table)
+        
+        gp.AddField(ws_out_table, out_table_cyield_vol_field, "double")
+        gp.AddField(ws_out_table, out_table_consump_vol_field, "double")
+        gp.AddField(ws_out_table, out_table_consump_mean_field, "double")
+        gp.AddField(ws_out_table, out_table_supply_vol_field, "double")
+        gp.AddField(ws_out_table, out_table_supply_mean_field, "double")
+
+        gp.DeleteField_management(ws_out_table, "Field1")
+
+        ws_out_table_rows = gp.UpdateCursor(ws_out_table)
+        ws_out_table_row = ws_out_table_rows.Reset
+        ws_out_table_row = ws_out_table_rows.Next()
+
+        gp.MakeTableView_management(sws_out_table, "sws_out_view")
+
+        # Aggregate supply and consumption by watershed
+        gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, consump_mean, ws_consump_mean_zstat, "DATA")
+        gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, rsupply_mean, ws_rsupply_mean_zstat, "DATA")
+
+        # Match sub-watersheds to corresponding watersheds
+        gp.SpatialJoin_analysis(sub_watersheds, watersheds, watersheds_sjoin, "JOIN_ONE_TO_ONE", "KEEP_ALL", "#", "IS_WITHIN")
+        gp.MakeFeatureLayer_management(watersheds_sjoin, "wsheds_sjoin_layer")
+        gp.AddJoin_management("wsheds_sjoin_layer", subwshed_id_field, "sws_out_view", subwshed_id_field)
+        gp.CopyFeatures_management("wsheds_sjoin_layer", wsheds_sjoin_copy)
+
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management("sws_out_view")
+            gp.Delete_management("wsheds_sjoin_layer")
+
+
+        while (ws_out_table_row):
+            
+            sj_rows = gp.SearchCursor(wsheds_sjoin_copy)
+            sj_row = sj_rows.Reset
+            sj_row = sj_rows.Next()
+
+            # Find all sub-watersheds within this watershed and sum their volume values
+            cyield_sum = 0
+            rsupply_sum = 0
+            consump_sum = 0
+
+            while (sj_row):
+
+                if (install_info["Version"] == "10.0"):
+                    if (int(sj_row.getValue("wsheds_s_4")) == int(ws_out_table_row.getValue(wshed_id_field))):
+                        # ArcMap helpfully changes the field names during CopyFeatures
+                        # Differently for 10 than for 9.3 
+                        cyield_sum += float(sj_row.getValue("water_sc_7"))
+                        rsupply_sum += float(sj_row.getValue("water_s_10"))
+                        consump_sum += float(sj_row.getValue("water_sc_8"))
+
+                else:
+                    if (int(sj_row.getValue(wshed_id_field)) == int(ws_out_table_row.getValue(wshed_id_field))):
+                        cyield_sum += sj_row.getValue("water_sc_5")
+                        rsupply_sum += sj_row.getValue("water_sc_8")
+                        consump_sum += sj_row.getValue("water_sc_6")
+
+                sj_row = sj_rows.Next()
+
+            # Get mean values for supply and consumption
+
+            # Zonal stats field name changed in Arc10
+            if (install_info["Version"] == "10.0"):
+                zstat_id_field = wshed_id_field
+            else:
+                zstat_id_field = "Value"
+
+            cm_rows = gp.SearchCursor(ws_consump_mean_zstat, "", "", "", zstat_id_field + " A")
+            cm_row = cm_rows.Reset
+            cm_row = cm_rows.Next()
+
+            rm_rows = gp.SearchCursor(ws_rsupply_mean_zstat, "", "", "", zstat_id_field + " A")
+            rm_row = rm_rows.Reset
+            rm_row = rm_rows.Next()
+
+            # Match output table watershed to a row in the supply/consumption tables
+            while (int(ws_out_table_row.getValue(wshed_id_field)) <> int(cm_row.getValue(zstat_id_field))):
+                cm_row = cm_rows.Next()
+                rm_row = rm_rows.Next()
+
+            ws_out_table_row.setValue(out_table_cyield_vol_field, float(cyield_sum))
+            ws_out_table_row.setValue(out_table_consump_vol_field, float(consump_sum))
+            ws_out_table_row.setValue(out_table_supply_vol_field, float(rsupply_sum))
+            ws_out_table_row.setValue(out_table_supply_mean_field, float(rm_row.getValue("MEAN")))
+            ws_out_table_row.setValue(out_table_consump_mean_field, float(cm_row.getValue("MEAN")))
+
+            ws_out_table_rows.UpdateRow(ws_out_table_row)
+            ws_out_table_row = ws_out_table_rows.Next()
+
+            # Delete cursor so it can be reused for next watershed
+            del sj_row, sj_rows, rm_row, rm_rows, cm_row, cm_rows
+
+        gp.AddMessage("\n\tCreated watershed output table: \n\t" + str(ws_out_table))
+
+    except:
+        gp.AddError("\nError creating watershed output table: " + gp.GetMessages(2))
         raise Exception
     
 
@@ -414,7 +530,8 @@ try:
     # Clean up temporary files
     gp.AddMessage("\nCleaning up temporary files...\n")
     try:
-        del yc_row, yc_rows, ym_row, ym_rows, cv_row, cv_rows, cm_row, cm_rows, sv_row, sv_rows, sm_row, sm_rows
+        del sws_out_table_row, sws_out_table_rows, ws_out_table_row, ws_out_table_rows
+            
         gp.Delete_management(interws)
     except:
         gp.AddError("\nError cleaning up temporary files:  " + gp.GetMessages(2))
