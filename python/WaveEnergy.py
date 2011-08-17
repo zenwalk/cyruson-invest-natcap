@@ -96,10 +96,6 @@ try:
         gp.AddField_management(FileName, FieldName, Type, Precision, Scale, "", "", "NON_NULLABLE", "NON_REQUIRED", "")
         return FileName
 
-    def checkGeometry(thedata, Type, Message):
-        if gp.Describe(thedata).ShapeType <> Type:
-            raise Exception, "\nInvalid input: "+thedata+"\n"+Message+" must be of geometry type "+Type+"."
-
     def checkDatum(thedata):
         desc = gp.describe(thedata)
         SR = desc.SpatialReference
@@ -144,7 +140,6 @@ try:
 
     # checks of AOI and DEM
     if AOI:
-        checkGeometry(AOI, "Polygon", "Area of Interest (AOI)")
         checkDatum(AOI)
         projection = grabProjection(AOI)
     checkDatum(DEM)

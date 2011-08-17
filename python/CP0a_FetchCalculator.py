@@ -22,7 +22,6 @@ gp.CheckOutExtension("conversion")
 
 # error messages
 msgArguments = "\nProblem with arguments."
-msgCheckGeom = "\nError checking the geometry of inputs."
 msgCheckDatum = "\nError checking the datum of inputs."
 msgDataPrep = "\nError preparing the data inputs."
 msgFetchCalc = "\nError calculating fetch distances."
@@ -111,10 +110,6 @@ try:
     if gp.ScratchWorkspace == "":
         gp.AddError("A scratch workspace must be defined in you Environment Settings for this script to function properly.")
         raise Exception
-
-    def checkGeometry(thedata, Type, Message):
-        if gp.Describe(thedata).ShapeType <> Type:
-            raise Exception, "\nInvalid input: "+thedata+"\n"+Message+" must be of geometry type "+Type+"."
 
     def checkDatum(thedata):
         desc = gp.describe(thedata)
@@ -301,15 +296,6 @@ try:
 
     try:
         gp.AddMessage("\nChecking inputs and preparing data...")
-        # check geometry
-        checkGeometry(landPoly, "Polygon", "Land Polygon")
-        checkGeometry(landLine, "Polyline", "Land Polyline")
-        checkGeometry(AOI, "Polygon", "Area of Interest (AOI)")
-    except:
-        gp.AddError(msgCheckGeom)
-        raise Exception
-
-    try:
         # check the datum of certain inputs
         theinputs=[landPoly, landLine, AOI]
         for input in theinputs:

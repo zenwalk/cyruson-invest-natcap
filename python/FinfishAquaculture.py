@@ -1,7 +1,7 @@
 # Marine InVEST: Finfish Aquaculture Model
 # Authors: Gregg Verutes, Jodie Toft, Apollo Xi
 # Coded for ArcGIS 9.3 and 10
-# 02/16/11
+# 08/17/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -251,8 +251,8 @@ try:
     #####################################################################
     try:
         gp.AddMessage("\nConducting growth simulation for "+str(int(SimLength))+" years...")
-        ## on first day, grabs input temp data (this approach happens only once)
-        ## model goes at daily time step, but is at different days of the year for different farms.
+        # on first day, grabs input temp data (this approach happens only once)
+        # model goes at daily time step, but is at different days of the year for different farms.
         for farm in range(0,len(FarmNum)):
             dayList.append(DayCount) # first day
             dayList.append(x2Sheet.Range(letterList[farm]+str(startDayList[farm])).Value) # start temp 
@@ -262,7 +262,7 @@ try:
         dayList = []
         DayCount += 1
         
-        ## remaining code --> model loops until simulation end day is reach
+        # for remaining code, model loops until simulation "end day" is reach
         while DayCount <= (SimLength*365):
             for farm in range(0,len(FarmNum)):
                 # next day number
@@ -276,8 +276,8 @@ try:
                 dayList.append(x2Sheet.Range(letterList[farm]+str(startDayList[farm]+tempCountList[farm])).Value)
                 # next day's temp_effect
                 dayList.append(exp((x2Sheet.Range(letterList[farm]+str(startDayList[farm]+tempCountList[farm])).Value) * tau))
-                ## fallowing period logic: since mass of harvested farm = 0 there will be no growth nor incorrect harvesting
-                ## if fallowing counter == 0, outplant and assign start weight
+                # fallowing period logic: since mass of harvested farm = 0 there will be no growth nor incorrect harvesting
+                # if fallowing counter == 0, outplant and assign start weight
                 if stopFallowList[farm] == 0 and farmHarvList[farm] == 'hold':
                     dayList.append((FarmSpecsArray[farm][1])*1000) 
                     farmHarvList[farm] = 'no' # change farmHarvList to 'no'
@@ -289,17 +289,17 @@ try:
                     dayList.append(aa*(dayArray[(DayCount-2)][((farm*4)+3)])**bb*(exp((x2Sheet.Range(letterList[farm]+str(startDayList[farm]+tempCountList[farm])).Value)*tau))+(dayArray[(DayCount-2)][((farm*4)+3)]))
             dayArray.append(dayList)         
 
-            ## always check if each farm has reached harvest weight --> if so, harvest
+            # always check if each farm has reached harvest weight --> if so, harvest
             for farm in range(0,len(FarmNum)):
                 w = dayList[((farm*4)+3)]
                 if w >= (FarmSpecsArray[farm][2]*1000.0): # harvest weight
                     farmHarvList[farm] = 'yes'
                 
-            ## harvest the farm --> add mass to FarmSpecsArray[row][6] --> also, allow for fallowing time (dormant) before growing for that farm again
+            # harvest the farm --> add mass to FarmSpecsArray[row][6] --> also, allow for fallowing time (dormant) before growing for that farm again
             for farm in range(0,len(farmHarvList)):
                 if farmHarvList[farm] == 'yes':
-                    ## add total weight of processed fish (TPW) to each farm's harvest mass tally (this includes mortality ratio)
-                    ## TPW = (weight at harvest * pct of fish wght after processing * (number of fish * EXP(-daily mortality rate * number of days since start of harvest)))
+                    # add total weight of processed fish (TPW) to each farm's harvest mass tally (this includes mortality ratio)
+                    # TPW = (weight at harvest * pct of fish wght after processing * (number of fish * EXP(-daily mortality rate * number of days since start of harvest)))
                     TPW = ((dayArray[(DayCount-1)][((farm*4)+3)]/1000)*DressWght*(FarmSpecsArray[farm][3]*numpy.exp(-(MortRate*numHarvDaysList[farm]))))
                     if ValuationBoolean == "true":
                         NetRev = (TPW*(MarketPrice*(1-PctPriceCost)))

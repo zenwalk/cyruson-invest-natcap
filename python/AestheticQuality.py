@@ -123,15 +123,6 @@ try:
         gp.AddField_management(FileName, FieldName, Type, Precision, Scale, "", "", "NON_NULLABLE", "NON_REQUIRED", "")
         return FileName
 
-    def checkGeometry(thedata, Type, Message):
-        if gp.Describe(thedata).ShapeType <> Type:
-            raise Exception, "\nInvalid input: "+thedata+"\n"+Message+" must be of geometry type "+Type+"."
-
-    def checkGeometry2(thedata):
-        if gp.Describe(thedata).ShapeType <> "Point" and gp.Describe(thedata).ShapeType <> "Polyline":
-            gp.AddError("\nInvalid input: "+thedata+" must be either of point or line geometry, and not polygon.")
-            raise Exception
-
     def ckProjection(data):
         dataDesc = gp.describe(data)
         spatreflc = dataDesc.SpatialReference
@@ -168,13 +159,10 @@ try:
     try:
         gp.AddMessage("\nChecking the inputs...")  
         # call various checking functions
-        checkGeometry(AOI, "Polygon", "Area of Interest (AOI)")
-        checkGeometry2(NegPointsCur)
         ckProjection(NegPointsCur)
         ckProjection(DEM) 
         compareProjections(NegPointsCur, DEM)
         if NegPointsFut:
-            checkGeometry2(NegPointsFut)
             ckProjection(NegPointsFut) 
             compareProjections(NegPointsFut, DEM)
         
@@ -185,7 +173,6 @@ try:
                 raise Exception
 
         if visualPolys:
-            checkGeometry(visualPolys, "Polygon", "Features for overlap analysis")
             ckProjection(visualPolys)
 
         if cellsize:
