@@ -71,10 +71,6 @@ try:
             gp.AddError("This model assumes that "+thedata+" is projected in meters for area calculations.  You may get erroneous results.")
             raise Exception
 
-    def checkGeometry(thedata, Type, Message):
-        if gp.Describe(thedata).ShapeType <> Type:
-            raise Exception, "\nInvalid input: "+thedata+"\n"+Message+" must be of geometry type "+Type+"."
-
     def grabProjection(data):
         dataDesc = gp.describe(data)
         sr = dataDesc.SpatialReference
@@ -91,7 +87,6 @@ try:
         # various checks and preps
         gp.Extent = AOI
         checkProjections(AOI)
-        checkGeometry(AOI, "Polygon", "Area of Interest (AOI)")
         projection = grabProjection(AOI)
         gp.OutputCoordinateSystem = projection
         AOI = AddField(AOI, "VALUE", "SHORT", "0", "0")
