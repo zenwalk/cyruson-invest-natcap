@@ -126,7 +126,17 @@ try:
         if strDatum == "D_WGS_1984":
             pass
         else:
-            gp.AddError(thedata+" is not a valid input.\nThe model requires data inputs and a projection with the \"WGS84\" datum.\nPlease review InVEST FAQ guide on how to reproject datasets.")
+            gp.AddError(thedata+" is not a valid input.\nThe model requires data inputs and a projection with the \"WGS84\" datum.\nPlease review InVEST FAQ guide on how to transform a layer's datum.")
+            raise Exception
+
+    def ckProjection(data):
+        dataDesc = gp.describe(data)
+        spatreflc = dataDesc.SpatialReference
+        if spatreflc.Type <> 'Projected':
+            gp.AddError(data +" does not appear to be projected.  It is assumed to be in meters.")
+            raise Exception
+        if spatreflc.LinearUnitName <> 'Meter':
+            gp.AddError("This model assumes that "+data+" is projected in meters for area calculations.  You may get erroneous results.")
             raise Exception
 
     def grabProjection(data):
@@ -316,6 +326,7 @@ try:
 
     try:
         # prepare the data
+        ckProjection(AOI)
         projection = grabProjection(AOI)
         gp.Clip_analysis(landLine, AOI, landLine_clip, "")
         if areaFilter:
