@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Gregg Verutes, Joey Bernhardt, Katie Arkema, Jeremy Davies 
-# 08/03/11
+# 08/17/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -19,7 +19,7 @@ gp.CheckOutExtension("conversion")
 # error messages
 msgArguments = "Problem with arguments."
 msgCheckInputs = "\nError checking and preparing inputs."
-msgBuildVAT = "\nError building VAT for zonal statistics raster.  Try opening a new ArcMap session and re-run the HRA model."
+msgBuildVAT = "\nError building VAT for zonal statistics raster.  Make sure there are no spaces in your path names.  Try opening a new ArcMap session and re-run the HRA model."
 msgPrepHSLayers ="\nError preparing habitat and stressor input layers."
 msgCheckHSLayers = "\nError checking habitat and stressor input layers."
 msgBuffRastHULayers = "\nError buffering and rasterizing stressor and habitat input layers."
@@ -119,6 +119,12 @@ try:
         gp.AddField_management(FileName, WghtFieldName, Type, Precision, Scale, "", "", "NON_NULLABLE", "NON_REQUIRED", "")
         return FileName
 
+    def checkPathLength(path):
+        pathLength = len(path)
+        if pathLength > 52:
+            gp.AddError("In order to properly build a value attribute table (VAT) for the gridded seascape, the path length of your workspace must be shorten by at least "+str(pathLength-52)+" character(s).")
+            raise Exception
+    
     def checkProjections(thedata):
         dataDesc = gp.describe(thedata)
         spatreflc = dataDesc.SpatialReference
@@ -135,9 +141,10 @@ try:
 
     try:
         gp.AddMessage("\nChecking and preparing inputs...")
+        # check to make sure workspace path length doesn't exceed limit for building VAT
+        checkPathLength(gp.GetParameterAsText(0))
         # copy and populate input FC attribute table
         gp.CopyFeatures_management(GriddedSeascape, GS_HQ, "", "0", "0", "0")
-
         # grab cellsize info
         cur = gp.UpdateCursor(GS_HQ)
         row = cur.Next()
