@@ -154,7 +154,7 @@ try:
     parafile.close()
 
     # delete superfluous intermediate data
-    del1 = [const_rst, consec_rst, constant_asc, consec_asc, interws+"constant_asc.prj"]
+    del1 = [const_rst, consec_rst, constant_asc, consec_asc, interws+"constant_asc.prj", interws+"intermediate"]
     deletelist = del1
     for data in deletelist:
         if gp.exists(data):

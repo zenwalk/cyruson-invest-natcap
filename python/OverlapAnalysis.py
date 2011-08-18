@@ -1,6 +1,6 @@
 # Marine InVEST: Overlap Analysis
 # Authors: Gregg Verutes, Mike Papenfus, Jodie Toft
-# 05/09/11
+# 08/17/11
 
 # import modules
 import sys, string, os, datetime, csv, shlex
@@ -108,6 +108,12 @@ try:
             gp.AddError("This model assumes that "+thedata+" is projected in meters for area calculations.  You may get erroneous results.")
             raise Exception
 
+    def checkPathLength(path):
+        pathLength = len(path)
+        if pathLength > 50:
+            gp.AddError("In order to properly build a value attribute table (VAT) for the gridded seascape, the path length of your workspace must be shorten by at least "+str(pathLength-50)+" character(s).")
+            raise Exception
+
     def grabProjection(data):
         dataDesc = gp.describe(data)
         sr = dataDesc.SpatialReference
@@ -150,6 +156,8 @@ try:
 
     try:
         gp.AddMessage("\nPreparing and checking human uses input data...")
+        # check to make sure workspace path length doesn't exceed limit for building VAT
+        checkPathLength(gp.GetParameterAsText(0))
         # copy and populate input FC attribute table
         gp.CopyFeatures_management(AnalysisZones, AnalysisZonesHU, "", "0", "0", "0")
 
