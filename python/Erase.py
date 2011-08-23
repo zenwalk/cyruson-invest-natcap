@@ -1,6 +1,6 @@
-# Marine InVEST: Erase Tool (for ArcView)
+# Marine InVEST: Erase Tool
 # Author: Gregg Verutes
-# 08/02/11
+# 08/23/11
 
 # import modules
 import sys, string, os, datetime
