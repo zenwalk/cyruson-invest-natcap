@@ -67,7 +67,7 @@ try:
         UnionExpr = inputFC+" 1; "+eraseFC+" 2"        
         gp.Union_analysis(UnionExpr, interFC)
 
-        # select features where "KEEP = 1"
+        # select features where "ERASE = 0"
         gp.Select_analysis(interFC, outputFC, "\"ERASE\" = 0")
 
         # create a list of all fields in eraseFC and inputFC
