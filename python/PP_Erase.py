@@ -30,7 +30,7 @@ try:
         raise Exception, msgArguments + gp.GetMessages(2)
 
     gp.workspace = outputFC[:-(1+len(outputFC.split("\\")[-1]))]
-    interFC = gp.workspace + "\\interUnion.shp"
+    unionFC = gp.workspace + "\\interUnion.shp"
     gp.Extent = "MAXOF"
 
     def AddField(FileName, WghtFieldName, Type, Precision, Scale):
@@ -65,10 +65,10 @@ try:
         eraseFC = AddField(eraseFC, "ERASE", "SHORT", "0", "0")
         gp.CalculateField_management(eraseFC, "ERASE", "1", "VB")
         UnionExpr = inputFC+" 1; "+eraseFC+" 2"        
-        gp.Union_analysis(UnionExpr, interFC)
+        gp.Union_analysis(UnionExpr, unionFC)
 
         # select features where "ERASE = 0"
-        gp.Select_analysis(interFC, outputFC, "\"ERASE\" = 0")
+        gp.Select_analysis(unionFC, outputFC, "\"ERASE\" = 0")
 
         # create a list of all fields in eraseFC and inputFC
         inputFieldList = []
@@ -103,7 +103,7 @@ try:
         raise Exception
 
     # delete intermediate data
-    gp.delete_management(interFC)
+    gp.delete_management(unionFC)
     gp.AddMessage("")
     del gp
 
