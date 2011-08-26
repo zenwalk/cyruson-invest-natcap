@@ -4,7 +4,7 @@
 # 06/26/11
 
 # import modules
-import sys, string, os, datetime
+import sys, string, os, datetime, shlex
 import arcgisscripting
 from math import *
 
@@ -97,6 +97,8 @@ try:
     vp_inter = interws + "vp_inter.shp"
     vp_inter_lyr = interws + "vp_inter.lyr"
     vp_inter2 = interws + "vp_inter2.shp"
+    AOI_geo = interws + "AOI_geo.shp"
+    pop_prj = interws + "pop_prj"
     zstatsPop_cur = interws + "zstatsPop_cur.dbf"
     zstatsPop_fut = interws + "zstatsPop_fut.dbf"
     zstats_vp_cur = interws + "zstats_vp_cur.dbf"
@@ -123,6 +125,20 @@ try:
         gp.AddField_management(FileName, FieldName, Type, Precision, Scale, "", "", "NON_NULLABLE", "NON_REQUIRED", "")
         return FileName
 
+    def getDatum(thedata):
+        desc = gp.describe(thedata)
+        SR = desc.SpatialReference
+        if SR.Type == "Geographic":
+            strDatum = SR.DatumName         
+        else:
+            gp.OutputCoordinateSystem = SR
+            strSR = str(gp.OutputCoordinateSystem)
+            gp.OutputCoordinateSystem = ""
+            n1 = strSR.find("GEOGCS")
+            n2 = strSR.find("PROJECTION")
+            strDatum = strSR[n1:n2-1]
+        return strDatum
+
     def ckProjection(data):
         dataDesc = gp.describe(data)
         spatreflc = dataDesc.SpatialReference
@@ -138,6 +154,13 @@ try:
             gp.AddError("Projection Error: "+NegPoints+" is in a different projection from the DEM input data.  The two inputs must be the same projection to conduct viewshed analysis.")
             raise Exception
 
+    def grabProjection(data):
+        dataDesc = gp.describe(data)
+        sr = dataDesc.SpatialReference
+        gp.OutputCoordinateSystem = sr
+        strSR = str(gp.OutputCoordinateSystem)
+        return strSR
+
     def checkCellSize(thedata):
          desc=gp.Describe(thedata)
          CellWidth = desc.MeanCellWidth
@@ -152,6 +175,10 @@ try:
         QrtList.append(stats.scoreatpercentile(list, 100))
         return QrtList
 
+    def findNearest(array,value):
+        idx=(numpy.abs(array-value)).argmin()
+        return array[idx]
+
 
     ##############################################################
     ######## CHECK INPUTS, SET ENVIRONMENTS, & DATA PREP #########
@@ -160,7 +187,10 @@ try:
         gp.AddMessage("\nChecking the inputs...")  
         # call various checking functions
         ckProjection(NegPointsCur)
-        ckProjection(DEM) 
+        ckProjection(DEM)
+
+        ## CHECK DATUM AND PROJECTION OF AOI
+        
         compareProjections(NegPointsCur, DEM)
         if NegPointsFut:
             ckProjection(NegPointsFut) 
@@ -183,7 +213,7 @@ try:
         # set environments
         gp.Extent = AOI
         gp.Mask = AOI
-
+        
         # check that AOI intersects DEM extent
         gp.Reclassify_sa(DEM, "Value", "-1000000 100000 1", DEM_1_rc, "DATA")
         gp.RasterToPolygon_conversion(DEM_1_rc, DEM_2poly, "SIMPLIFY", "Value")
@@ -226,7 +256,35 @@ try:
         NegPointsCountCur = gp.GetCount_management(NegPointsCur)
         gp.Reclassify_sa(vshed_cur, "VALUE", "0 1;1 "+str(NegPointsCountCur)+" 2", vshed_rcc, "DATA")
         gp.BuildRasterAttributeTable_management(vshed_rcc, "Overwrite")
-        gp.ZonalStatisticsAsTable_sa(vshed_rcc, "VALUE", globalPop, zstatsPop_cur, "DATA")
+
+        # get projection from AOI
+        projection = grabProjection(AOI)
+        # return projected AOI to geographic (unprojected)
+        geo_projection = getDatum(AOI)
+        gp.Project_management(AOI, AOI_geo, geo_projection)
+        # grab latitude value of AOI polygons's centroid
+        cur = gp.UpdateCursor(AOI_geo)
+        row = cur.Next()
+        feat = row.Shape
+        midpoint = feat.Centroid
+        midList = shlex.split(midpoint)
+        midList = [float(s) for s in midList]
+        del cur
+        del row
+        latValue = numpy.abs(midList[1])
+
+        # based on centroid of AOI, calculate latitude for approximate projection cell size
+        latList = [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 27.5, 30.0, 32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5, 70.0, 72.5, 75.0, 77.5, 80.0]
+        cellSizeList = [927.99, 924.39, 920.81, 917.26, 913.74, 902.85, 892.22, 881.83, 871.69, 853.83, 836.68, 820.21, 804.38, 778.99, 755.17, 732.76, 711.64, 679.16, 649.52, 622.35, 597.37, 557.69, 522.96, 492.30, 465.03, 416.93, 377.84, 345.46, 318.19, 256.15, 214.36, 184.29, 161.62]
+        latList = numpy.array(latList)
+        #latValue = 49.1
+        latList_near = findNearest(latList,latValue)
+        latList_index = numpy.where(latList==latList_near)
+
+        # project and clip global population raster
+        gp.ProjectRaster_management(globalPop, pop_prj, projection, "BILINEAR", str(cellSizeList[latList_index[0]]), "", "", "")
+        
+        gp.ZonalStatisticsAsTable_sa(vshed_rcc, "VALUE", pop_prj, zstatsPop_cur, "DATA")
         if NegPointsFut:
             NegPointsCountFut = gp.GetCount_management(NegPointsFut)
             gp.Reclassify_sa(vshed_fut, "VALUE", "0 1;1 "+str(NegPointsCountFut)+" 2", vshed_rcf, "DATA")
