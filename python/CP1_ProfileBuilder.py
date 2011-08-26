@@ -73,6 +73,8 @@ except:
 BufferDist = 150
 SampInterval = 1
 TransectDist = 1.0
+BearingsNum = 16
+RadLineDist = 100000
 
 # intermediate and output directories
 outputws = gp.workspace + os.sep + "Output" + os.sep
@@ -87,10 +89,21 @@ LandPoint_Geo = interws + "LandPoint_Geo.shp"
 Shoreline = interws + "Shoreline.shp"
 Shoreline_Buff_Clip = interws + "Shoreline_Buff_Clip.shp"
 Shoreline_Buff_Clip_Diss = interws + "Shoreline_Buff_Clip_Diss.shp"
+PtsCopy = interws + "PtsCopy.shp"
+PtsCopy2 = interws + "PtsCopy2.shp"
+PtsCopyLR = interws + "PtsCopy2_lineRotate.shp"
+Fetch_AOI = interws + "Fetch_AOI.shp"
+UnionFC = interws + "UnionFC.shp"
+SeaPoly = interws + "SeaPoly.shp"
+PtsCopyEL = interws + "PtsCopy2_eraseLand.shp"
+PtsCopyExp = interws + "PtsCopy2_explode.shp"
+PtsCopyExp_Lyr = interws + "PtsCopy2_explode.lyr"
 
-Profile_Txt = outputws + "Profile_Txt.txt" ## IS THIS NECESSARY
+Profile_Txt = outputws + "Profile_Txt.txt"
+Profile_Pts = outputws + "Profile_Pts.shp"
 Profile_Plot = outputws + "Profile_Plot.png"
 Profile_HTML = outputws + "Profile_HTML.html"
+Fetch_Vectors = outputws + "Fetch_Vectors.shp"
 
 # various functions and checks
 def AddField(FileName, FieldName, Type, Precision, Scale):
@@ -467,13 +480,18 @@ if BathCheckNearshore==1: # model extracts value from GIS layers
         gp.AddError("Neither transect overlaps the seas.  Please check the location of your 'LandPoint' and bathymetry inputs.")
         raise Exception
 
-    #gp.AddMessage(str(DepthStart1))
-    #gp.AddMessage(str(DepthStart2))
-    #gp.AddMessage(str(len(xd)))
-    #gp.AddMessage(str(len(Dmeas)))
-    #gp.AddMessage(str(xd))
-    #gp.AddMessage(str(Dmeas))
-    
+    # create txt profile for erosion portion
+    file = open(Profile_Txt, "a")
+    for i in range(0,len(Dmeas)):
+        file.writelines(str(xd[i])+" "+str(Dmeas[i])+"\n")
+    file.close()
+
+    # create final point transect file
+    if DepthStart1 < DepthStart2:
+        gp.Select_analysis(PT1_Z, Profile_Pts, "\"PT_ID\" > "+str(DepthStart1-1)+" AND \"PT_ID\" < "+str(DepthStart1+counter))
+    else:
+        gp.Select_analysis(PT2_Z, Profile_Pts, "\"PT_ID\" > "+str(DepthStart2-1)+" AND \"PT_ID\" < "+str(DepthStart2+counter))
+
 ##    TextData=open(r'E:\MarineInVEST\CoastalProtection\Tier1\081711\ProfileBuilder\CentralCoral_LagoonIntegers.txt',"r") #Assume that it's this profile
 ##    xd = [];Dmeas = []
 ##    for line in TextData.readlines():
@@ -742,6 +760,159 @@ for para in parameters:
     parafile.writelines(para+"\n")
     parafile.writelines("\n")
 parafile.close()
+
+
+# create fetch vectors
+# copy original point twice and add fields to second copy
+gp.CopyFeatures_management(LandPoint, PtsCopy, "", "0", "0", "0")
+gp.CopyFeatures_management(LandPoint, PtsCopy2, "", "0", "0", "0")
+PtsCopy2 = AddField(PtsCopy2, "DISTANCE", "SHORT", "8", "")
+PtsCopy2 = AddField(PtsCopy2, "BEARING", "DOUBLE", "", "")
+PtsCopy2 = AddField(PtsCopy2, "BISECTANG", "DOUBLE", "", "")
+
+CopyExpr = PtsCopy
+for i in range(0,((BearingsNum*9)+BearingsNum)-2):
+    CopyExpr = CopyExpr + ";"+PtsCopy
+
+BiSectAngFullList = []
+BiSectAngList = [0.0, 0.15707963267948966, 0.11780972450961724, 0.078539816339744828, 0.039269908169872414, \
+                 0.0, 0.039269908169872414, 0.078539816339744828, 0.11780972450961724, 0.15707963267948966, 0.0]
+
+for i in range(0,16):
+    for j in range(0,10):
+        BiSectAngFullList.append(BiSectAngList[j])
+    
+gp.Append_management(CopyExpr, PtsCopy2, "NO_TEST", "","")
+gp.CalculateField_management(PtsCopy2, "DISTANCE", str(RadLineDist), "PYTHON", "")
+
+# translate information from list into perp transect attribute table
+cur = gp.UpdateCursor(PtsCopy2, "", "", "BEARING; FID; BISECTANG")
+row = cur.Next()
+m = 0
+while row:
+    FID = float(row.GetValue("FID"))
+    Bearing = float((360.000/((BearingsNum*9)+BearingsNum))* FID)
+    row.SetValue("Bearing", Bearing)
+    row.SetValue("BiSectAng", BiSectAngFullList[m])
+    m = m + 1
+    cur.UpdateRow(row)
+    row = cur.Next()
+del cur    
+del row
+
+# get the parameters
+fc = string.replace(PtsCopy2,"\\","/")
+# describe
+descfc = gp.describe(fc)
+sr = descfc.spatialreference
+# process the feature class attributes
+lstfc = string.split(fc,"/")
+for fl in lstfc:
+    fn = fl
+strWorkspace = string.replace(fc,fl,"")
+gp.workspace = strWorkspace
+# shapefile
+newfn = string.replace(fl, ".shp", "_lineRotate.shp")
+# check for existence
+if gp.exists(strWorkspace + newfn):
+    gp.delete_management(strWorkspace + newfn )
+    gp.refreshcatalog(gp.workspace)
+# create the feature class
+gp.CreateFeatureClass_management(gp.workspace, newfn, "POLYLINE", fc, "SAME_AS_TEMPLATE", "SAME_AS_TEMPLATE", sr)
+addrecs = gp.insertcursor(strWorkspace + newfn)
+# refresh the catalog
+gp.refreshcatalog(gp.workspace)
+  
+recs = gp.SearchCursor(fc)
+rec = recs.next()
+lstFields = gp.listfields(fc)
+while rec:
+    # get the angle
+    rotation = rec.getvalue("BEARING")
+    length = rec.getvalue("DISTANCE")
+    bearing = math.radians(rotation)
+    angle = math.radians((360 - math.degrees(bearing)) + 90)        
+    # get the feature and compute the to point
+    pt = rec.shape.getpart(0)
+    x = operator.add(math.cos(angle) * length, pt.x)
+    y = operator.add(math.sin(angle) * length, pt.y)
+    # build up the record
+    addrec = addrecs.newrow()    
+    # create the shape
+    newArray = gp.createobject("array")
+    newArray.add (pt)
+    newPt = gp.createobject("point")
+    newPt.x = x
+    newPt.y = y
+    newArray.add(newPt)
+    # maintain the attributes
+    lstFields.reset()
+    fld = lstFields.next()
+    while fld:
+        if fld.name <> "FID" and fld.name <> "OBJECTID" and fld.name <> "SHAPE":
+            addrec.setvalue(fld.name, rec.getvalue(fld.name))
+        fld = lstFields.next()
+    # add shape
+    addrec.shape = newArray
+    addrecs.insertrow(addrec)
+    rec = recs.next()
+
+# convert DEM into bathy polygon
+gp.Extent = PtsCopyLR
+
+# grab projection spatial reference from 'LandPoly' input
+dataDesc = gp.describe(LandPoly)
+spatialRef = dataDesc.SpatialReference
+gp.CreateFeatureClass_management(interws, "Fetch_AOI.shp", "POLYGON", "#", "#", "#", spatialRef)
+
+# grab four corners from 'PtsCopyLR'
+CoordList = shlex.split(gp.Extent)
+
+# when creating a polygon, the coordinates for the starting point must be the same as the coordinates for the ending point
+cur = gp.InsertCursor(Fetch_AOI)
+row = cur.NewRow()
+PolygonArray = gp.CreateObject("Array")
+pnt = gp.CreateObject("Point")
+pnt.x = float(CoordList[0])
+pnt.y = float(CoordList[1])
+PolygonArray.add(pnt)
+pnt.x = float(CoordList[0])
+pnt.y = float(CoordList[3])
+PolygonArray.add(pnt)
+pnt.x = float(CoordList[2])
+pnt.y = float(CoordList[3])
+PolygonArray.add(pnt)
+pnt.x = float(CoordList[2])
+pnt.y = float(CoordList[1])
+PolygonArray.add(pnt)
+pnt.x = float(CoordList[0])
+pnt.y = float(CoordList[1])
+PolygonArray.add(pnt)
+row.shape = PolygonArray
+cur.InsertRow(row)
+del row, cur
+
+# erase from 'Fetch_AOI' areas where there is land
+LandPoly = AddField(LandPoly, "ERASE", "SHORT", "0", "0")
+gp.CalculateField_management(LandPoly, "ERASE", "1", "VB")
+UnionExpr = Fetch_AOI+" 1; "+LandPoly+" 2"        
+gp.Union_analysis(UnionExpr, UnionFC)
+
+# select features where "ERASE = 0"
+gp.Select_analysis(UnionFC, SeaPoly, "\"ERASE\" = 0")
+
+# erase parts of line where it overlaps land (works for ArcView)
+gp.Intersect_analysis(PtsCopyLR+" 1;"+SeaPoly+" 2", PtsCopyEL, "ALL", "", "INPUT")
+gp.MultipartToSinglepart_management(PtsCopyEL, PtsCopyExp)
+# convert to layer to select only lines originating from point source
+gp.MakeFeatureLayer_management(PtsCopyExp, PtsCopyExp_Lyr, "", gp.workspace, "")
+gp.SelectLayerByLocation_management(PtsCopyExp_Lyr, "WITHIN_A_DISTANCE", LandPoint, "20 Meters", "NEW_SELECTION")
+gp.CopyFeatures_management(PtsCopyExp_Lyr, Fetch_Vectors, "", "0", "0", "0")
+# add and calculate "LENGTH_M" field
+Fetch_Vectors = AddField(Fetch_Vectors, "LENGTH_M", "LONG", "6", "")
+gp.CalculateField_management(Fetch_Vectors, "LENGTH_M", "!shape.length@meters!", "PYTHON", "")
+
+
 
 # future code for WW3
 ####gp.Extent = aoi_rst
