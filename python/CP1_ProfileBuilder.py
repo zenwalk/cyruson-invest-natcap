@@ -1,9 +1,10 @@
 # Marine InVEST: Coastal Protection (Profile Builder)
 # Authors: Greg Guannel, Gregg Verutes
-# 08/25/10
+# 08/30/10
 
 ## TO DO ##
-## COPY EXCEL FILE AND FILL IN WW3 ROW
+## SWITCH LOGIC FROM EXCEL TO INTERFACE
+## FIGURE OUT HOW TO FORCE THE PROJECTION TO BE WGS84 DATUM
 
 # CHANGE LOG:
 # April 7: Make some add'l modifs. Don't have dune width anymore.
@@ -51,13 +52,15 @@ try:
     LandPoly = gp.GetParameterAsText(2)
     parameters.append("Land Polygon: "+ LandPoly)
     InputTable = gp.GetParameterAsText(3)
-    parameters.append("Input Table: "+ InputTable)
-    BathyGrid = gp.GetParameterAsText(4)
-    parameters.append("Bathymetric Grid: "+ BathyGrid)
-    WaveWatch3 = gp.GetParameterAsText(5)
-    parameters.append("Wave Watch 3 Model Data: "+ WaveWatch3)
-    WW3_PtID = gp.GetParameterAsText(6)
-    parameters.append("WW3 Pt ID: "+ WW3_PtID)
+    parameters.append("Profile Builder Table: "+ InputTable)
+    QuestProfile = gp.GetParameterAsText(4)
+    parameters.append("Do you have a nearshore bathymetry GIS layer?: "+ QuestProfile)
+    BathyGrid = gp.GetParameterAsText(5)
+    parameters.append("IF 1: Bathymetric Grid (DEM): "+ BathyGrid)
+    CSProfile = gp.GetParameterAsText(6)
+    parameters.append("IF 2: Upload Your Cross-Shore Profile: "+ CSProfile)
+    WW3_Pts = gp.GetParameterAsText(7)
+    parameters.append("Wave Watch 3 Model Data: "+ WW3_Pts)
 except:
     raise Exception, msgArguments + gp.GetMessages(2)
 
@@ -95,9 +98,14 @@ PtsCopyLR = interws + "PtsCopy2_lineRotate.shp"
 Fetch_AOI = interws + "Fetch_AOI.shp"
 UnionFC = interws + "UnionFC.shp"
 SeaPoly = interws + "SeaPoly.shp"
+seapoly_rst = interws + "seapoly_rst"
+seapoly_e = interws + "seapoly_e"
 PtsCopyEL = interws + "PtsCopy2_eraseLand.shp"
 PtsCopyExp = interws + "PtsCopy2_explode.shp"
 PtsCopyExp_Lyr = interws + "PtsCopy2_explode.lyr"
+WW3_Pts_prj = interws + "WW3_Pts_prj.shp"
+costa_ww3 = interws + "costa_ww3"
+LandPoint_WW3 = interws + "LandPoint_WW3.shp"
 
 Profile_Txt = outputws + "Profile_Txt.txt"
 Profile_Pts = outputws + "Profile_Pts.shp"
@@ -286,8 +294,8 @@ ShoreMod1=cell.Range("g77").Value
 ShoreMod2=cell.Range("g78").Value
 ShoreMod3=cell.Range("g79").Value
 
-xlApp.ActiveWorkbook.Close(SaveChanges=0)
-xlApp.Quit()
+##xlApp.ActiveWorkbook.Close(SaveChanges=0)
+##xlApp.Quit()
 
 # put bathy profiles together #
 x=num.arange(0,10000.1,.1) # long axis
@@ -495,7 +503,7 @@ if BathCheckNearshore==1: # model extracts value from GIS layers
 ##    TextData=open(r'E:\MarineInVEST\CoastalProtection\Tier1\081711\ProfileBuilder\CentralCoral_LagoonIntegers.txt',"r") #Assume that it's this profile
 ##    xd = [];Dmeas = []
 ##    for line in TextData.readlines():
-##        linelist= [float(s) for s in line.split("\t")] # split the list by comma delimiter
+##        linelist= [float(s) for s in line.split("\t")] # split the list by comma/tab delimiter
 ##        xd.append(linelist[0])
 ##        Dmeas.append(linelist[1])
 
@@ -565,7 +573,7 @@ if BathCheckNearshore==1 or BathCheckNearshore==2: # model extracts value from G
             yb[-1]=0
             # remove points that are landward of DuneCrest/4
             idx=yb.argmax()
-            la=Closest.Indexed(yb,yb[idx]-.1) # find values near crest
+            la=Indexed(yb,yb[idx]-.1) # find values near crest
             la=la[0] # approx location of first crest
             Per=(la[0]-Toe) # period of the sinusoid
             # make sinusoid smaller after 1/4 period for plotting purposes
@@ -912,43 +920,54 @@ gp.CopyFeatures_management(PtsCopyExp_Lyr, Fetch_Vectors, "", "0", "0", "0")
 Fetch_Vectors = AddField(Fetch_Vectors, "LENGTH_M", "LONG", "6", "")
 gp.CalculateField_management(Fetch_Vectors, "LENGTH_M", "!shape.length@meters!", "PYTHON", "")
 
+# create cost surface based on 'SeaPoly'
+gp.Extent = Fetch_AOI
+projection = grabProjection(LandPoint)
+gp.Project_management(WW3_Pts, WW3_Pts_prj, projection)
+SeaPoly = AddField(SeaPoly, "SEA", "SHORT", "", "")
+gp.CalculateField_management(SeaPoly, "SEA", "1", "PYTHON", "")
+gp.FeatureToRaster_conversion(SeaPoly, "SEA", seapoly_rst, "250")
+gp.Expand_sa(seapoly_rst, seapoly_e, "1", "1")
+# allocate 'WW3_Pts' throughout cost surface
+gp.CostAllocation_sa(WW3_Pts_prj, seapoly_e, costa_ww3, "", "", "FID", "", "")
+# determine which point is closest to 'LandPoint'
+gp.ExtractValuesToPoints_sa(LandPoint, costa_ww3, LandPoint_WW3, "NONE")
+cur = gp.UpdateCursor(LandPoint_WW3)
+row = cur.Next()
+WW3_FID = row.GetValue("RASTERVALU")
+del row
+del cur
 
+# populate list with data from closest WW3 point
+WW3_ValuesList = []
+dirList = [0, 22, 45, 67, 90, 112, 135, 157, 180, 202, 225, 247, 270, 292, 315, 337]
+SrchCondition = "FID = "+str(WW3_FID)
+cur = gp.SearchCursor(WW3_Pts_prj, SrchCondition, "", "")
+row = cur.Next()
+WW3_ValuesList.append(row.GetValue("LAT"))
+WW3_ValuesList.append(row.GetValue("LONG"))
+for i in range(0,len(dirList)):
+    WW3_ValuesList.append(row.GetValue("V10PCT_"+str(dirList[i])))
+for i in range(0,len(dirList)):
+    WW3_ValuesList.append(row.GetValue("V25PCT_"+str(dirList[i])))
+for i in range(0,len(dirList)):
+    WW3_ValuesList.append(row.GetValue("V_MAX_"+str(dirList[i])))
+WW3_ValuesList.append(row.GetValue("W_POWER"))
+WW3_ValuesList.append(row.GetValue("H_10PCT"))
+WW3_ValuesList.append(row.GetValue("T_10PCT"))
+WW3_ValuesList.append(row.GetValue("H_25PCT"))
+WW3_ValuesList.append(row.GetValue("T_25PCT"))
+WW3_ValuesList.append(row.GetValue("H_MAX"))
+WW3_ValuesList.append(row.GetValue("T_MAX"))
+WW3_ValuesList.append(row.GetValue("H_10YR"))
+WW3_ValuesList.append(row.GetValue("He"))
+WW3_ValuesList.append(row.GetValue("Hmod"))
+WW3_ValuesList.append(row.GetValue("Tmod"))
+del row
+del cur
 
-# future code for WW3
-####gp.Extent = aoi_rst
-####projection = grabProjection(aoi_rst)
-####gp.Project_management(WW3_Pts, WW3_Pts_prj, projection)
-####gp.CostAllocation_sa(WW3_Pts_prj, costsurf_e, costa_ww3, "", "", "FID", "", "")
-####gp.ExtractValuesToPoints_sa(LandPoint, costa_ww3, LandPoint_WW3, "NONE")
-####cur = gp.UpdateCursor(LandPoint_WW3)
-####row = cur.Next()
-####WW3_FID = row.GetValue("RASTERVALU")
-####del row
-####del cur
-####
-####WW3_ValuesList = []
-####dirList = [0, 22, 45, 67, 90, 112, 135, 157, 180, 202, 225, 247, 270, 292, 315, 337]
-####SrchCondition = "FID = "+str(WW3_FID)
-####
-####cur = gp.SearchCursor(WW3_Pts_prj, SrchCondition, "", "")
-####row = cur.Next()
-####WW3_ValuesList.append(row.GetValue("LAT"))
-####WW3_ValuesList.append(row.GetValue("LONG"))
-####for i in range(0,len(dirList)):
-####    WW3_ValuesList.append(row.GetValue("V_5PCT_"+str(dirList[i])))
-####for i in range(0,len(dirList)):
-####    WW3_ValuesList.append(row.GetValue("V_2PCT_"+str(dirList[i])))
-####for i in range(0,len(dirList)):
-####    WW3_ValuesList.append(row.GetValue("V_MAX_"+str(dirList[i])))
-####for i in range(0,len(dirList)):
-####    ##WW3_ValuesList.append(row.GetValue("V_10Yr_"+str(dirList[i])))
-####WW3_ValuesList.append(row.GetValue("H_5PCT"))
-####WW3_ValuesList.append(row.GetValue("T_5PCT"))
-####WW3_ValuesList.append(row.GetValue("H_2PCT"))
-####WW3_ValuesList.append(row.GetValue("T_2PCT"))
-####WW3_ValuesList.append(row.GetValue("H_MAX"))
-####WW3_ValuesList.append(row.GetValue("T_MAX"))
-####WW3_ValuesList.append(row.GetValue("H_10Yr"))
-####WW3_ValuesList.append(row.GetValue("T_10Yr"))
-####del row
-####del cur
+# write WW3 results to Excel sheet 'Erosion Model Input'
+cell2 = xlApp.Worksheets("Erosion Model Input")
+cell2.Range("m5").Value = WW3_ValuesList[xxx]
+xlApp.ActiveWorkbook.Close(SaveChanges=1)
+xlApp.Quit()
