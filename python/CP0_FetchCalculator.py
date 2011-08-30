@@ -50,7 +50,8 @@ try:
         parameters.append("Date and Time: "+ now.strftime("%Y-%m-%d %H:%M"))
         gp.workspace = gp.GetParameterAsText(0)
         parameters.append("Workspace: "+ gp.workspace)
-        gp.scratchWorkspace = gp.GetParameterAsText(0)
+        gp.CreateFolder_management(gp.workspace, "scratch")
+        gp.scratchWorkspace = gp.workspace + os.sep + "scratch" 
         parameters.append("Scratch Workspace: "+ gp.scratchWorkspace)
         landPoly = gp.GetParameterAsText(1)
         parameters.append("Land Polygon: "+ landPoly)
