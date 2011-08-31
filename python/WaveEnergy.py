@@ -1,7 +1,7 @@
 # Marine InVEST: Wave Energy Model
-# Authors: Gregg Verutes, CK Kim, Apollo Xi, Mike Papenfus
+# Authors: CK Kim, Gregg Verutes, Apollo Xi, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 07/07/11
+# 08/32/11
 
 # import modules
 import sys, string, os, datetime
@@ -698,8 +698,50 @@ try:
         CWEExpr = "1 "+str(int(CWEPctList[0]))+" 1;"+str(int(CWEPctList[0]))+" "+str(int(CWEPctList[1]))+" 2;"+str(int(CWEPctList[1]))+" "\
                  +str(int(CWEPctList[2]))+" 3;"+str(int(CWEPctList[2]))+" "+str(int(CWEPctList[3]))+" 4;"+str(int(CWEPctList[3]))+" "\
                  +str(int(max(CWEList)))+" 5"
+
+        # reclassify wave power outputs
         gp.Reclassify_sa(outputWP, "VALUE", WPExpr, outputWP_rc, "DATA")
+        outputWP_rc = AddField(outputWP_rc, "VAL_RANGE", "TEXT", "75", "")
+        cur = gp.UpdateCursor(outputWP_rc)
+        row = cur.Next()
+        while row:
+            WPValue = row.GetValue("VALUE")
+            if WPValue == 1:
+                row.SetValue("VAL_RANGE", "1 - "+str(WPPctList[0])+" kilowatts per square meter (kW/m)")
+            elif WPValue == 2:
+                row.SetValue("VAL_RANGE", str(WPPctList[0])+" - "+str(WPPctList[1])+" kW/m")
+            elif WPValue == 3:
+                row.SetValue("VAL_RANGE", str(WPPctList[1])+" - "+str(WPPctList[2])+" kW/m")
+            elif WPValue == 4:
+                row.SetValue("VAL_RANGE", str(WPPctList[2])+" - "+str(WPPctList[3])+" kW/m")
+            elif WPValue == 5:
+                row.SetValue("VAL_RANGE", "Greater than "+str(WPPctList[3])+" kW/m")
+            cur.UpdateRow(row)
+            row = cur.next()
+        del row
+        del cur
+        
+        # reclassify captured wave energy outputs
         gp.Reclassify_sa(outputCWE, "VALUE", CWEExpr, outputCWE_rc, "DATA")
+        outputCWE_rc = AddField(outputCWE_rc, "VAL_RANGE", "TEXT", "75", "")
+        cur = gp.UpdateCursor(outputCWE_rc)
+        row = cur.Next()
+        while row:
+            CWEValue = row.GetValue("VALUE")
+            if CWEValue == 1:
+                row.SetValue("VAL_RANGE", "1 - "+str(CWEPctList[0])+" megawatt hours per year (MWh/yr)")
+            elif CWEValue == 2:
+                row.SetValue("VAL_RANGE", str(CWEPctList[0])+" - "+str(CWEPctList[1])+" (MWh/yr)")
+            elif CWEValue == 3:
+                row.SetValue("VAL_RANGE", str(CWEPctList[1])+" - "+str(CWEPctList[2])+" (MWh/yr)")
+            elif CWEValue == 4:
+                row.SetValue("VAL_RANGE", str(CWEPctList[2])+" - "+str(CWEPctList[3])+" (MWh/yr)")
+            elif CWEValue == 5:
+                row.SetValue("VAL_RANGE", "Greater than "+str(CWEPctList[3])+" (MWh/yr)")
+            cur.UpdateRow(row)
+            row = cur.next()
+        del row
+        del cur
     except:
         raise Exception, msgWEcalc
     
@@ -906,7 +948,6 @@ try:
             cur = gp.UpdateCursor(outputNPV)
             row = cur.Next()
             while row:
-                # wind ranks
                 NPVValue = row.GetValue("VALUE")
                 if NPVValue < 1:
                     row.SetValue("NPV_BREAKS", 0)
@@ -925,8 +966,29 @@ try:
             del row
             del cur
 
+            # reclass NPV output (5 classes)
             NPVExpr = "1 1;2 2;3 3;4 4;5 5"
             gp.Reclassify_sa(outputNPV, "NPV_BREAKS", NPVExpr, outputNPV_rc, "NODATA")
+            outputNPV_rc = AddField(outputNPV_rc, "VAL_RANGE", "TEXT", "75", "")
+            cur = gp.UpdateCursor(outputNPV_rc)
+            row = cur.Next()
+            while row:
+                NPVValue = row.GetValue("VALUE")
+                if NPVValue == 1:
+                    row.SetValue("VAL_RANGE", "1 - "+str(NPVPctList[0])+" thousands of US dollars (US$)")
+                elif NPVValue == 2:
+                    row.SetValue("VAL_RANGE", str(NPVPctList[0])+" - "+str(NPVPctList[1])+" thousands of US$")
+                elif NPVValue == 3:
+                    row.SetValue("VAL_RANGE", str(NPVPctList[1])+" - "+str(NPVPctList[2])+" thousands of US$")
+                elif NPVValue == 4:
+                    row.SetValue("VAL_RANGE", str(NPVPctList[2])+" - "+str(NPVPctList[3])+" thousands of US$")
+                elif NPVValue == 5:
+                    row.SetValue("VAL_RANGE", "Greater than "+str(NPVPctList[3])+" thousands of US$")
+                cur.UpdateRow(row)
+                row = cur.next()
+            del row
+            del cur
+            
     except:
         raise Exception, msgValuation
     
