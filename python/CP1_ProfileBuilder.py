@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Profile Builder)
 # Authors: Greg Guannel, Gregg Verutes
-# 08/30/10
+# 09/02/10
 
 ## TO DO ##
 ## SWITCH LOGIC FROM EXCEL TO INTERFACE
@@ -53,8 +53,8 @@ try:
     parameters.append("Land Polygon: "+ LandPoly)
     InputTable = gp.GetParameterAsText(3)
     parameters.append("Profile Builder Table: "+ InputTable)
-    QuestProfile = gp.GetParameterAsText(4)
-    parameters.append("Do you have a nearshore bathymetry GIS layer?: "+ QuestProfile)
+    ProfileQuestion = gp.GetParameterAsText(4)
+    parameters.append("Do you have a nearshore bathymetry GIS layer?: "+ ProfileQuestion)
     BathyGrid = gp.GetParameterAsText(5)
     parameters.append("IF 1: Bathymetric Grid (DEM): "+ BathyGrid)
     CSProfile = gp.GetParameterAsText(6)
@@ -201,6 +201,16 @@ def PTCreate(PTType, midx, midy, TransectDist):
     return x1, y1, x2, y2
 
 
+# check that correct inputs were provided based on 'ProfileQuestion'
+if ProfileQuestion == "(1) Yes":
+    if not BathyGrid:
+        gp.AddError("A bathymetry grid input is required.")
+        raise Exception
+elif ProfileQuestion == "(2) No, but I will upload a cross-shore profile":
+    if not CSProfile:
+        gp.AddError("A cross-shore profile input is required.")
+        raise Exception
+
 # check that three inputs are projected
 ckProjection(LandPoint)
 ckProjection(LandPoly)
@@ -217,7 +227,7 @@ xlApp.Workbooks.Open(InputTable)
 cell = xlApp.Worksheets("Profile Generator Input")
 
 # check what type of data user has
-BathCheckNearshore = cell.Range("e91").Value # 1 model cuts section from GIS layer, 2 model will build eq. beach profile, 3 model uploads cross-shore file
+##BathCheckNearshore = cell.Range("e91").Value # 1 model cuts section from GIS layer, 2 model will build eq. beach profile, 3 model uploads cross-shore file
 WaveClimateCheck = cell.Range("e92").Value # 1 model chooses, 2 if enter
 DuneCheck = cell.Range("e93").Value # 1 don't know, 2 no, 3 don't know, 4 Yes
 Diam = cell.Range("e14").Value # Sediment diam [mm]
@@ -227,6 +237,7 @@ if WaveClimateCheck == 2:
     He=cell.Range("h25").Value # Effective Wave Height
     Hm=cell.Range("i25").Value # Modal Wave Height
     Tm=cell.Range("j25").Value # Modal Wave Period
+    
 ##else: get data from WW3 [GV]##
 
 # load tide information        
@@ -301,7 +312,7 @@ ShoreMod3=cell.Range("g79").Value
 x=num.arange(0,10000.1,.1) # long axis
 
 # nearshore bathy profile
-if BathCheckNearshore==1: # model extracts value from GIS layers
+if ProfileQuestion == "(1) Yes": # model extracts value from GIS layers
     gp.AddMessage("\nCreating Point Transects...")
     # create transect and read transect file
     gp.Buffer_analysis(LandPoint, LandPoint_Buff, str(BufferDist)+" Meters", "FULL", "ROUND", "NONE", "")
@@ -500,12 +511,15 @@ if BathCheckNearshore==1: # model extracts value from GIS layers
     else:
         gp.Select_analysis(PT2_Z, Profile_Pts, "\"PT_ID\" > "+str(DepthStart2-1)+" AND \"PT_ID\" < "+str(DepthStart2+counter))
 
-##    TextData=open(r'E:\MarineInVEST\CoastalProtection\Tier1\081711\ProfileBuilder\CentralCoral_LagoonIntegers.txt',"r") #Assume that it's this profile
-##    xd = [];Dmeas = []
-##    for line in TextData.readlines():
-##        linelist= [float(s) for s in line.split("\t")] # split the list by comma/tab delimiter
-##        xd.append(linelist[0])
-##        Dmeas.append(linelist[1])
+# read in user's cross-shore profile
+elif ProfileQuestion == "(2) No, but I will upload a cross-shore profile":
+    TextData = open(CSProfile,"r") 
+    xd = []
+    Dmeas = []
+    for line in TextData.readlines():
+        linelist= [float(s) for s in line.split("\t")] # split the list by tab delimiter
+        xd.append(linelist[0])
+        Dmeas.append(linelist[1])
 
     # smooth profile and create x axis
     Dx=xd;L=len(Dmeas) # length of original data
@@ -528,7 +542,8 @@ if BathCheckNearshore==1: # model extracts value from GIS layers
     A=p1[0] # sediment scale factor
     Y[0:len(Xeq)]=-A*(Xeq)**(2.0/3) # add eq. profile
 
-else: # equilibrium beach profile; in case we don't have nearshore bathy
+# equilibrium beach profile; in case we don't have nearshore bathy
+else: 
     temp=float(2)/(3)
     yd=x**(temp)# eq. profile
     out=Indexed(yd,-hc)
@@ -542,7 +557,7 @@ else: # equilibrium beach profile; in case we don't have nearshore bathy
         Y=Y[::-1]
 
 # prepare whole profile for erosion model
-if BathCheckNearshore==1 or BathCheckNearshore==2: # model extracts value from GIS Layer
+if ProfileQuestion == "(1) Yes" or ProfileQuestion == "(3) No, please assume an equilibrium beach profile": # model extracts value from GIS layer
     # add foreshore, berm and dune
     # foreshore
     yf=float(1)/Slope*x+yd[-1]
@@ -621,9 +636,12 @@ if BathCheckNearshore==1 or BathCheckNearshore==2: # model extracts value from G
     dx=1;
     temp=num.arange(0,xd[-1],dx);
     F=interp1d(xd,d);d=F(temp);xd=temp; ## ISSUE WITH INTERPOLATE
+    
 else:
     TextData=open(r'E:\MarineInVEST\CoastalProtection\Tier1\081711\ProfileBuilder\De.txt',"r") # assume that it's this profile
-    ex=[];Dmeas=[];h=[];
+    ex=[]
+    Dmeas=[]
+    h=[]
     for line in TextData.readlines():
         linelist = [float(s) for s in line.split("\t")] # split the list by comma delimiter
         ex.append(linelist[0])
@@ -709,66 +727,6 @@ else:
 
 # save plot to .PNG
 savefig(Profile_Plot, dpi=(640/8))
-
-# return projected point to geographic (unprojected)
-gp.Project_management(LandPoint, LandPoint_Geo, geo_projection)
-# grab coordinates for Google Maps plot
-cur = gp.UpdateCursor(LandPoint_Geo)
-row = cur.Next()
-feat = row.Shape
-midpoint1 = feat.Centroid
-midList1 = shlex.split(midpoint1)
-midList1 = [float(s) for s in midList1]
-del cur
-del row
-PtLat = str(midList1[1])
-PtLong = str(midList1[0])
-
-# create html file
-htmlfile = open(Profile_HTML, "w")
-htmlfile.write("<html>\n")
-htmlfile.write("<title>Marine InVEST</title>")
-htmlfile.write("<CENTER><H1>Visualizing Coastal Protection - Tier 1</H1></CENTER>")
-htmlfile.write("<br><HR><H2>Map and Plots</H2>\n")
-htmlfile.write("This is a map and plots showing the location and characteristics of where the Profile Builder tool was run. <br>\n")
-htmlfile.write("<table border=\"0\"><tr><td>")
-htmlfile.write("<iframe width=\"640\" height=\"640\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"") 
-htmlfile.write("src=\"http://maps.google.com/maps/api/staticmap?center=")
-htmlfile.write(PtLat+","+PtLong)
-htmlfile.write("&zoom=11&size=640x640&maptype=hybrid&markers=color:red%7Ccolor:red%7Clabel:X%7C")
-htmlfile.write(PtLat+","+PtLong)
-htmlfile.write("&sensor=false\"></iframe><br/><small><a href=\"http://maps.google.com/maps?f=q&amp;source=embed&amp;hl=en&amp;geocode=&amp;q=")
-htmlfile.write(PtLat+","+PtLong)
-htmlfile.write("&amp;aq=&amp;")
-htmlfile.write("sll=37.160317,-95.712891&amp;sspn=48.113934,71.455078&amp;ie=UTF8&amp;z=10&amp;ll=")
-htmlfile.write(PtLat+","+PtLong)
-htmlfile.write("\" style=\"color:#0000FF;text-align:center\">View Larger Map</a></small><br>\n")
-htmlfile.write("</td><td>")
-htmlfile.write("<img src=\"Profile_Plot.png\" width=\"640\" height=\"480\">")
-htmlfile.write("</td></tr></table>")
-htmlfile.write("<img src=\"Profile_Plot.png\" width=\"640\" height=\"480\">")
-htmlfile.write("<br>\n")
-htmlfile.write("<br><HR><H2>Site Information</H2>\n")
-htmlfile.write("<li><u>The site is located at</u> - Latitude: "+PtLat+", Longitude: "+PtLong+"<br>\n")
-htmlfile.write("<li><u>The tidal range is</u>: xxx m (High Tide value)<br>\n")
-htmlfile.write("<li><u>The foreshore slope is</u>: xxx<br>\n")
-htmlfile.write("<li><u>The backshore has a slope that is</u>: xxx m high and yyy m long<br>\n")
-htmlfile.write("<li><u>The beach is backed by a sand dune that is</u>: xxx m high<br>\n")
-htmlfile.write("<li>There is vegetation in the sub- and inter-tidal area.  The vegetation characteristics are xxx.<br>\n")
-htmlfile.write("</html>")
-htmlfile.close()
-
-# create parameter file
-parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
-parafile = open(outputws+"parameters_"+now.strftime("%Y-%m-%d-%H-%M")+".txt","w") 
-parafile.writelines("PROFILE BUILDER PARAMETERS\n")
-parafile.writelines("___________________________________________\n\n")
-     
-for para in parameters:
-    parafile.writelines(para+"\n")
-    parafile.writelines("\n")
-parafile.close()
-
 
 # create fetch vectors
 # copy original point twice and add fields to second copy
@@ -920,54 +878,139 @@ gp.CopyFeatures_management(PtsCopyExp_Lyr, Fetch_Vectors, "", "0", "0", "0")
 Fetch_Vectors = AddField(Fetch_Vectors, "LENGTH_M", "LONG", "6", "")
 gp.CalculateField_management(Fetch_Vectors, "LENGTH_M", "!shape.length@meters!", "PYTHON", "")
 
-# create cost surface based on 'SeaPoly'
-gp.Extent = Fetch_AOI
-projection = grabProjection(LandPoint)
-gp.Project_management(WW3_Pts, WW3_Pts_prj, projection)
-SeaPoly = AddField(SeaPoly, "SEA", "SHORT", "", "")
-gp.CalculateField_management(SeaPoly, "SEA", "1", "PYTHON", "")
-gp.FeatureToRaster_conversion(SeaPoly, "SEA", seapoly_rst, "250")
-gp.Expand_sa(seapoly_rst, seapoly_e, "1", "1")
-# allocate 'WW3_Pts' throughout cost surface
-gp.CostAllocation_sa(WW3_Pts_prj, seapoly_e, costa_ww3, "", "", "FID", "", "")
-# determine which point is closest to 'LandPoint'
-gp.ExtractValuesToPoints_sa(LandPoint, costa_ww3, LandPoint_WW3, "NONE")
-cur = gp.UpdateCursor(LandPoint_WW3)
-row = cur.Next()
-WW3_FID = row.GetValue("RASTERVALU")
-del row
-del cur
+# plot fetch on rose
+radians = (num.pi / 180.0)
+pi = num.pi
+theta16 = [0*radians,22.5*radians,45*radians,67.5*radians,90*radians,112.5*radians,135*radians,157.5*radians,180*radians,202.5*radians,225*radians,247.5*radians,270*radians,292.5*radians,315*radians,337.5*radians]
+rc('grid', color='#316931', linewidth=1, linestyle='-')
+rc('xtick', labelsize=0)
+rc('ytick', labelsize=15)
+# force square figure and square axes looks better for polar, IMO
+width, height = matplotlib.rcParams['figure.figsize']
+size = min(width, height)
+# make a square figure
+plt = figure(figsize=(size, size))
+ax = plt.add_axes([0.1, 0.1, 0.8, 0.8], polar=True, axisbg='w')
+# plot
+bars = ax.bar(theta16, FetchList, width=.35, color='#ee8d18', lw=1)
+for r,bar in zip(FetchList, bars):
+    bar.set_facecolor( cm.YlOrRd(r/10.))
+    bar.set_alpha(.65)
+ax.set_rmax(max(FetchList)+1)
+grid(True)
+ax.set_title("Average Fetch (meters)", fontsize=15)
+plt.savefig(outputws+"Fetch_Plot.png", dpi=(640/8))
 
-# populate list with data from closest WW3 point
-WW3_ValuesList = []
-dirList = [0, 22, 45, 67, 90, 112, 135, 157, 180, 202, 225, 247, 270, 292, 315, 337]
-SrchCondition = "FID = "+str(WW3_FID)
-cur = gp.SearchCursor(WW3_Pts_prj, SrchCondition, "", "")
-row = cur.Next()
-WW3_ValuesList.append(row.GetValue("LAT"))
-WW3_ValuesList.append(row.GetValue("LONG"))
-for i in range(0,len(dirList)):
-    WW3_ValuesList.append(row.GetValue("V10PCT_"+str(dirList[i])))
-for i in range(0,len(dirList)):
-    WW3_ValuesList.append(row.GetValue("V25PCT_"+str(dirList[i])))
-for i in range(0,len(dirList)):
-    WW3_ValuesList.append(row.GetValue("V_MAX_"+str(dirList[i])))
-WW3_ValuesList.append(row.GetValue("W_POWER"))
-WW3_ValuesList.append(row.GetValue("H_10PCT"))
-WW3_ValuesList.append(row.GetValue("T_10PCT"))
-WW3_ValuesList.append(row.GetValue("H_25PCT"))
-WW3_ValuesList.append(row.GetValue("T_25PCT"))
-WW3_ValuesList.append(row.GetValue("H_MAX"))
-WW3_ValuesList.append(row.GetValue("T_MAX"))
-WW3_ValuesList.append(row.GetValue("H_10YR"))
-WW3_ValuesList.append(row.GetValue("He"))
-WW3_ValuesList.append(row.GetValue("Hmod"))
-WW3_ValuesList.append(row.GetValue("Tmod"))
-del row
-del cur
 
-# write WW3 results to Excel sheet 'Erosion Model Input'
-cell2 = xlApp.Worksheets("Erosion Model Input")
-cell2.Range("m5").Value = WW3_ValuesList[xxx]
-xlApp.ActiveWorkbook.Close(SaveChanges=1)
+### create cost surface based on 'SeaPoly'
+##gp.Extent = Fetch_AOI
+##projection = grabProjection(LandPoint)
+##gp.Project_management(WW3_Pts, WW3_Pts_prj, projection)
+##SeaPoly = AddField(SeaPoly, "SEA", "SHORT", "", "")
+##gp.CalculateField_management(SeaPoly, "SEA", "1", "PYTHON", "")
+##gp.FeatureToRaster_conversion(SeaPoly, "SEA", seapoly_rst, "250")
+##gp.Expand_sa(seapoly_rst, seapoly_e, "1", "1")
+### allocate 'WW3_Pts' throughout cost surface
+##gp.CostAllocation_sa(WW3_Pts_prj, seapoly_e, costa_ww3, "", "", "FID", "", "")
+### determine which point is closest to 'LandPoint'
+##gp.ExtractValuesToPoints_sa(LandPoint, costa_ww3, LandPoint_WW3, "NONE")
+##cur = gp.UpdateCursor(LandPoint_WW3)
+##row = cur.Next()
+##WW3_FID = row.GetValue("RASTERVALU")
+##del row
+##del cur
+##
+### populate list with data from closest WW3 point
+##WW3_ValuesList = []
+##dirList = [0, 22, 45, 67, 90, 112, 135, 157, 180, 202, 225, 247, 270, 292, 315, 337]
+##SrchCondition = "FID = "+str(WW3_FID)
+##cur = gp.SearchCursor(WW3_Pts_prj, SrchCondition, "", "")
+##row = cur.Next()
+##WW3_ValuesList.append(row.GetValue("LAT"))
+##WW3_ValuesList.append(row.GetValue("LONG"))
+##for i in range(0,len(dirList)):
+##    WW3_ValuesList.append(row.GetValue("V10PCT_"+str(dirList[i])))
+##for i in range(0,len(dirList)):
+##    WW3_ValuesList.append(row.GetValue("V25PCT_"+str(dirList[i])))
+##for i in range(0,len(dirList)):
+##    WW3_ValuesList.append(row.GetValue("V_MAX_"+str(dirList[i])))
+##WW3_ValuesList.append(row.GetValue("W_POWER"))
+##WW3_ValuesList.append(row.GetValue("H_10PCT"))
+##WW3_ValuesList.append(row.GetValue("T_10PCT"))
+##WW3_ValuesList.append(row.GetValue("H_25PCT"))
+##WW3_ValuesList.append(row.GetValue("T_25PCT"))
+##WW3_ValuesList.append(row.GetValue("H_MAX"))
+##WW3_ValuesList.append(row.GetValue("T_MAX"))
+##WW3_ValuesList.append(row.GetValue("H_10YR"))
+##WW3_ValuesList.append(row.GetValue("He"))
+##WW3_ValuesList.append(row.GetValue("Hmod"))
+##WW3_ValuesList.append(row.GetValue("Tmod"))
+##del row
+##del cur
+##
+### write WW3 results to Excel sheet 'Erosion Model Input'
+##cell2 = xlApp.Worksheets("Erosion Model Input")
+##cell2.Range("m5").Value = WW3_ValuesList[xxx]
+##xlApp.ActiveWorkbook.Close(SaveChanges=1) # save changes
 xlApp.Quit()
+
+
+# return projected point to geographic (unprojected)
+gp.Project_management(LandPoint, LandPoint_Geo, geo_projection)
+# grab coordinates for Google Maps plot
+cur = gp.UpdateCursor(LandPoint_Geo)
+row = cur.Next()
+feat = row.Shape
+midpoint1 = feat.Centroid
+midList1 = shlex.split(midpoint1)
+midList1 = [float(s) for s in midList1]
+del cur
+del row
+PtLat = str(midList1[1])
+PtLong = str(midList1[0])
+
+# create html file
+htmlfile = open(Profile_HTML, "w")
+htmlfile.write("<html>\n")
+htmlfile.write("<title>Marine InVEST</title>")
+htmlfile.write("<CENTER><H1>Visualizing Coastal Protection - Tier 1</H1></CENTER>")
+htmlfile.write("<br><HR><H2>Map and Plots</H2>\n")
+htmlfile.write("This is a map and plots showing the location and characteristics of where the Profile Builder tool was run. <br>\n")
+htmlfile.write("<table border=\"0\"><tr><td>")
+htmlfile.write("<iframe width=\"640\" height=\"640\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"") 
+htmlfile.write("src=\"http://maps.google.com/maps/api/staticmap?center=")
+htmlfile.write(PtLat+","+PtLong)
+htmlfile.write("&zoom=11&size=640x640&maptype=hybrid&markers=color:red%7Ccolor:red%7Clabel:X%7C")
+htmlfile.write(PtLat+","+PtLong)
+htmlfile.write("&sensor=false\"></iframe><br/><small><a href=\"http://maps.google.com/maps?f=q&amp;source=embed&amp;hl=en&amp;geocode=&amp;q=")
+htmlfile.write(PtLat+","+PtLong)
+htmlfile.write("&amp;aq=&amp;")
+htmlfile.write("sll=37.160317,-95.712891&amp;sspn=48.113934,71.455078&amp;ie=UTF8&amp;z=10&amp;ll=")
+htmlfile.write(PtLat+","+PtLong)
+htmlfile.write("\" style=\"color:#0000FF;text-align:center\">View Larger Map</a></small><br>\n")
+htmlfile.write("</td><td>")
+htmlfile.write("<img src=\"Profile_Plot.png\" width=\"640\" height=\"480\">")
+htmlfile.write("</td></tr></table>")
+htmlfile.write("<img src=\"Fetch_Plot.png\" width=\"640\" height=\"480\">")
+htmlfile.write("<br>\n")
+htmlfile.write("<br><HR><H2>Site Information</H2>\n")
+htmlfile.write("<li><u>The site is located at</u> - Latitude: "+PtLat+", Longitude: "+PtLong+"<br>\n")
+htmlfile.write("<li><u>The tidal range is</u>: xxx m (High Tide value)<br>\n")
+htmlfile.write("<li><u>The foreshore slope is</u>: xxx<br>\n")
+htmlfile.write("<li><u>The backshore has a slope that is</u>: xxx m high and yyy m long<br>\n")
+htmlfile.write("<li><u>The beach is backed by a sand dune that is</u>: xxx m high<br>\n")
+htmlfile.write("<li>There is vegetation in the sub- and inter-tidal area.  The vegetation characteristics are xxx.<br>\n")
+htmlfile.write("</html>")
+htmlfile.close()
+
+# create parameter file
+parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
+parafile = open(outputws+"parameters_"+now.strftime("%Y-%m-%d-%H-%M")+".txt","w") 
+parafile.writelines("PROFILE BUILDER PARAMETERS\n")
+parafile.writelines("___________________________________________\n\n")
+     
+for para in parameters:
+    parafile.writelines(para+"\n")
+    parafile.writelines("\n")
+parafile.close()
+
