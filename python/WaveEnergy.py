@@ -1,7 +1,7 @@
 # Marine InVEST: Wave Energy Model
 # Authors: CK Kim, Gregg Verutes, Apollo Xi, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 08/32/11
+# 09/02/11
 
 # import modules
 import sys, string, os, datetime
@@ -175,8 +175,8 @@ try:
         outputws = gp.workspace + os.sep + "Output" + os.sep
         interws = gp.workspace + os.sep + "intermediate" + os.sep
         
-        g = 9.81    # meter / second square
-        d = 1028    # water density: kilogram / cubic meter
+        g = 9.81 # meter / second square
+        d = 1028 # water density: kilogram / cubic meter
         alfa = 0.86 # wave period parameter
 
         # local analysis
@@ -294,17 +294,34 @@ try:
 
     # calculate captured wave energy    
     def CWEcalc(WaveData_clipZ, SeastateTxt, index_Tp, index_Hs, x_array, y_array, z_array, PointCount):
+        count = 0
         # run through wave data and populate array with point index values: I, J
-        PointArray = []
-        PointList = []
-        cur = gp.UpdateCursor(WaveData_clipZ, "", "", "I; J") ## change
+        PtStrList = []
+        PtTxtList = []
+        FIDList = []
+        CapWEList = [0]*PointCount
+        cur = gp.UpdateCursor(WaveData_clipZ, "", "", "I; J")
         row = cur.Next()
         while row:
-            PointList.append(int(row.GetValue("I")))
-            PointList.append(int(row.GetValue("J")))
-            PointList.append(0.0)
-            PointArray.append(PointList)
-            PointList = []
+            valueI = int(row.GetValue("I"))
+            valueJ = int(row.GetValue("J"))
+            PtStrList.append("I = " +str(row.GetValue("I"))+" AND J = "+str(row.GetValue("J")))
+            PtTxtString = 'I,'
+            if valueI < 10:
+                PtTxtString = PtTxtString + "  "+str(valueI)
+            elif valueI >= 10 and valueI < 100:
+                PtTxtString = PtTxtString + " "+str(valueI)
+            else:
+                PtTxtString = PtTxtString + str(valueI)
+            PtTxtString = PtTxtString + ',J,'   
+            if valueJ < 10:
+                PtTxtString = PtTxtString + "  "+str(valueJ)
+            elif valueJ >= 10 and valueJ < 100:
+                PtTxtString = PtTxtString + " "+str(valueJ)
+            else:
+                PtTxtString = PtTxtString + str(valueJ)
+            PtTxtList.append(PtTxtString+"\n")
+            FIDList.append(int(row.GetValue("FID")))
             cur.UpdateRow(row)
             row = cur.Next()
         del cur    
@@ -312,8 +329,6 @@ try:
 
         # reads in seastate data from WW3
         SSTables = open(SeastateTxt,"r")
-        CapWEArray = []
-
         # read in x and y lists only once
         listID = SSTables.readline()
         arrayX = SSTables.readline()
@@ -323,84 +338,69 @@ try:
         del listID
         SSTables.close()
 
-        # reopen WaveData and read entire file
-        SSTables = open(SeastateTxt,"r")
-        text = SSTables.read()
-
-        for Count in range(0,PointCount):
-            # benchmark
-            if int(PointCount*0.25) == Count:
-                gp.AddMessage("...25% completed")
-            elif int(PointCount*0.50) == Count:
-                gp.AddMessage("...50% completed")
-            elif int(PointCount*0.75) == Count:
-                gp.AddMessage("...75% completed")
-            
-            # find I and J in txt document
-            if PointArray[Count][0] < 10:
-                I="  "+str(int(PointArray[Count][0]))
-            elif PointArray[Count][0] >= 10 and PointArray[Count][0] < 100:
-                I=" "+str(int(PointArray[Count][0]))
-            else:
-                I=str(int(PointArray[Count][0]))
-            if PointArray[Count][1] < 10:
-                J="  "+str(int(PointArray[Count][1]))
-            elif PointArray[Count][1] >= 10 and PointArray[Count][1] < 100:
-                J=" "+str(int(PointArray[Count][1]))
-            else:
-                J=str(int(PointArray[Count][1]))
-                
-            # compare I and J values with PointArray values
-            start = "I,"+str(I)+",J,"+str(J)
-            indexS = text.find(start)
-            stringZ = text[indexS+475:indexS+5765]
-
-            # create Z array    
-            linesZ = stringZ.split("\n")
-            arrayZ = []
-            for i in range(0,21):
-                temp_line = linesZ[i].split(",")
+        counter = 25
+        for line in open(SeastateTxt,"r"):
+            if line in PtTxtList:
+                indexed = PtTxtList.index(line)
+                counter = 0
+                arrayZ = []
+            if counter > 2 and counter < 24:
+                temp_line = line.split(",")
                 arrayZ.append(temp_line)
-            arrayZ = np.array(arrayZ, dtype='f')
-
-            # set parameter max limits for each seastate table
-            for row in range(0,21):
-                for col in range(0,21):
-                    if col >= index_Tp:
-                        arrayZ[row][col] = 0.0
-                    if row >= index_Hs:
-                        arrayZ[row][col] = 0.0      
-                        
-            # divide Z data by 5 to get yearly average
-            arrayZ = np.divide(arrayZ, 5.0)
-           
-            # interpolation and calculate cap wave energy
-            ip = interp2d(x_array, y_array, z_array, kind = 'cubic', copy = True, bounds_error = False, fill_value = 0.0)
-            z_Range_intp = ip(arrayX, arrayY)
-            z_Array_Intp = np.array(z_Range_intp)
-            capwave_Array = arrayZ*z_Array_Intp
-            capwave_Array = np.where(capwave_Array < 0, 0, capwave_Array)
+                
+           # increase counter by 1
+            counter += 1
             
-            # assign CWE value to PointArray 
-            PointArray[Count][2] = (capwave_Array.sum()/1000)
+            if counter == 24:
+                arrayZ = np.array(arrayZ, dtype='f')
 
-            # populate PointArray data into shapefile
-            I = int(PointArray[Count][0])
-            J = int(PointArray[Count][1])
-            CapWESum = PointArray[Count][2]
+                # set parameter max limits for each seastate table
+                for row in range(0,21):
+                    for col in range(0,21):
+                        if col >= index_Tp:
+                            arrayZ[row][col] = 0.0
+                        if row >= index_Hs:
+                            arrayZ[row][col] = 0.0
 
-            SrchCondition = "I = " +str(I)+ " AND J = "+str(J)
-            cur = gp.UpdateCursor(WaveData_clipZ, SrchCondition, "", "I; J; CAPWE_MWHY")
-            row = cur.Next()
-            row.SetValue("CAPWE_MWHY", CapWESum)
+                # divide Z data by 5 to get yearly average
+                arrayZ = np.divide(arrayZ, 5.0)
+
+                # interpolation and calculate cap wave energy
+                ip = interp2d(x_array, y_array, z_array, kind = 'cubic', copy = True, bounds_error = False, fill_value = 0.0)
+                z_Range_intp = ip(arrayX, arrayY)
+                z_Array_Intp = np.array(z_Range_intp)
+                capwave_Array = arrayZ*z_Array_Intp
+                capwave_Array = np.where(capwave_Array < 0, 0, capwave_Array)
+
+                # assign CWE value to 'CapWEList' 
+                CapWEList[indexed] = (capwave_Array.sum()/1000)
+                counter = 25              
+
+                # benchmark
+                count += 1
+                if int(PointCount*0.25) == count:
+                    gp.AddMessage("...25% completed")
+                elif int(PointCount*0.50) == count:
+                    gp.AddMessage("...50% completed")
+                elif int(PointCount*0.75) == count:
+                    gp.AddMessage("...75% completed")
+
+        # sort lists by FID
+        WEPtsZip = zip(FIDList, CapWEList, PtStrList, PtTxtList)
+        WEPtsZip.sort()
+        FIDList, CapWEList, PtStrList, PtTxtList = zip(*WEPtsZip)
+
+        cur = gp.UpdateCursor(WaveData_clipZ)
+        row = cur.Next()
+        m = 0
+        while row:
+            row.SetValue("CAPWE_MWHY", CapWEList[m])
             cur.UpdateRow(row)
-            
-        SSTables.close()    
-        del cur
-        del row
-        del PointArray
+            row = cur.next()
+            m += 1
+        del cur, row
         del arrayZ
-        return WaveData_clipZ    
+        return WaveData_clipZ
 
 ##############################################################################################################################
 
