@@ -1,13 +1,12 @@
-# Marine InVEST: Aesthetic Views Model (Viewshed Analysis)
-# Authors: Gregg Verutes, Mike Papenfus
+# Marine InVEST: Viewer Perspective (Aesthetic Quality)
+# Authors: Gregg Verutes
 # Coded for ArcGIS 9.3 and 10
-# 08/28/11
+# 09/02/11
 
 ## OFFSET A MUST BE POSITIVE
-## ADD WEIGHTS TO 2 LISTS (OR ONE) -- NORMALIZE BASED ON MAX
-## POLYS MUST BE PROJECTED
-## ADD HEIGHT INFO TO EACH POINT INPUT (UG?) - OFFSET RECREATION LODGE
-## ADD ADDITIONAL CHECKS BASED ON NEW FUNCTIONALITY (CHECK DATUM AND PROJ OF AOI)
+## FIX AREA STATS
+## 1) BREAK UP BY POSITIVE AND NEGATIVE WITH RC: Neg, Pos, 0
+## 2) SUBTRACT CHANGE AND COLOR CODE PROPERLY
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -28,21 +27,13 @@ gp.CheckOutExtension("conversion")
 msgArguments = "\nProblem with arguments."
 msgDataPrep = "\nError in preparing data."
 msgVShed = "\nError conducting viewshed and population analysis."
-msgIntersect = "\nError calculating overlap between viewshed output and visual polygons."
 msgNumPyNo = "NumPy extension is required to run the Aesthetic Quality model.  Please consult the Marine InVEST FAQ for instructions on how to install."
-msgSciPyNo = "SciPy extension is required to run the Aesthetic Quality model.  Please consult the Marine InVEST FAQ for instructions on how to install."
 
 # import modules
 try:
     import numpy as np
 except:
     gp.AddError(msgNumPyNo)
-    raise Exception
-
-try:
-    from scipy import stats
-except:
-    gp.AddError(msgSciPyNo)
     raise Exception
 
 try:
@@ -74,8 +65,6 @@ try:
         parameters.append("Digital Elevation Model (DEM): "+ DEM)
         RefractCoeff = float(gp.GetParameterAsText(8))
         parameters.append("Refractivity Coefficient: "+ str(RefractCoeff))
-        globalPop = gp.GetParameterAsText(9)
-        parameters.append("Population Raster: "+ globalPop)
 
     except:
         raise Exception, msgArguments + gp.GetMessages(2)
@@ -105,7 +94,7 @@ try:
     vp_cur = interws + "vp_cur"
     vp_fut = interws + "vp_fut"
     
-    vshedpts_cmb = outputws + "vshedpts_cmb"
+    vshedcmb_pts = outputws + "vshedcmb_pts"
     ObserverPts_geo = outputws + "ObserverPts_geo.shp"
     vshedStatsHTML = outputws + "viewshedStats_"+now.strftime("%Y-%m-%d-%H-%M")+".html"
 
@@ -164,14 +153,6 @@ try:
          CellHeight = desc.MeanCellHeight
          return int((CellHeight+CellWidth)/2.0)
 
-    def getQuartiles(list):
-        QrtList = []
-        QrtList.append(stats.scoreatpercentile(list, 25))
-        QrtList.append(stats.scoreatpercentile(list, 50))
-        QrtList.append(stats.scoreatpercentile(list, 75))
-        QrtList.append(stats.scoreatpercentile(list, 100))
-        return QrtList
-
     def findNearest(array,value):
         idx=(np.abs(array-value)).argmin()
         return array[idx]
@@ -183,18 +164,18 @@ try:
     try:
         gp.AddMessage("\nChecking the inputs...")  
         # call various checking functions
-        
+        if gp.GetCount_management(ObserverPts) > 10 and cellsize < 250:
+            gp.AddMessage("\nMany observer points and/or low cell size may take a long time to complete...")  
         ckProjection(ObserverPts)
         ckProjection(DEM)
-
-        if gp.GetCount_management(ObserverPts) > 10 or cellsize < 250:
-            gp.AddMessage("\nMany observer points and/or low cell size may take a long time to complete...")  
-        ## CHECK DATUM AND PROJECTION OF AOI
-        
         compareProjections(ObserverPts, DEM)
-        if visualPolys:
-            ckProjection(visualPolys)
-
+        ckProjection(visualPolys)
+        cellsizeDEM = checkCellSize(DEM)
+        if cellsize:
+            if int(cellsize) < int(cellsizeDEM):
+                gp.AddError("The cell size input is too small.\nThe model requires the cell size to be equal to or larger than DEM input's cell size.")
+                raise Exception
+        
         # set environments
         gp.Extent = AOI
         gp.Mask = AOI
@@ -273,17 +254,12 @@ try:
         del row
         del cur
    
-        # convert 'visualPoly' to current and future rasters with weights as values
+        # convert 'visualPolys' to current and future rasters with weights as values
         gp.FeatureToRaster_conversion(visualPolys, "CUR_NORM", vp_cur, "50")
         if FutWgtField:
             gp.FeatureToRaster_conversion(visualPolys, "FUT_NORM", vp_fut, "50")
 
-        cellsizeDEM = checkCellSize(DEM)
-        if cellsize:
-            if int(cellsize) < int(cellsizeDEM):
-                gp.AddError("The cell size input is too small.\nThe model requires the cell size to be equal to or larger than DEM input's cell size.")
-                raise Exception
-
+        # change resolution if specified by user
         if cellsize:
             gp.CellSize = int(cellsize)
         else:
@@ -337,7 +313,7 @@ try:
         # snap outputs to the (resampled) DEM resolution
         gp.snapRaster = DEM_vs
 
-        # create array for zonal stats results (PTID, SUM, MEAN, MAX, MIN, EXISTENCE, LAT, LONG)
+        # create array for zonal stats results (PTID, AREA, SUM, MAX, MIN, EXISTENCE, LAT, LONG)
         NumPoints = int(len(PtsList))
         AQStatsCurList = np.zeros(NumPoints*8, dtype=np.float64)
         AQStatsCurArray = np.reshape(AQStatsCurList, (NumPoints,8))
@@ -345,46 +321,48 @@ try:
             AQStatsFutList = np.zeros(NumPoints*8, dtype=np.float64)
             AQStatsFutArray = np.reshape(AQStatsFutList, (NumPoints,8))
 
-        # create expression for combining individual vshed raster outputs
-        SumExpr = interws+"vshed_pt"+str(PtsList[0])
-        # run viewshed on all points, one at a time
+        # start expression for combining individual vshed raster outputs
+        SumExpr = outputws+"vshed"+str(PtsList[0])+"_pt"
+
         for i in range(0,len(PtsList)):
-            gp.MakeFeatureLayer_management(ObserverPts, interws+"observer_pt"+str(PtsList[i])+".lyr", "\"PTS_ID\" = "+str(PtsList[i]), "", "")
-            gp.Viewshed_sa(DEM_vs, interws+"observer_pt"+str(PtsList[i])+".lyr", interws+"vshed_pt"+str(PtsList[i]), "1", "CURVED_EARTH", str(RefractCoeff))
+            # run viewshed on all points, one at a time
+            gp.MakeFeatureLayer_management(ObserverPts, interws+"Observer_pt"+str(PtsList[i])+".lyr", "\"PTS_ID\" = "+str(PtsList[i]), "", "")
+            gp.Viewshed_sa(DEM_vs, interws+"Observer_pt"+str(PtsList[i])+".lyr", outputws+"vshed"+str(PtsList[i])+"_pt", "1", "CURVED_EARTH", str(RefractCoeff))
+
             if i <> 0:
-                SumExpr = SumExpr + " + " + interws+"vshed_pt"+str(PtsList[i])
-            gp.Reclassify_sa(interws+"vshed_pt"+str(PtsList[i]), "VALUE", "0 NODATA;1 1", interws+"vshd_rc"+str(PtsList[i]), "DATA")
+                SumExpr = SumExpr + " + " + outputws+"vshed"+str(PtsList[i])+"_pt" # continuing appending to expression
+            gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_pt", "VALUE", "0 NODATA;1 1", interws+"vshd_rc"+str(PtsList[i]), "DATA")
             gp.SingleOutputMapAlgebra_sa("Float("+interws+"vshd_rc"+str(PtsList[i])+")", interws+"vshd_flt"+str(PtsList[i]))
 
-            # multiply by vp_cur
+            # create 'current' outputs; multiply by vp_cur
             CurMultExpr = interws+"vshd_flt"+str(PtsList[i])+" * "+vp_cur
-            gp.SingleOutputMapAlgebra_sa(CurMultExpr, outputws+"vshed_cur"+str(PtsList[i]))
-            gp.Int_sa(outputws+"vshed_cur"+str(PtsList[i]), interws+"vshed_cur"+str(PtsList[i]))
-            gp.BuildRasterAttributeTable_management(interws+"vshed_cur"+str(PtsList[i]), "Overwrite")
+            gp.SingleOutputMapAlgebra_sa(CurMultExpr, interws+"vshd_cur"+str(PtsList[i]))
+            gp.Int_sa(interws+"vshd_cur"+str(PtsList[i]), interws+"vshd_int"+str(PtsList[i]))
+            gp.BuildRasterAttributeTable_management(interws+"vshd_int"+str(PtsList[i]), "Overwrite")
             # if not empty, mark array and perform zonal stats   
-            if gp.GetCount(interws+"vshed_cur"+str(PtsList[i])) > 0:
-                AQStatsCurArray[i][5] = 1          
-                gp.ZonalStatisticsAsTable_sa(AOI, "FID", outputws+"vshed_cur"+str(PtsList[i]), interws+"zstats_cur"+str(PtsList[i]), "DATA")
+            if gp.GetCount(interws+"vshd_int"+str(PtsList[i])) > 0:
+                AQStatsCurArray[i][5] = 1
+                gp.SetNull_sa(interws+"vshd_cur"+str(PtsList[i]), interws+"vshd_cur"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_cur", '"VALUE" = 0')
+                gp.ZonalStatisticsAsTable_sa(AOI, "FID", outputws+"vshed"+str(PtsList[i])+"_cur", interws+"zstats_cur"+str(PtsList[i]), "DATA")
             else:
-                # if empty raster, delete output
-                gp.delete_management(outputws+"vshed_cur"+str(PtsList[i]))
-                    
+                gp.delete_management(interws+"vshd_cur"+str(PtsList[i])) # if empty raster, delete output
+
             if FutWgtField:
-                # multiply by vp_fut
+                # create 'future' outputs; multiply by vp_fut
                 FutMultExpr = interws+"vshd_flt"+str(PtsList[i])+" * "+vp_fut
-                gp.SingleOutputMapAlgebra_sa(FutMultExpr, outputws+"vshed_fut"+str(PtsList[i]))
-                gp.Int_sa(outputws+"vshed_fut"+str(PtsList[i]), interws+"vshed_fut"+str(PtsList[i]))
-                gp.BuildRasterAttributeTable_management(interws+"vshed_fut"+str(PtsList[i]), "Overwrite")
+                gp.SingleOutputMapAlgebra_sa(FutMultExpr, interws+"vshd_fut"+str(PtsList[i]))
+                gp.Int_sa(interws+"vshd_fut"+str(PtsList[i]), interws+"vshd_int"+str(PtsList[i]))
+                gp.BuildRasterAttributeTable_management(interws+"vshd_int"+str(PtsList[i]), "Overwrite")
                 # if not empty, mark array and perform zonal stats                      
-                if gp.GetCount(interws+"vshed_fut"+str(PtsList[i])) > 0:
-                    AQStatsFutArray[i][5] = 1          
-                    gp.ZonalStatisticsAsTable_sa(AOI, "FID", outputws+"vshed_fut"+str(PtsList[i]), interws+"zstats_fut"+str(PtsList[i]), "DATA")
+                if gp.GetCount(interws+"vshd_int"+str(PtsList[i])) > 0:
+                    AQStatsFutArray[i][5] = 1
+                    gp.SetNull_sa(interws+"vshd_fut"+str(PtsList[i]), interws+"vshd_fut"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_fut", '"VALUE" = 0')
+                    gp.ZonalStatisticsAsTable_sa(AOI, "FID", outputws+"vshed"+str(PtsList[i])+"_fut", interws+"zstats_fut"+str(PtsList[i]), "DATA")
                 else:
-                    # if empty raster, delete output
-                    gp.delete_management(outputws+"vshed_fut"+str(PtsList[i]))
+                    gp.delete_management(interws+"vshd_fut"+str(PtsList[i])) # if empty raster, delete output
 
         # create expression for combining individual vshed raster outputs
-        gp.SingleOutputMapAlgebra_sa(SumExpr, vshedpts_cmb)
+        gp.SingleOutputMapAlgebra_sa(SumExpr, vshedcmb_pts)
 
         for i in range(0,len(PtsList)):
             # search through zonal stats table for population within current viewshed
@@ -392,8 +370,8 @@ try:
                 cur = gp.UpdateCursor(interws+"zstats_cur"+str(PtsList[i]))
                 row = cur.Next()
                 AQStatsCurArray[i][0] = PtsList[i]
-                AQStatsCurArray[i][1] = row.GetValue("SUM")
-                AQStatsCurArray[i][2] = row.GetValue("MEAN")
+                AQStatsCurArray[i][1] = (row.GetValue("AREA")/1000)
+                AQStatsCurArray[i][2] = row.GetValue("SUM")
                 AQStatsCurArray[i][3] = row.GetValue("MAX")
                 AQStatsCurArray[i][4] = row.GetValue("MIN")
                 del row, cur
@@ -402,8 +380,8 @@ try:
                 cur = gp.UpdateCursor(interws+"zstats_fut"+str(PtsList[i]))
                 row = cur.Next()
                 AQStatsFutArray[i][0] = PtsList[i]
-                AQStatsFutArray[i][1] = row.GetValue("SUM")
-                AQStatsFutArray[i][2] = row.GetValue("MEAN")
+                AQStatsFutArray[i][1] = int(row.GetValue("AREA")/1000)
+                AQStatsFutArray[i][2] = row.GetValue("SUM")
                 AQStatsFutArray[i][3] = row.GetValue("MAX")
                 AQStatsFutArray[i][4] = row.GetValue("MIN")
                 del row, cur
@@ -449,13 +427,13 @@ try:
         htmlfile.write("<html>\n")
         htmlfile.write("<title>Marine InVEST</title>")
         htmlfile.write("<center><H1>Aesthetic Quality Model</H1></center><br>")
-        htmlfile.write("This page contains population results from running the Marine InVEST Aesthetic Quality Model.")
+        htmlfile.write("This page contains results from running the Marine InVEST Aesthetic Quality Model.")
         
         htmlfile.write("<br><HR><H2>Map of Viewer Locations</H2>\n")
         htmlfile.write("This is a map showing the point location of each observer in the analysis. <br>\n")
         htmlfile.write("<table border=\"0\"><tr><td>")
-        htmlfile.write("<iframe width=\"640\" height=\"640\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"\
-                        src=\"http://maps.google.com/maps/api/staticmap?center="+str(latAOI)+","+str(longAOI)+"&zoom=10&size=640x640&maptype=hybrid")
+        htmlfile.write("<iframe width=\"600\" height=\"600\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"\
+                        src=\"http://maps.google.com/maps/api/staticmap?center="+str(latAOI)+","+str(longAOI)+"&zoom=10&size=600x600&maptype=hybrid")
         for i in range(0,len(PtsList)):
             htmlfile.write("&markers=color:red%7Ccolor:red%7Clabel:"+str(PtsList[i])+"%7C"\
                             +str(AQStatsCurArray[i][6])+","+str(AQStatsCurArray[i][7]))
@@ -471,24 +449,37 @@ try:
                        "&t=h@z=11@vpsrc=6style=\"color:#0000FF;text-align:center\">View Larger Map</a></small><br>\n</td><td>")
         
         htmlfile.write("<br><H2>Viewshed Statistics (by Observer)</H2><table border=\"1\", cellpadding=\"8\">\
-                        <tr><th colspan=1></th><th colspan=3>SUM</th><th colspan=3>MEAN</th></tr>\
+                        <tr><th colspan=1></th><th colspan=6>EXTENT<br>(Area of Polygons (sq. km) within Viewshed)</th><th colspan=3>INTENSITY<br>(Sum of Polygon Ratings<br>within Viewshed)</th></tr>\
+                        <tr><th colspan=1></th><th colspan=3>Positive</th><th colspan=3>Negative</th></th><th colspan=3></th></tr>\
                         <td align=\"center\"><b>Point ID</b></td><td align=\"center\"><b>Current</b></td><td align=\"center\"><b>Future</b></td>\
                         <td align=\"center\"><b>Change</b></td><td align=\"center\"><b>Current</b></td>\
-                        <td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td></tr>")
+                        <td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td>\
+                        <td align=\"center\"><b>Current</b></td><td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td></tr>")
         for i in range(0,len(PtsList)):        
             htmlfile.write("<tr><td align=\"center\">"+str(PtsList[i])+"</td>")
             if FutWgtField:
                 if (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) > 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][1],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][1],3))+"</td>\
-                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(round(AQStatsFutArray[i][1]-AQStatsCurArray[i][1],3))+"</td>")
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
                 elif (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) == 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][1],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][1],3))+"</td>\
-                                    <td align=\"center\">"+str(round(AQStatsFutArray[i][1]-AQStatsCurArray[i][1],3))+"</td>")                     
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                    <td align=\"center\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")                     
                 else:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][1],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][1],3))+"</td>\
-                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(round(AQStatsFutArray[i][1]-AQStatsCurArray[i][1],3))+"</td>")             
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
+                    
+                if (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) > 0.0:
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
+                elif (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) == 0.0:
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                    <td align=\"center\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")                     
+                else:
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
+
             else:
-                htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][1],3))+"</td><td align=\"center\">N/A</td>\
+                htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">N/A</td>\
                                 <td align=\"center\">N/A</td>")
             if FutWgtField:
                 if (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) > 0.0:
@@ -514,8 +505,8 @@ try:
     # create parameter file
     parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
     parafile = open(gp.workspace+"\\Output\\parameters_"+now.strftime("%Y-%m-%d-%H-%M")+".txt","w") 
-    parafile.writelines("AESTHETIC QUALITY MODEL PARAMETERS\n")
-    parafile.writelines("__________________________________\n\n")
+    parafile.writelines("VIEWER PERSPECTIVE (AESTHETIC QUALITY MODEL) PARAMETERS\n")
+    parafile.writelines("_______________________________________________________\n\n")
     for para in parameters:
         parafile.writelines(para+"\n")
         parafile.writelines("\n")
@@ -525,11 +516,13 @@ try:
     gp.workspace = interws
     del1 = [DEM_1_rc, DEM_2poly, AOI_lyr, DEM_2poly_lyr, DEM_land, DEM_sea, DEM_sea_rc, AOI_geo]
     del2 = []
-    for i in range(0,len(PtsList)):  
+    for i in range(0,len(PtsList)):
+        del2.append("Observer_pt"+str(PtsList[i])+".lyr")
+        del2.append("vshd_int"+str(PtsList[i]))
         del2.append("vshd_flt"+str(PtsList[i]))
         del2.append("vshd_rc"+str(PtsList[i]))
-        del2.append("vshed_cur"+str(PtsList[i]))
-        del2.append("vshed_fut"+str(PtsList[i]))
+        del2.append("vshd_cur"+str(PtsList[i]))
+        del2.append("vshd_fut"+str(PtsList[i]))
     deletelist = del1 + del2
     for data in deletelist:
         if gp.exists(data):
