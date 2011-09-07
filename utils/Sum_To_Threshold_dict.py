@@ -108,6 +108,7 @@ try:
         cost_points = interws + "cost_points" + Suffix + time_append + ".shp"
         score_cost_keep = interws + "score_cost_keep" + Suffix + time_append + ".shp"
         score_cost_keep_sel = interws + "score_cost_keep_sel.shp"
+        score_cost_keep_sel_update = interws + "score_cost_keep_sel_upd.shp"
         score_cost_keep_sfl = interws + "score_cost_keep_sfl.shp"
         score_cost_join = interws + "score_cost_join" + Suffix + time_append + ".shp"
         score_cost_join_fl = interws + "score_cost_join_fl.shp"
@@ -364,25 +365,56 @@ try:
         # Sort values descending by 'keep', try to only process those that change to 1
         gp.AddMessage("sort by keep")
         values.sort(key = itemgetter(2), reverse = True)
-        
-        gp.AddMessage("for v in values")
-        # values are already sorted ascending
-        for v in values:
-            if v[2] == 1:
-                # Search for matching rank value in point shapefile
-                urows = gp.UpdateCursor(score_cost_keep_sel, "", "", "", "rank A")
-                urow = urows.Next()
-                while (urow.getValue("rank") <> v[0]):
-                    urow = urows.Next()
-                
-                urow.setValue("keep", "1")
-                urows.UpdateRow(urow)
-##                gp.AddMessage("rank = " + str(urow.getValue("rank")) + " keep = " + str(urow.getValue("keep")))
-##            urow = urows.Next()
-            else:
-                break
 
-        del urow, urows
+        gp.AddMessage("trying new in memory table")
+        lookupTblName = "rank_cost_keep_table"
+        gp.CreateTable_management("in_memory", lookupTblName)
+        gp.AddField_management("in_memory\\" + lookupTblName, "rank2", "LONG")
+        gp.AddField_management("in_memory\\" + lookupTblName, "keep2", "LONG")
+        insertRows = gp.insertcursor("in_memory\\" + lookupTblName)
+        gp.AddMessage("for v in values")
+        for v in values:
+            insertRow = insertRows.newrow()
+            insertRow.rank2 = v[0]
+            insertRow.keep2 = v[2]
+            insertRows.insertrow(insertRow)
+        del insertRow
+        del insertRows
+        gp.AddMessage("copying to new table")
+        newTable = interws + "rank_cost_keep_table2.dbf"
+        gp.CopyRows_management("in_memory\\" + lookupTblName, newTable, "")
+##        gp.CopyRows_management("in_memory\\" + lookupTblName, r"C:\temp\testthis.dbf", "")
+        gp.Delete_management("in_memory\\" + lookupTblName, "")
+
+        gp.AddMessage("making new feature layer")
+        gp.MakeFeatureLayer_management(score_cost_keep_sel, "sck_layer")
+        gp.AddJoin_management("sck_layer", "rank", newTable, "rank2")
+        gp.AddMessage("calculate field")
+##        gp.CalculateField_management("sck_layer", "keep", "[keep2]", "VB")
+        gp.CopyFeatures_management("sck_layer", score_cost_keep_sel_update)
+        gp.CalculateField_management(score_cost_keep_sel_update, "keep", "[rank_cos_1]")
+        
+##        gp.AddMessage("for v in values time = " + str(time.clock()))
+##        # values are already sorted ascending
+##        for v in values:
+##            gp.AddMessage("v0: " + str(v[0]) + "\tv1: " + str(v[1]) + "\tv2: " + str(v[2]))
+##            if v[2] == 1 :
+##                # Search for matching rank value in point shapefile
+##                urows = gp.UpdateCursor(score_cost_keep_sel, "", "", "", "rank A")
+##                urow = urows.Next()
+##                while (urow.getValue("rank") <> v[0]):
+##                    urow = urows.Next()
+####                gp.AddMessage("urow rank: " + str(urow.getValue("rank")))
+##                urow.setValue("keep", "1")
+##                urows.UpdateRow(urow)
+##
+####                gp.AddMessage("rank = " + str(urow.getValue("rank")) + " keep = " + str(urow.getValue("keep")))
+####            urow = urows.Next()
+##            else:
+##                gp.AddMessage("Breaking")
+##                break
+
+##        del urow, urows
 
         del sc_dict
 
@@ -391,7 +423,9 @@ try:
         # Save the selected points to a new file
         gp.AddMessage("select grid points to keep")
         select_exp = "\"keep\" = 1"
-        gp.Select_analysis(score_cost_keep_sel, score_cost_select, select_exp)
+##        gp.Select_analysis(score_cost_keep_sel, score_cost_select, select_exp)
+        # Used for in_memory output
+        gp.Select_analysis(score_cost_keep_sel_update, score_cost_select, select_exp)
 
         dsc = gp.Describe(score_grid)
         cell_size = str(dsc.MeanCellHeight)
