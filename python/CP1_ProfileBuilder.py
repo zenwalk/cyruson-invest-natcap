@@ -1,17 +1,10 @@
 # Marine InVEST: Coastal Protection (Profile Builder)
 # Authors: Greg Guannel, Gregg Verutes
-# 09/02/10
+# 09/07/10
 
 ## TO DO ##
-## SWITCH LOGIC FROM EXCEL TO INTERFACE
-## FIGURE OUT HOW TO FORCE THE PROJECTION TO BE WGS84 DATUM
-
-# CHANGE LOG:
-# April 7: Make some add'l modifs. Don't have dune width anymore.
-# April 11: GV made modifs. Added Xel read capab. and better way to read fns. I made modifs GV proposed, and improve models to take into account random lengths of berms etc..
-# April 15: I think I'm done with first effort. Hand out to GV to include call to WW3 spreadsheet and interface.
-# April 23: Added code to read in vegetation and add eq. profile to measured bathy
-# Now create a Dmodel and Xmodel that have eq. profile and foreshore profile
+## REQUIRE LANDPT TO BE WGS84
+## AVOID DOUBLE PRINTING ON PROFILE_TXT
 
 import numpy as num
 import CPf_SignalSmooth as SignalSmooth
@@ -35,7 +28,7 @@ gp.OverwriteOutput = 1
 gp.CheckOutExtension("management")
 gp.CheckOutExtension("analysis")
 gp.CheckOutExtension("conversion")
-gp.CheckOutExtension("3D")
+gp.CheckOutExtension("spatial")
 
 # error messages
 msgArguments = "Problem with arguments."
@@ -227,7 +220,6 @@ xlApp.Workbooks.Open(InputTable)
 cell = xlApp.Worksheets("Profile Generator Input")
 
 # check what type of data user has
-##BathCheckNearshore = cell.Range("e91").Value # 1 model cuts section from GIS layer, 2 model will build eq. beach profile, 3 model uploads cross-shore file
 WaveClimateCheck = cell.Range("e92").Value # 1 model chooses, 2 if enter
 DuneCheck = cell.Range("e93").Value # 1 don't know, 2 no, 3 don't know, 4 Yes
 Diam = cell.Range("e14").Value # Sediment diam [mm]
@@ -296,18 +288,15 @@ Lveg=cell.Range("f67").Value # ending depth of vegetation field
 SlopeMod1=cell.Range("e77").Value
 SlopeMod2=cell.Range("e78").Value
 SlopeMod3=cell.Range("e79").Value
-
 OffMod1=cell.Range("f77").Value
 OffMod2=cell.Range("f78").Value
 OffMod3=cell.Range("f79").Value
-
 ShoreMod1=cell.Range("g77").Value
 ShoreMod2=cell.Range("g78").Value
 ShoreMod3=cell.Range("g79").Value
 
-##xlApp.ActiveWorkbook.Close(SaveChanges=0)
-##xlApp.Quit()
-
+xlApp.ActiveWorkbook.Close(SaveChanges=0)
+xlApp.Quit()
 # put bathy profiles together #
 x=num.arange(0,10000.1,.1) # long axis
 
@@ -502,7 +491,7 @@ if ProfileQuestion == "(1) Yes": # model extracts value from GIS layers
     # create txt profile for erosion portion
     file = open(Profile_Txt, "a")
     for i in range(0,len(Dmeas)):
-        file.writelines(str(xd[i])+" "+str(Dmeas[i])+"\n")
+        file.writelines(str(xd[i])+"\t"+str(Dmeas[i])+"\n")
     file.close()
 
     # create final point transect file
@@ -521,29 +510,31 @@ elif ProfileQuestion == "(2) No, but I will upload a cross-shore profile":
         xd.append(linelist[0])
         Dmeas.append(linelist[1])
 
+if ProfileQuestion <> "(3) No, please assume an equilibrium beach profile":
     # smooth profile and create x axis
     Dx=xd;L=len(Dmeas) # length of original data
     Dmeas=num.array(Dmeas);xd=num.array(xd)
-    Dmeas=Dmeas[::-1] # reverse order so deeper values starts at x=0
+    Dmeas=Dmeas[::-1] # reverse order so deeper values starts at x=0 (for plot only)
 
     # smooth data
     yd=SignalSmooth.smooth(Dmeas,max(int(len(Dmeas)/20),5),'flat')
 
-    # fit nearshore profile with eq. profile to use Dean and Krieble model
-    Y=(yd);X=(xd);
-    if abs(Y[0])>abs(Y[-1]): # make sure that profile starts with deeper point
-        Y=Y[::-1]     
-    la=num.argmin(abs(Y-hc)) # locate closure depth
-    Yeq=Y[0:la];Xeq=X[0:la];
-    fitfunc=lambda p, ix: p[0]*(ix)**(2.0/3) # Target function for eq. beach profile
-    errfunc=lambda p, ix, iy: fitfunc(p, ix) - iy # Distance to the target function
+    # find A value for erosion model
+    Yeq=yd;Xeq=xd
+    if abs(Yeq[0])>abs(Yeq[-1]): # make sure that profile starts with deeper point
+        Yeq=Yeq[::-1]
+        
+    la=num.argmin(abs(Yeq-hc)) # locate closure depth
+    Yeq=Yeq[0:la];Xeq=Xeq[0:la]
+
+    fitfunc=lambda p, ix: p[0]*(ix)**(2.0/3) # target function for eq. beach profile
+    errfunc=lambda p, ix, iy: fitfunc(p, ix) - iy # distance to the target function
     p0=[0.1] # initial guess for the parameters
-    p1,success=optimize.leastsq(errfunc, p0[:], args=(Xeq,-Yeq)) ## ISSUE WITH OPTIMIZE
+    p1,success=optimize.leastsq(errfunc, p0[:], args=(Xeq,-Yeq))
     A=p1[0] # sediment scale factor
-    Y[0:len(Xeq)]=-A*(Xeq)**(2.0/3) # add eq. profile
 
 # equilibrium beach profile; in case we don't have nearshore bathy
-else: 
+if ProfileQuestion == "(3) No, please assume an equilibrium beach profile":
     temp=float(2)/(3)
     yd=x**(temp)# eq. profile
     out=Indexed(yd,-hc)
@@ -551,10 +542,6 @@ else:
     xd=num.delete(x,out,None)
     yd=-yd[::-1] # reverse order so deeper values starts at x=0
     Dmeas=yd;Dx=xd
-    # prepare variables for Dean & Kriebel
-    X=xd;Y=yd
-    if abs(Y[0])>abs(Y[-1]):
-        Y=Y[::-1]
 
 # prepare whole profile for erosion model
 if ProfileQuestion == "(1) Yes" or ProfileQuestion == "(3) No, please assume an equilibrium beach profile": # model extracts value from GIS layer
@@ -564,84 +551,64 @@ if ProfileQuestion == "(1) Yes" or ProfileQuestion == "(3) No, please assume an 
     Above=num.nonzero(yf>BermCrest)
     xf=num.delete(x,Above[0],None)
     yf=num.delete(yf,Above[0],None) # remove values that are above MHW
-    
+
     # berm and dune
     if DuneCheck == 2: # no dunes are present, just berm   # 1 = DK, 2 = No, 3 = Maybe 4 = Have data
         xb=num.arange(0,100,1)
         yb=num.array(len(xb)*[0.0])+BermCrest # horizontal berm 100m long
-    elif DuneCheck == 1 and RTR > 3: # user doesn't know, and not Wave Dominated: no dunes, just berm
+    elif DuneCheck == 1 and RTR > 3: # user doesn't know, and not wave Dominated: no dunes, just berm
         xb=num.arange(0,100,1)
         yb=num.array(len(xb)*[0.0])+BermCrest # horizontal berm 100m long
-    elif DuneCheck == 3 and RTR > 3: # user doesn't know, and not Wave Dominated: no dunes, just berm
+    elif DuneCheck == 3 and RTR > 3: # user doesn't know, and not wave Dominated: no dunes, just berm
         xb=num.arange(0,100,1)
-        yb=num.array(len(xb)*[0.0])+BermCrest # horizontal berm 100m long
-            
+        yb=num.array(len(xb)*[0.0])+BermCrest # horizontal berm 100m long          
     else: # dune exists; we'll create it as sinusoid for representation
-        xb=num.arange(0,1000.1,.1)
-        if BermLength<>0: # there's a berm
+        xb=num.arange(0,1000.1,1)
+        if BermLength <> 0: # there is a berm
             # berm profile
             yb=num.array(len(xb)*[0.0])+BermCrest
-            Toe=abs(x-BermLength).argmin()# locate toe to separate berm and dune
+            Toe=abs(xb-BermLength).argmin()# locate toe to separate berm and dune
+            
             # dune profile
             DuneWidth=3*DuneCrest # width of sinusoid....won't use...for plotting purposes only
             yb[Toe:-1]=float(DuneCrest)*num.sin(2*pi*(xb[Toe:-1]-xb[Toe])/float(DuneWidth))+(BermCrest)
-            yb[-1]=0
-            # remove points that are landward of DuneCrest/4
-            idx=yb.argmax()
-            la=Indexed(yb,yb[idx]-.1) # find values near crest
-            la=la[0] # approx location of first crest
-            Per=(la[0]-Toe) # period of the sinusoid
-            # make sinusoid smaller after 1/4 period for plotting purposes
-            out=num.arange(la[0]+round(float(Per)/2),len(yb),1)
-            yb[out[0]:-1]=yb[out[0]:-1]/10
-            yb[out[0]:-1]=yb[out[0]:-1]+yb[out[0]-1]-yb[out[0]]
-            # remove points after ~4 periods            
-            out=out[out>la[0]+10*Per]
-            out=num.arange(out[0],len(yb),1)
+            DunePlotEnd=xb[Toe]+3*DuneWidth
+            DunePlotSmall=xb[Toe]+DuneCrest
+
+            out=num.arange(DunePlotEnd,len(yb),1)
+            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]/10
+            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]+yb[DunePlotSmall-1]-yb[DunePlotSmall]
+
             xb=num.delete(xb,out,None)
-            yb=num.delete(yb,out,None)
+            yb=num.delete(yb,out,None); yb[-1]=yb[-2];
            
         else: # there's no berm; pretty much same code as above
+           # dune profile
             DuneWidth=3*DuneCrest # width of sinusoid....won't use...for plotting purposes only
-            # dune profile
-            yb=float(DuneCrest)*num.sin(2*pi*(xb-xb[0])/float(DuneWidth))+(BermCrest)
-            yb[-1]=0
-            # remove points that are landward of DuneCrest/4
-            idx=yb.argmax()
-            la=num.nonzero(yb>yb[idx]-.1) # find values above crest
-            la=la[0] # approx location of first crest
-            Per=la[0]
-            out=num.arange(la[0]+round(float(Per)/2),len(yb),1)
-            yb[out[0]:-1]=yb[out[0]:-1]/10
-            yb[out[0]:-1]=yb[out[0]:-1]+yb[out[0]-1]-yb[out[0]]
-            out=out[out>la[0]+10*Per]
-            out=num.arange(out[0],len(yb),1)
+
+            yb[Toe:-1]=float(DuneCrest)*num.sin(2*pi*(xb[Toe:-1]-xb[Toe])/float(DuneWidth))+(BermCrest)
+            DunePlotEnd=xb[Toe]+3*DuneWidth
+            DunePlotSmall=xb[Toe]+DuneCrest
+  
+            out=num.arange(DunePlotEnd,len(yb),1)
+            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]/10
+            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]+yb[DunePlotSmall-1]-yb[DunePlotSmall]
+
             xb=num.delete(xb,out,None)
-            yb=num.delete(yb,out,None)
-   
+            yb=num.delete(yb,out,None); yb[-1]=yb[-2];
+  
     # combine all vectors together
     xf=xf+xd[-1];xb=xb+xf[-1] # make one long x-axis
     xd=xd.tolist();yd=yd.tolist() # transform into lists
     xf=xf.tolist();yf=yf.tolist()
     xb=xb.tolist();yb=yb.tolist()
   
-    yd.extend(yf);xd.extend(xf);# make one y-axis
+    yd.extend(yf);xd.extend(xf) # make one y-axis
     xd.extend(xb);yd.extend(yb)
-    d=num.array(yd)-MSL # make 0 @ MSL
-
-    out=num.nonzero(d>HAT);out=out[0];
-    h=num.delete(d,out,None);L=len(h)
-    ex=num.delete(xd,out,None);
-
-    dx=1;
-    temp=num.arange(0,xd[-1],dx);
-    F=interp1d(xd,d);d=F(temp);xd=temp; ## ISSUE WITH INTERPOLATE
-    
 else:
-    TextData=open(r'E:\MarineInVEST\CoastalProtection\Tier1\081711\ProfileBuilder\De.txt',"r") # assume that it's this profile
-    ex=[]
-    Dmeas=[]
-    h=[]
+    TextData=open(r'E:\MarineInVEST\CoastalProtection\Tier1\081711\ProfileBuilder\De.txt',"r") 
+    ex=[];Dmeas=[];h=[]
+
     for line in TextData.readlines():
         linelist = [float(s) for s in line.split("\t")] # split the list by comma delimiter
         ex.append(linelist[0])
@@ -688,45 +655,48 @@ else:
 # vegetation variables
 gp.AddMessage("\nPlotting Profile...")
 if Lveg>0: # fill in seagrass vectors
-    temp=num.nonzero(num.array(d)<=do1v);temp=temp[0];pos1=temp[-1]; # depths shallower than shallowest depth
+    temp=num.nonzero(num.array(yd)<=do1v);temp=temp[0];pos1=temp[-1]; # depths shallower than shallowest depth
     Xveg=xd[pos1]-Lveg; #X position where veg. ends
-    temp=num.nonzero(num.array(xd)<=Xveg);temp=temp[0];pos2=temp[-1]; # index where vegetation ends
-    PlntPlot=d[pos2:pos1+1];Xplant=xd[pos2:pos1+1];do2v=d[pos2];
+    temp=num.nonzero(num.array(xd)<=Xveg);temp=temp[0];pos2=temp[-1]; # index where veg. ends
+    PlntPlot=yd[pos2:pos1+1];Xplant=xd[pos2:pos1+1];do2v=yd[pos2]
 
 # plot and save
-if BathCheckNearshore==1 or BathCheckNearshore==2: # model extracts value from GIS Layer
+if ProfileQuestion <> "(3) No, please assume an equilibrium beach profile": # model extracts value from GIS Layer
     # depth limits for plotting
-    dep1=max([do2v,hc]);dep1=dep1-2 # min depth for vegetation plot
-    temp2=num.nonzero(num.array(d)>dep1);temp2=temp2[0];temp2=temp2[0]; 
-    temp1=num.nonzero(num.array(d)>HT);a=0;
-    if len(temp1)==1:
-        temp1=num.nonzero(num.array(d)>BermCrest-.5);
-        if sum(temp1)>0:
-            temp1=temp1[0];temp1=temp1[0];
-        else: temp1=temp2+len(yd)+100
+    VegLow=max([do2v,hc]);# min depth for veg. plot
+    AbvHT=num.nonzero(num.array(yd)>HT+2);AbvHT=AbvHT[0]
+    if len(AbvHT)==1: VegEnd=xd[AbvHT]
+    else: VegEnd=xd[-1]
 
+    AtMSLoc=num.nonzero(num.array(yd)>0);AtMSLoc=AtMSLoc[0];AtMSLoc=AtMSLoc[0]
+    AtMSL=xd[AtMSLoc]
+
+    # plot  
     subplot(221)
-    plot(num.array(xd),d,Xplant,PlntPlot,'-xg');grid();hold;
-    plot(num.array(xd),d*0,'k',num.array(xd),d*0-MSL,'--k',num.array(xd),d*0+HT,'--k');    
-    xlim(Xplant[0]-10,xd[temp1]);ylim(dep1,HT+2)
-    legend(('Bathymetry Profile','Vegetation Cover'),'lower right')
+    plot(num.array(xd),num.array(yd),Xplant,PlntPlot,'-xg');grid();hold
+    plot(num.array(xd),num.array(yd)*0,'k',num.array(xd),num.array(yd)*0-MSL,'--k',num.array(xd),num.array(yd)*0+HT,'--k') 
+    xlim(Xplant[0]-50,VegEnd);ylim(VegLow-2,HT+2)
+
     ylabel('Elevation [m]', size='large')
-    temp1=num.nonzero(num.array(d)>-2);
-    temp1=temp1[0];temp1=temp1[0]-2;
+
     subplot(222)
-    plot(num.array(xd)-xd[temp1],d);grid()
-    xlim(xd[temp1]-xd[temp1],xd[-1]-xd[temp1]);ylim(d[temp1],BermCrest+DuneCrest-MSL+1)
-    subplot(212)
-    plot(Dx,Dmeas,'r',num.array(xd),d,num.array(xd),d*0,'k');grid();
-    ylabel('Elevation [m]', size='large')
-    xlabel('Cross-Shore Distance [m]', size='large')
-    legend(('Extracted Profile','Smoothed Profile'),'lower right')
+    plot(num.array(xd),num.array(yd));grid()
+    xlim(AtMSL-10,xd[-1]+10);ylim(-1,max(yd)+2)
+
+    subplot (223)
+    plot(num.array(xd),num.array(yd));grid()
+    ylim(min(yd)-1,2);
+
+    subplot (224)
+    plot(num.array(xd),num.array(yd));grid()
+    
 else:
-    plot(ex,Dmeas,'r');hold;plot(ex,h);grid();
+    plot(ex,Dmeas,'r');hold;plot(ex,h);grid()
     legend(('Initial Profile','Modified Profile'),'lower right')
 
 # save plot to .PNG
 savefig(Profile_Plot, dpi=(640/8))
+
 
 # create fetch vectors
 # copy original point twice and add fields to second copy
@@ -878,80 +848,107 @@ gp.CopyFeatures_management(PtsCopyExp_Lyr, Fetch_Vectors, "", "0", "0", "0")
 Fetch_Vectors = AddField(Fetch_Vectors, "LENGTH_M", "LONG", "6", "")
 gp.CalculateField_management(Fetch_Vectors, "LENGTH_M", "!shape.length@meters!", "PYTHON", "")
 
-# plot fetch on rose
-radians = (num.pi / 180.0)
-pi = num.pi
-theta16 = [0*radians,22.5*radians,45*radians,67.5*radians,90*radians,112.5*radians,135*radians,157.5*radians,180*radians,202.5*radians,225*radians,247.5*radians,270*radians,292.5*radians,315*radians,337.5*radians]
-rc('grid', color='#316931', linewidth=1, linestyle='-')
-rc('xtick', labelsize=0)
-rc('ytick', labelsize=15)
-# force square figure and square axes looks better for polar, IMO
-width, height = matplotlib.rcParams['figure.figsize']
-size = min(width, height)
-# make a square figure
-plt = figure(figsize=(size, size))
-ax = plt.add_axes([0.1, 0.1, 0.8, 0.8], polar=True, axisbg='w')
-# plot
-bars = ax.bar(theta16, FetchList, width=.35, color='#ee8d18', lw=1)
-for r,bar in zip(FetchList, bars):
-    bar.set_facecolor( cm.YlOrRd(r/10.))
-    bar.set_alpha(.65)
-ax.set_rmax(max(FetchList)+1)
-grid(True)
-ax.set_title("Average Fetch (meters)", fontsize=15)
-plt.savefig(outputws+"Fetch_Plot.png", dpi=(640/8))
+### plot fetch on rose
+##radians = (num.pi / 180.0)
+##pi = num.pi
+##theta16 = [0*radians,22.5*radians,45*radians,67.5*radians,90*radians,112.5*radians,135*radians,157.5*radians,180*radians,202.5*radians,225*radians,247.5*radians,270*radians,292.5*radians,315*radians,337.5*radians]
+##rc('grid', color='#316931', linewidth=1, linestyle='-')
+##rc('xtick', labelsize=0)
+##rc('ytick', labelsize=15)
+### force square figure and square axes looks better for polar, IMO
+##width, height = matplotlib.rcParams['figure.figsize']
+##size = min(width, height)
+### make a square figure
+##plt = figure(figsize=(size, size))
+##ax = plt.add_axes([0.1, 0.1, 0.8, 0.8], polar=True, axisbg='w')
+### plot
+##bars = ax.bar(theta16, FetchList, width=.35, color='#ee8d18', lw=1)
+##for r,bar in zip(FetchList, bars):
+##    bar.set_facecolor( cm.YlOrRd(r/10.))
+##    bar.set_alpha(.65)
+##ax.set_rmax(max(FetchList)+1)
+##grid(True)
+##ax.set_title("Average Fetch (meters)", fontsize=15)
+##plt.savefig(outputws+"Fetch_Plot.png", dpi=(640/8))
 
 
-### create cost surface based on 'SeaPoly'
-##gp.Extent = Fetch_AOI
-##projection = grabProjection(LandPoint)
-##gp.Project_management(WW3_Pts, WW3_Pts_prj, projection)
-##SeaPoly = AddField(SeaPoly, "SEA", "SHORT", "", "")
-##gp.CalculateField_management(SeaPoly, "SEA", "1", "PYTHON", "")
-##gp.FeatureToRaster_conversion(SeaPoly, "SEA", seapoly_rst, "250")
-##gp.Expand_sa(seapoly_rst, seapoly_e, "1", "1")
-### allocate 'WW3_Pts' throughout cost surface
-##gp.CostAllocation_sa(WW3_Pts_prj, seapoly_e, costa_ww3, "", "", "FID", "", "")
-### determine which point is closest to 'LandPoint'
-##gp.ExtractValuesToPoints_sa(LandPoint, costa_ww3, LandPoint_WW3, "NONE")
-##cur = gp.UpdateCursor(LandPoint_WW3)
-##row = cur.Next()
-##WW3_FID = row.GetValue("RASTERVALU")
-##del row
-##del cur
-##
-### populate list with data from closest WW3 point
-##WW3_ValuesList = []
-##dirList = [0, 22, 45, 67, 90, 112, 135, 157, 180, 202, 225, 247, 270, 292, 315, 337]
-##SrchCondition = "FID = "+str(WW3_FID)
-##cur = gp.SearchCursor(WW3_Pts_prj, SrchCondition, "", "")
-##row = cur.Next()
-##WW3_ValuesList.append(row.GetValue("LAT"))
-##WW3_ValuesList.append(row.GetValue("LONG"))
-##for i in range(0,len(dirList)):
-##    WW3_ValuesList.append(row.GetValue("V10PCT_"+str(dirList[i])))
-##for i in range(0,len(dirList)):
-##    WW3_ValuesList.append(row.GetValue("V25PCT_"+str(dirList[i])))
-##for i in range(0,len(dirList)):
-##    WW3_ValuesList.append(row.GetValue("V_MAX_"+str(dirList[i])))
-##WW3_ValuesList.append(row.GetValue("W_POWER"))
-##WW3_ValuesList.append(row.GetValue("H_10PCT"))
-##WW3_ValuesList.append(row.GetValue("T_10PCT"))
-##WW3_ValuesList.append(row.GetValue("H_25PCT"))
-##WW3_ValuesList.append(row.GetValue("T_25PCT"))
-##WW3_ValuesList.append(row.GetValue("H_MAX"))
-##WW3_ValuesList.append(row.GetValue("T_MAX"))
-##WW3_ValuesList.append(row.GetValue("H_10YR"))
-##WW3_ValuesList.append(row.GetValue("He"))
-##WW3_ValuesList.append(row.GetValue("Hmod"))
-##WW3_ValuesList.append(row.GetValue("Tmod"))
-##del row
-##del cur
-##
-### write WW3 results to Excel sheet 'Erosion Model Input'
-##cell2 = xlApp.Worksheets("Erosion Model Input")
-##cell2.Range("m5").Value = WW3_ValuesList[xxx]
-##xlApp.ActiveWorkbook.Close(SaveChanges=1) # save changes
+# create cost surface based on 'SeaPoly'
+gp.Extent = Fetch_AOI
+projection = grabProjection(LandPoint)
+gp.Project_management(WW3_Pts, WW3_Pts_prj, projection)
+SeaPoly = AddField(SeaPoly, "SEA", "SHORT", "", "")
+gp.CalculateField_management(SeaPoly, "SEA", "1", "PYTHON", "")
+gp.FeatureToRaster_conversion(SeaPoly, "SEA", seapoly_rst, "250")
+gp.Expand_sa(seapoly_rst, seapoly_e, "1", "1")
+# allocate 'WW3_Pts' throughout cost surface
+gp.CostAllocation_sa(WW3_Pts_prj, seapoly_e, costa_ww3, "", "", "FID", "", "")
+# determine which point is closest to 'LandPoint'
+gp.ExtractValuesToPoints_sa(LandPoint, costa_ww3, LandPoint_WW3, "NONE")
+cur = gp.UpdateCursor(LandPoint_WW3)
+row = cur.Next()
+WW3_FID = row.GetValue("RASTERVALU")
+del row
+del cur
+
+# populate list with data from closest WW3 point
+WW3_ValuesList = []
+dirList = [0, 22, 45, 67, 90, 112, 135, 157, 180, 202, 225, 247, 270, 292, 315, 337]
+letterList = ['c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t']
+SrchCondition = "FID = "+str(WW3_FID)
+cur = gp.SearchCursor(WW3_Pts_prj, SrchCondition, "", "")
+row = cur.Next()
+WW3_ValuesList.append(row.GetValue("LAT")) # 0
+WW3_ValuesList.append(row.GetValue("LONG")) # 1
+for i in range(0,len(dirList)):
+    WW3_ValuesList.append(row.GetValue("V10PCT_"+str(dirList[i]))) # 2 - 17
+for i in range(0,len(dirList)):
+    WW3_ValuesList.append(row.GetValue("V25PCT_"+str(dirList[i]))) # 18 - 33
+for i in range(0,len(dirList)):
+    WW3_ValuesList.append(row.GetValue("V_MAX_"+str(dirList[i]))) # 34 - 49
+WW3_ValuesList.append(row.GetValue("V_10YR")) # 50
+WW3_ValuesList.append(row.GetValue("H_10PCT")) # 51
+WW3_ValuesList.append(row.GetValue("T_10PCT")) # 52
+WW3_ValuesList.append(row.GetValue("H_25PCT")) # 53
+WW3_ValuesList.append(row.GetValue("T_25PCT")) # 54
+WW3_ValuesList.append(row.GetValue("H_MAX")) # 55
+WW3_ValuesList.append(row.GetValue("T_MAX")) # 56
+WW3_ValuesList.append(row.GetValue("H_10YR")) # 57
+WW3_ValuesList.append(row.GetValue("He")) # 58
+WW3_ValuesList.append(row.GetValue("Hmod")) # 59
+WW3_ValuesList.append(row.GetValue("Tmod")) # 60
+del row
+del cur
+
+# import Profile Builder info from Excel file
+xlApp = Dispatch("Excel.Application")
+xlApp.Visible=0
+xlApp.DisplayAlerts=0
+xlApp.Workbooks.Open(InputTable)
+# write WW3 results to Excel sheet 'Erosion Model Input'
+cell2 = xlApp.Worksheets("Erosion Model Input")
+# maximum wave height
+cell2.Range("e85").Value = WW3_ValuesList[55]
+cell2.Range("f85").Value = WW3_ValuesList[56]
+# top 10% wave height
+cell2.Range("e86").Value = WW3_ValuesList[51]
+cell2.Range("f86").Value = WW3_ValuesList[52]
+# top 25% wave height
+cell2.Range("e87").Value = WW3_ValuesList[53]
+cell2.Range("f87").Value = WW3_ValuesList[54]
+# 10-yr wave height
+cell2.Range("e88").Value = WW3_ValuesList[57]
+# maximum wind speed
+for i in range(34,50):
+    cell2.Range(letterList[i-34]+"89").Value = WW3_ValuesList[i]
+# top 10% wind speed
+for i in range(2,18):
+    cell2.Range(letterList[i-2]+"90").Value = WW3_ValuesList[i]
+# top 25% wind speed
+for i in range(18,34):
+    cell2.Range(letterList[i-18]+"91").Value = WW3_ValuesList[i]
+# 10-yr wind speed
+cell2.Range("e92").Value = WW3_ValuesList[50]
+xlApp.ActiveWorkbook.Close(SaveChanges=1) # save changes
 xlApp.Quit()
 
 
@@ -991,7 +988,7 @@ htmlfile.write("\" style=\"color:#0000FF;text-align:center\">View Larger Map</a>
 htmlfile.write("</td><td>")
 htmlfile.write("<img src=\"Profile_Plot.png\" width=\"640\" height=\"480\">")
 htmlfile.write("</td></tr></table>")
-htmlfile.write("<img src=\"Fetch_Plot.png\" width=\"640\" height=\"480\">")
+htmlfile.write("<img src=\"Profile_Plot.png\" width=\"640\" height=\"480\">")
 htmlfile.write("<br>\n")
 htmlfile.write("<br><HR><H2>Site Information</H2>\n")
 htmlfile.write("<li><u>The site is located at</u> - Latitude: "+PtLat+", Longitude: "+PtLong+"<br>\n")
@@ -1013,4 +1010,3 @@ for para in parameters:
     parafile.writelines(para+"\n")
     parafile.writelines("\n")
 parafile.close()
-
