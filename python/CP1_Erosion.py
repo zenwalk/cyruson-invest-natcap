@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Erosion and Valuation)
 # Authors: Greg Guannel, Gregg Verutes, Apollo Yi
-# 09/07/10
+# 09/08/10
 
 import numpy as num
 import CPf_SignalSmooth as SignalSmooth
@@ -22,40 +22,42 @@ gp = arcgisscripting.create()
 # set output handling
 gp.OverwriteOutput = 1
 # check out any necessary extensions
-##gp.CheckOutExtension("management")
-##gp.CheckOutExtension("analysis")
-##gp.CheckOutExtension("conversion")
-##gp.CheckOutExtension("spatial")
+gp.CheckOutExtension("management")
+gp.CheckOutExtension("analysis")
+gp.CheckOutExtension("conversion")
+gp.CheckOutExtension("spatial")
 
 # error messages
 msgArguments = "Problem with arguments."
 
-##try:
-##    # get parameters
-##    parameters = []
-##    now = datetime.datetime.now()
-##    parameters.append("Date and Time: "+ now.strftime("%Y-%m-%d %H:%M"))
-##    gp.workspace = gp.GetParameterAsText(0)
-##    parameters.append("Workspace: "+ gp.workspace)
-##    xxx = gp.GetParameterAsText(1)
-##    parameters.append("xxx: "+ xxx)
-##except:
-##    raise Exception, msgArguments + gp.GetMessages(2)
-##
-##try:
-##    thefolders=["intermediate","Output"]
-##    for folder in thefolders:
-##        if not gp.exists(gp.workspace+folder):
-##            gp.CreateFolder_management(gp.workspace, folder)
-##except:
-##    raise Exception, "Error creating folders"
-##
-### intermediate and output directories
-##outputws = gp.workspace + os.sep + "Output" + os.sep
-##interws = gp.workspace + os.sep + "intermediate" + os.sep
-##
-##xxx = interws + "xxx.shp"
-##xxx = outputws + "xxx.txt"
+try:
+    # get parameters
+    parameters = []
+    now = datetime.datetime.now()
+    parameters.append("Date and Time: "+ now.strftime("%Y-%m-%d %H:%M"))
+    ProfileGeneratorWS = gp.GetParameterAsText(0)
+    parameters.append("Workspace: "+ gp.workspace)
+    InputTable = gp.GetParameterAsText(1)
+    parameters.append("Profile Generator Excel Table: "+ InputTable)
+    StormDur = int(gp.GetParameterAsText(2))
+    parameters.append("Storm Duration (in hours): "+ str(StormDur))
+    HAT = int(gp.GetParameterAsText(3))
+    parameters.append("Surge Level During Storm (in meters): "+ str(HAT))
+    VegType = gp.GetParameterAsText(4)
+    parameters.append("Vegetation Type: "+ VegType)
+except:
+    raise Exception, msgArguments + gp.GetMessages(2)
+
+
+# intermediate and output directories
+outputws = ProfileGeneratorWS + os.sep + "Output" + os.sep
+interws = ProfileGeneratorWS + os.sep + "intermediate" + os.sep
+scratchws = ProfileGeneratorWS + os.sep + "scratch" + os.sep
+
+BathyProfile = outputws + "BathyProfile.txt"
+CreatedProfile = outputws + "CreatedProfile.txt"
+Erosion_Plot = outputws + "Erosion_Plot.png"
+ProfileErosion_HTML = outputws + "ProfileErosion_Results.html"
 
 # various functions and checks
 def gradient(f,z):
@@ -222,7 +224,7 @@ def ErosionKD(B,D,W):
             Rinf=(S*Term1)/(B+hb-S/2)
             
         TS=(320.0*(Hb**(3.0/2.0)/(g**.5*A**3.0))*(1.0/(1.0+hb/BD+(m*xb)/hb)))/3600.0;# erosion response time scale
-        beta=2.0*pi*(TS/Dur);
+        beta=2.0*pi*(TS/StormDur);
 
         expr="num.exp(-2*x/beta)-num.cos(2*x)+(1/beta)*num.sin(2*x)"# solve this numerically
         fn = eval( "lambda x: " + expr )
@@ -232,7 +234,6 @@ def ErosionKD(B,D,W):
 
     return Rinf, R0
 
-
 # constants
 g=9.81
 rho=1024.0
@@ -241,27 +242,24 @@ rho=1024.0
 xlApp=Dispatch("Excel.Application")
 xlApp.Visible=0
 xlApp.DisplayAlerts=0
-xlApp.Workbooks.Open(r'C:\InVEST21\CoastalProtection\T1\Input\ProfileBuilder_Sept7.xlsx')
-cell1=xlApp.Worksheets("Erosion Model Input")
+xlApp.Workbooks.Open(InputTable)
 cell0=xlApp.Worksheets("Profile Generator Input")
+cell1=xlApp.Worksheets("Erosion Model Input")
 
-# data from Profile Generator
-Slope=cell0.Range("f38").Value # foreshore slope = 1/Slope
-m=1.0/Slope; # bed slope
+# data from 'Profile Generator Input'
+Slope = cell0.Range("f31").Value # foreshore slope = 1/Slope
+m = 1.0/Slope; # bed slope
 
-MSL = cell0.Range("d30").Value # mean Sea Level
-HT = cell0.Range("e30").Value # high tide elevation
-HAT = cell0.Range("f30").Value # high tide elevation
-
+MSL = cell0.Range("d23").Value # mean sea level
+HT = cell0.Range("e23").Value # high tide elevation
+##HAT = cell0.Range("f23").Value # high tide elevation
 A = cell0.Range("e94").Value # sediment scale factor
+He = cell0.Range("h18").Value # effective wave height
+Hm = cell0.Range("i18").Value # modal wave height
+Tm = cell0.Range("j18").Value # modal wave period
+hc = 1.57*He # closure depth 
 
-He=cell0.Range("h25").Value # effective wave height
-Hm=cell0.Range("i25").Value # modal wave height
-Tm=cell0.Range("j25").Value # modal wave period
-hc=1.57*He # closure depth 
-
-# data from Erosion Inputs
-Dur=cell1.Range("j9").Value # storm duration
+# data from 'Erosion Model Input'
 CheckWaveInput=cell1.Range("b67").Value
 if CheckWaveInput==9:
     Ho=cell1.Range("d14").Value # wave height
@@ -272,7 +270,13 @@ elif CheckWaveInput==10:
     WindD2=cell1.Range("d19:k19").Value # wind direction
     WindU2=cell1.Range("d20:k20").Value # wind speed
 
-    # insert equation for wave from wind
+    ## insert equation for wave from wind (fetch)
+    ## inputs: estimate average depth over profile, use distance of fetch vectors, inputs from that WW3 portion of the Erosion sheet
+    ## CHECKS FOR FETCH if CheckWaveInput=5-8 or 10 --> then need accurate GIS fetch file.  Check GIS fetch layer has been calculated properly and is present.
+
+## GV ADD THE CODE TO GRAB DISTANCE MEASURES FROM FETCH VECTORS
+## ADD CHECK THAT IF FETCH VECTOR GIS LAYER DOESN'T EXIST, ADD ERROR MESSAGE
+    
 ##    U=u(kk);
 ##    ds=g*d/U^2;Fs=g*F/U^2;
 ##    A=tanh(0.343*ds^1.14);
@@ -283,11 +287,11 @@ elif CheckWaveInput==10:
 ##    B=tanh(2.77e-7*Fs^1.45/A);
 ##    T(kk)=7.69*U/g*(A*B)^0.187;
 
-BermCrest=cell0.Range("f48").Value
-BermLength=cell0.Range("g48").Value
-DuneCrest=cell0.Range("j58").Value
+BermCrest=cell0.Range("f41").Value
+BermLength=cell0.Range("g41").Value
+DuneCrest=cell0.Range("j51").Value
 
-# management action
+# management action input from user
 MangmtActn=cell1.Range("c72").Value;
 if MangmtActn==1: # vegetation field is modified
     hov=cell1.Range("e48").Value # height of marsh
@@ -295,14 +299,13 @@ if MangmtActn==1: # vegetation field is modified
     Nov=cell1.Range("g48").Value # density of marsh
     do1v=cell1.Range("h48").Value;do1v=-do1v; # starting depth of marsh
     do2v=cell1.Range("i48").Value;do2v=-do2v; # ending depth of marsh
-else: #Backshore is modified
-    B0=cell1.Range("e53").Value; # initial Berm height
-    W0=cell1.Range("f53").Value; # initial Berm length
-    D0=cell1.Range("i53").Value; # initial Dune length
-
-    B1=cell1.Range("e54").Value; # modified Berm height
-    W1=cell1.Range("f54").Value; # modified Berm length
-    D1=cell1.Range("i54").Value; # modified Dune length
+else: # backshore is modified
+    B0=cell1.Range("e53").Value; # initial berm height
+    W0=cell1.Range("f53").Value; # initial berm length
+    D0=cell1.Range("i53").Value; # initial dune length
+    B1=cell1.Range("e54").Value; # modified berm height
+    W1=cell1.Range("f54").Value; # modified berm length
+    D1=cell1.Range("i54").Value; # modified dune length
    
 xlApp.ActiveWorkbook.Close(SaveChanges=0)
 xlApp.Quit()
@@ -310,7 +313,7 @@ xlApp.Quit()
 
 # bathymetry
 # load bathy profile
-TextData=open(r'C:\InVEST21\CoastalProtection\T1\WORKING\testNew3\Output\Profile_Txt.txt',"r") # assume that it's this profile
+TextData=open(BathyProfile,"r") # assume that it's this profile
 xd=[]
 Depth=[]
 for line in TextData.readlines():
@@ -401,56 +404,75 @@ if MangmtActn==1:
     Rveg=R0*abs(Rnp-Rmax)/Rmax; # scale erosion distance when vegetation is present by ratio of runup
 
     # test to print
-    print "'Shore retreat in absence of vegetation is %6.2f'" %R0
-    print "'Shore retreat in presence of vegetation is %6.2f'" %Rveg
+##    print "'Shore retreat in absence of vegetation is %6.2f'" %R0
+##    print "'Shore retreat in presence of vegetation is %6.2f'" %Rveg
     
     subplot(221)
-    plot(x,H0[::-1],x,H[::-1])
+    plot(x,H0[::-1], label='No Veg.')
+    plot(x,H[::-1], label='Yes Veg.')
     grid();xlim(x[-1],0)
     ylabel('Wave Height [m]', size='large')
-    legend(('No Veg.','Yes Veg'),'lower left')
+    xlabel('Cross-Shore Distance [m]', size='large')
+    legend(loc='lower left', bbox_to_anchor=(0.05, 0.25), ncol=1, fancybox=True, shadow=True)
     
     subplot(222)
     plot(x,Eta0[::-1],x,Eta[::-1])
-    grid();xlim(x[-1],0)
-    ylabel('Mean Water Surface Elevation [m]', size='large')
+    grid()
+    xlim(x[-1],0)
+    ylabel('Mean Water Surf. Elev. [m]', size='medium')
     xlabel('Cross-Shore Distance [m]', size='large')
     
     subplot(223)
     plot(x,-h[::-1])
     ylabel('Depth [m]', size='large')
-    grid();xlim(x[-1],0)
+    grid()
+    xlim(x[-1],0)
     
     subplot(224)
     plot(AtnH[::-1])
     ylabel('Percent Wave Attenuation', size='large')
-    grid();xlim(x[-1],0)
-    show()
+    grid()
+    xlim(x[-1],0)
 
 else:
     Rinf0,R0=ErosionKD(B0,D0,W0)
     Rinf1,R1=ErosionKD(B1,D1,W1)
-    print "'Shore retreat using initial configuration is %6.2f'" %R0
-    print "'Shore retreat after backshore modification is %6.2f'" %R1
+##    print "'Shore retreat using initial configuration is %6.2f'" %R0
+##    print "'Shore retreat after backshore modification is %6.2f'" %R1
 
     subplot(311)
-    plot(x,H0[::-1],x,H[::-1])
-    grid();xlim(x[-1],0)
+    plot(x,H0[::-1], label='No Veg.')
+    plot(x,H[::-1], label='Yes Veg')
+    grid()
+    xlim(x[-1],0)
     ylabel('Wave Height [m]', size='large')
-    legend(('No Veg.','Yes Veg'),'lower left')
-    
+    xlabel('Cross-Shore Distance [m]', size='large')
+    legend(loc='lower left', bbox_to_anchor=(0.05, 0.25), ncol=1, fancybox=True, shadow=True)
+
     subplot(312)
     plot(x,Eta0[::-1],x,Eta[::-1])
     grid();xlim(x[-1],0)
-    ylabel('Mean Water Surface Elevation [m]', size='large')
+    ylabel('Mean Water Surf. Elev. [m]', size='medium')
     xlabel('Cross-Shore Distance [m]', size='large')
     
     subplot(313)
     plot(x,-h[::-1])
     ylabel('Depth [m]', size='large')
-    grid();xlim(x[-1],0)
-    show()
+    grid()
+    xlim(x[-1],0)
 
 # plot results
 ##stop=150;la=num.argmin(abs(x-xb0+stop))
 ##pos=min([la,xv])
+savefig(Erosion_Plot, dpi=(640/8))
+
+# re-open and edit html file
+htmlfile = open(ProfileErosion_HTML, "a")
+if MangmtActn==1:
+    htmlfile.write("<li><u>Shore retreat in absence of vegetation is</u>: "+str(R0)+"<br>\n")
+    htmlfile.write("<li><u>Shore retreat in presence of vegetation is</u>: "+str(Rveg)+"<br>\n")
+else:
+    htmlfile.write("<li><u>Shore retreat using initial configuration is</u>: "+str(R0)+"<br>\n")
+    htmlfile.write("<li><u>Shore retreat after backshore modification is</u>: "+str(Rveg)+"<br>\n")
+htmlfile.write("</html>")
+htmlfile.close()
