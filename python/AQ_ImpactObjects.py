@@ -1,9 +1,7 @@
 # Marine InVEST: Visual Impact from Objects (Aesthetic Quality)
 # Authors: Gregg Verutes, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 09/02/11
-
-## FIX GOOGLE MAP OUTPUTS -- POST KML OR SOMETHING WITH MORE COMPLEX GEOMETRY
+# 09/09/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -23,7 +21,9 @@ gp.CheckOutExtension("conversion")
 # error messages
 msgArguments = "\nProblem with arguments."
 msgDataPrep = "\nError in preparing data."
-msgVShed = "\nError conducting viewshed and population analysis."
+msgVShed = "\nError conducting viewshed analysis."
+msgIntersect = "\nError calculating overlap between viewshed output and visual polygons."
+msgPopStats = "\nError conducting population statistics."
 msgNumPyNo = "NumPy extension is required to run the Aesthetic Quality model.  Please consult the Marine InVEST FAQ for instructions on how to install."
 msgSciPyNo = "SciPy extension is required to run the Aesthetic Quality model.  Please consult the Marine InVEST FAQ for instructions on how to install."
 
@@ -65,6 +65,8 @@ try:
         parameters.append("Refractivity Coefficient: "+ str(RefractCoeff))
         globalPop = gp.GetParameterAsText(6)
         parameters.append("Population Raster: "+ globalPop)
+        visualPolys = gp.GetParameterAsText(7)
+        parameters.append("Polygon Features for Overlap Analysis: "+ visualPolys)
 
     except:
         raise Exception, msgArguments + gp.GetMessages(2)
@@ -90,14 +92,19 @@ try:
     DEM_sea_rc = interws + "DEM_sea_rc"
     DEM_vs = interws + "DEM_vs"
     AOI_geo = interws + "AOI_geo.shp"
-    NegPoints_geo = interws + "NegPoints_geo.shp"
     vshed = interws + "vshed"
-    vshed_rc = interws + "vshed_rc"
+    vshed_rc1 = interws + "vshed_rc1"
+    vshed_rc2 = interws + "vshed_rc2"
     zstatsPop = interws + "zstatsPop.dbf"
-    
+    vshed_2poly = interws + "vshed_2poly.shp"
+    vp_prj_lyr = interws + "vp_prj.lyr"
+    vshed_vp_intrsct = interws + "vshed_vp_intrsct.shp"
+    vshed_vp_intrsct_lyr = interws + "vshed_vp_intrsct.lyr"
+    vp_prj = outputws + "vp_overlap.shp"
+
     pop_prj = outputws + "pop_prj"
     vshed_qual = outputws + "vshed_qual"
-    PopHTML = outputws + "viewshedStats_"+now.strftime("%Y-%m-%d-%H-%M")+".html"
+    PopHTML = outputws + "PopulationStats_"+now.strftime("%Y-%m-%d-%H-%M")+".html"
 
 
     ##############################################
@@ -188,6 +195,7 @@ try:
     ##############################################################
     ######## CHECK INPUTS, SET ENVIRONMENTS, & DATA PREP #########
     ##############################################################
+    
     try:
         gp.AddMessage("\nChecking the inputs...")  
         # call various checking functions
@@ -196,6 +204,8 @@ try:
         ckProjection(NegPoints)
         ckProjection(DEM)
         compareProjections(NegPoints, DEM)
+        if visualPolys:
+            ckProjection(visualPolys)  
 
         # set environments
         gp.Extent = AOI
@@ -239,11 +249,18 @@ try:
 
 
     ###########################################################
-    ############## VIEWSHED & POPULATION ANALYSIS #############
+    ################### VIEWSHED ANALYSIS #####################
     ###########################################################
+    
     try:
         gp.AddMessage("\nConducting the viewshed analysis...")
         gp.Viewshed_sa(DEM_vs, NegPoints, vshed, "1", "CURVED_EARTH", RefractCoeff)
+        # get number of points in 'NegPoints'
+        NegPointsCount = gp.GetCount_management(NegPoints)
+        # reclassify 'vshed' output for overlap analysis and population stats
+        if visualPolys:
+            gp.Reclassify_sa(vshed, "VALUE", "0 NODATA;1 "+str(NegPointsCount)+" 1", vshed_rc1, "DATA")
+        gp.Reclassify_sa(vshed, "VALUE", "0 0;1 "+str(NegPointsCount)+" 1", vshed_rc2, "DATA")
         
         # populate vshed values in list
         gp.BuildRasterAttributeTable_management(vshed, "Overwrite")
@@ -263,7 +280,10 @@ try:
         # create a list for breaks (25, 50, 75, 100 Percentiles)
         gp.AddMessage("...classifying the results in quartiles") 
         QuartList = getQuartiles(vshedList)
-        QuartExpr = "0 0;1 "+str(int(QuartList[0]))+" 1;"+str(int(QuartList[0]))+" "+str(int(QuartList[1]))+" 2;"+str(int(QuartList[1]))+" "+str(int(QuartList[2]))+" 3;"+str(int(QuartList[2]))+" "+str(int(QuartList[3]))+" 4"
+        QuartExpr = "0 0;1 "+str(int(QuartList[0]))+" 1;"\
+                    +str(int(QuartList[0]))+" "+str(int(QuartList[1]))+" 2;"\
+                    +str(int(QuartList[1]))+" "+str(int(QuartList[2]))+" 3;"\
+                    +str(int(QuartList[2]))+" "+str(int(QuartList[3]))+" 4"
         gp.Reclassify_sa(vshed, "VALUE", QuartExpr, vshed_qual, "DATA")
         gp.BuildRasterAttributeTable_management(vshed_qual, "Overwrite")
         
@@ -276,123 +296,152 @@ try:
         while row:
             QualValue = int(row.GetValue("VALUE"))
             if QualValue == 0:
-                row.SetValue("VIS_QUAL", "0 UNAFFECTED (No Visual Impact)")
-                row.SetValue("VAL_BREAKS", "0 Sites Visible")   
+                row.SetValue("VIS_QUAL", "No Visual Impact")
+                row.SetValue("VAL_BREAKS", "0 Features Visible")   
             elif QualValue == 1:
-                row.SetValue("VIS_QUAL", "1 HIGH (Low Visual Impact)")
-                row.SetValue("VAL_BREAKS", "0 < Sites Visible <= "+str(int(QuartList[0])))
+                row.SetValue("VIS_QUAL", "Low Visual Impact")
+                row.SetValue("VAL_BREAKS", "0 to "+str(int(QuartList[0]))+" Features Visible")
             elif QualValue == 2:
-                row.SetValue("VIS_QUAL", "2 MEDIUM (Moderate Visual Impact)")
-                row.SetValue("VAL_BREAKS", str(int(QuartList[0]))+" < Sites Visible <= "+str(int(QuartList[1])))
+                row.SetValue("VIS_QUAL", "Low-Medium Visual Impact")
+                row.SetValue("VAL_BREAKS", str(int(QuartList[0]))+" to "+str(int(QuartList[1]))+" Features Visible")
             elif QualValue == 3:
-                row.SetValue("VIS_QUAL", "3 LOW (High Visual Impact)")
-                row.SetValue("VAL_BREAKS", str(int(QuartList[1]))+" < Sites Visible <= "+str(int(QuartList[2])))
+                row.SetValue("VIS_QUAL", "Medium-High Visual Impact")
+                row.SetValue("VAL_BREAKS", str(int(QuartList[1]))+" to "+str(int(QuartList[2]))+" Features Visible")
             else:
-                row.SetValue("VIS_QUAL", "4 VERY LOW/POOR (Very High Visual Impact)")
-                row.SetValue("VAL_BREAKS", str(int(QuartList[2]))+" < Sites Visible <= "+str(int(QuartList[3])))
+                row.SetValue("VIS_QUAL", "High Visual Impact")
+                row.SetValue("VAL_BREAKS", str(int(QuartList[2]))+" to "+str(int(QuartList[3]))+" Features Visible")
             cur.UpdateRow(row)
             row = cur.Next()
         del row, cur
-
-############################################################################################
-
-        # grab datum and reprojected 'ObserverPts' in geographic/unprojected
-        geo_projection = getDatum(NegPoints)
-        gp.Project_management(NegPoints, NegPoints_geo, geo_projection)
-        # grab latitude value of AOI polygons's centroid
-        cur = gp.UpdateCursor(NegPoints)
-        row = cur.Next()
-        LatLongList = []
-        while row:
-            feat = row.Shape
-            midpoint = feat.Centroid
-            midList = shlex.split(midpoint)
-            LatLongList.append(float(midList[1]))
-            LatLongList.append(float(midList[0]))
-            row = cur.Next()
-        del cur, row
-
-        # get projection from AOI
-        projection = grabProjection(AOI)
-        # return projected AOI to geographic (unprojected)
-        geo_projection = getDatum(AOI)
-        gp.Project_management(AOI, AOI_geo, geo_projection)
-        # grab latitude value of AOI polygons's centroid
-        cur = gp.UpdateCursor(AOI_geo)
-        row = cur.Next()
-        feat = row.Shape
-        midpoint = feat.Centroid
-        midList = shlex.split(midpoint)
-        midList = [float(s) for s in midList]
-        del row, cur
-        latAOI = midList[1]
-        longAOI = midList[0]
-
-        # based on centroid of AOI, calculate latitude for approximate projection cell size
-        latList = [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 27.5, 30.0, 32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5, 70.0, 72.5, 75.0, 77.5, 80.0]
-        cellSizeList = [927.99, 924.39, 920.81, 917.26, 913.74, 902.85, 892.22, 881.83, 871.69, 853.83, 836.68, 820.21, 804.38, 778.99, 755.17, 732.76, 711.64, 679.16, 649.52, 622.35, 597.37, 557.69, 522.96, 492.30, 465.03, 416.93, 377.84, 345.46, 318.19, 256.15, 214.36, 184.29, 161.62]
-        latList = np.array(latList)
-        #latValue = 49.1
-        latList_near = findNearest(latList,latAOI)
-        latList_index = np.where(latList==latList_near)
-
-        # project and clip global population raster
-        gp.ProjectRaster_management(globalPop, pop_prj, projection, "BILINEAR", str(cellSizeList[latList_index[0]]), "", "", "")
-
-        # get number of points in "NegPoints"
-        NegPointsCount = gp.GetCount_management(NegPoints)
-        gp.Reclassify_sa(vshed, "Value", "0 NODATA;1 "+str(NegPointsCount)+" 1", vshed_rc, "DATA")
-        # get population statistics for vshed
-        gp.ZonalStatisticsAsTable_sa(vshed, "VALUE", pop_prj, zstatsPop, "DATA")
-
-        # search through zonal stats table for population within viewshed
-        cur = gp.UpdateCursor(zstatsPop)
-        row = cur.Next()
-        NumSitesList = []
-        PopList = []      
-        while row:
-             NumSitesList.append(row.GetValue("VALUE"))
-             PopList.append(row.GetValue("SUM"))
-             row = cur.next()
-        del row, cur
-        PopSum = np.sum(PopList[1::])
-
-        # create html file output
-        htmlfile = open(PopHTML, "w")
-        htmlfile.write("<html>\n")
-        htmlfile.write("<title>Marine InVEST</title>")
-        htmlfile.write("<center><H1>Visual Impact from Objects (Aesthetic Quality)</H1></center><br>")
-        htmlfile.write("This page contains population results from running the Marine InVEST Viewshed model.")
-        htmlfile.write("<br><HR><H2>Map of Viewer Locations</H2>\n")
-        htmlfile.write("This is a map showing the point location of each object in the analysis. <br>\n")
-        htmlfile.write("<table border=\"0\"><tr><td>")
-        htmlfile.write("<iframe width=\"640\" height=\"640\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"\
-                        src=\"http://maps.google.com/maps/api/staticmap?center="+str(latAOI)+","+str(longAOI)+"&zoom=10&size=640x640&maptype=hybrid")
-##        for i in range(0,len(LatLongList),2):
-##            htmlfile.write("&markers=color:red%7Ccolor:red%7Clabel:X%7C"\
-##                            +str(LatLongList[i])+","+str(LatLongList[i+1]))
-        htmlfile.write("&sensor=false\"></iframe><br/></small>"\
-                       "<a href=\"http://maps.google.com/maps?q="\
-                        +str(48.961)+","+str(-125.274)+\
-                       "&hl=en&ll="\
-                        +str(48.9224)+","+str(-125.1383)+\
-                       "&spn="\
-                        +str(0.360945)+","+str(0.797195)+\
-                       "&sll="\
-                        +str(48.961)+","+str(-125.274)+\
-                       "&t=h@z=11@vpsrc=6style=\"color:#0000FF;text-align:center\">View Larger Map</a></small><br>\n</td><td>")
-        
-        htmlfile.write("<br><H2>Population Statistics</H2><table border=\"1\", cellpadding=\"5\"><tr>")
-        htmlfile.write("<td align=\"center\"><b>Number of Visible Sites</b></td><td align=\"center\"><b>Population</b></td></tr>")
-        htmlfile.write("<tr><td align=\"center\">"+str(int(NumSitesList[0]))+"<br> (unaffected)</td><td align=\"center\">"+str(int(PopList[0]))+"</td>")
-        htmlfile.write("<tr><td align=\"center\">1 or more<br>sites visible</td><td align=\"center\">"+str(int(PopSum))+"</td>")
-        htmlfile.write("</table>")
-        htmlfile.write("</html>")
-        htmlfile.close()
-
     except:
         raise Exception, msgVShed
 
+
+    ##############################################
+    ############## INTERSECT ANALYSIS ############
+    ##############################################
+    
+    try:
+        if visualPolys:
+            gp.AddMessage("\nCalculating overlap between viewshed output and visual polygons...\n")
+            gp.RasterToPolygon_conversion(vshed_rc1, vshed_2poly, "NO_SIMPLIFY", "VALUE")
+            gp.Select_analysis(visualPolys, vp_prj, "") # copy 'visualPolys' into outputws
+            
+            # intersect clipped visual polys with reclassed viewshed poly
+            expr = str(vshed_2poly)+" 1; "+str(vp_prj)+" 2"
+            gp.Intersect_analysis(expr, vshed_vp_intrsct, "ALL", "", "INPUT")
+
+            # add three fields
+            vshed_vp_intrsct = AddField(vshed_vp_intrsct, "AreaVS", "DOUBLE", "0", "0")
+            vp_prj = AddField(vp_prj, "AreaVP", "DOUBLE", "0", "0")
+            vp_prj = AddField(vp_prj, "AreaVShed", "SHORT", "0", "0")
+
+            # calculate two fields
+            gp.CalculateField_management(vshed_vp_intrsct, "AreaVS", "!shape.area@acres!", "PYTHON", "")
+            gp.CalculateField_management(vp_prj, "AreaVP", "!shape.area@acres!", "PYTHON", "")
+
+            # make feature layer for viewshed and visual poly fc intersection
+            gp.MakeFeatureLayer_management(vshed_vp_intrsct, vshed_vp_intrsct_lyr, "", "", "")
+
+            # run through visual poly layer one by one and calculate area overlap
+            cur = gp.UpdateCursor(vp_prj, "", "", "AreaVP; AreaVShed; FID")
+            row = cur.Next()
+
+            while row:
+                vpArea = float(row.GetValue("AreaVP"))
+                FID = row.GetValue("FID")
+                gp.MakeFeatureLayer_management(vp_prj, vp_prj_lyr, "\"FID\" = "+str(FID), "", "")
+                selectVshed = gp.SelectLayerByLocation_management(vshed_vp_intrsct_lyr, "INTERSECT", vp_prj_lyr, "", "NEW_SELECTION")
+
+                cur2 = gp.UpdateCursor(selectVshed, "", "", "AreaVS")
+                row2 = cur2.Next()
+                AreaVSSum = 0.0
+                while row2:
+                    AreaVSSum = AreaVSSum + float(row2.GetValue("AreaVS"))
+                    cur2.UpdateRow(row2)
+                    row2 = cur2.Next()
+                del cur2    
+                del row2
+                 
+                PctOverlap = ceil((AreaVSSum/vpArea)*100)
+                if PctOverlap > 100:
+                    PctOverlap = 100
+                if PctOverlap == 0:
+                    row.SetValue("AreaVShed", 0)
+                else:
+                    row.SetValue("AreaVShed", PctOverlap)
+                cur.UpdateRow(row)
+                row = cur.Next()
+            del cur    
+            del row
+    except:
+        raise Exception, msgIntersect
+
+
+    ###########################################################
+    ################# POPULATION SUMMARY ######################
+    ###########################################################
+    try:
+        if globalPop:
+            gp.AddMessage("\nCalculating population statistics...\n")
+            # get projection from AOI
+            projection = grabProjection(AOI)
+            # return projected AOI to geographic (unprojected)
+            geo_projection = getDatum(AOI)
+            gp.Project_management(AOI, AOI_geo, geo_projection)
+            # grab latitude value of AOI polygons's centroid
+            cur = gp.UpdateCursor(AOI_geo)
+            row = cur.Next()
+            feat = row.Shape
+            midpoint = feat.Centroid
+            midList = shlex.split(midpoint)
+            midList = [float(s) for s in midList]
+            del row, cur
+            latAOI = midList[1]
+            longAOI = midList[0]
+
+            # based on centroid of AOI, calculate latitude for approximate projection cell size
+            latList = [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 27.5, 30.0, 32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5, 70.0, 72.5, 75.0, 77.5, 80.0]
+            cellSizeList = [927.99, 924.39, 920.81, 917.26, 913.74, 902.85, 892.22, 881.83, 871.69, 853.83, 836.68, 820.21, 804.38, 778.99, 755.17, 732.76, 711.64, 679.16, 649.52, 622.35, 597.37, 557.69, 522.96, 492.30, 465.03, 416.93, 377.84, 345.46, 318.19, 256.15, 214.36, 184.29, 161.62]
+            latList = np.array(latList)
+            latList_near = findNearest(latList,latAOI)
+            latList_index = np.where(latList==latList_near)
+
+            # project and clip global population raster
+            gp.ProjectRaster_management(globalPop, pop_prj, projection, "BILINEAR", str(cellSizeList[latList_index[0]]), "", "", "")
+
+            gp.CellSize = "" # set environment's cell size to default
+            
+            gp.BuildRasterAttributeTable_management(vshed_rc2, "Overwrite")
+            gp.ZonalStatisticsAsTable_sa(vshed_rc2, "VALUE", pop_prj, zstatsPop, "DATA") # get population statistics for vshed
+
+            # search through zonal stats table for population within viewshed
+            cur = gp.UpdateCursor(zstatsPop)
+            row = cur.Next()  
+            while row:
+                if row.GetValue("VALUE") == 0:
+                    PopZero = int(row.GetValue("SUM"))
+                else:
+                    PopSome = int(row.GetValue("SUM"))
+                row = cur.next()
+            del row, cur
+
+            # create html file output
+            htmlfile = open(PopHTML, "w")
+            htmlfile.write("<html>\n")
+            htmlfile.write("<title>Marine InVEST</title>")
+            htmlfile.write("<center><H1>Visual Impact from Objects (Aesthetic Quality)</H1></center><br>")
+            htmlfile.write("This page contains population results from running the Marine InVEST Aesthetic Quality model.")
+            htmlfile.write("<br><HR><br><H2>Population Statistics</H2><table border=\"1\", cellpadding=\"5\"><tr>")
+            htmlfile.write("<td align=\"center\"><b>Number of Features Visible</b></td><td align=\"center\"><b>Population (estimate)</b></td></tr>")
+            htmlfile.write("<tr><td align=\"center\">None visible<br> (unaffected)</td><td align=\"center\">"+str(PopZero)+"</td>")
+            htmlfile.write("<tr><td align=\"center\">1 or more<br>visible</td><td align=\"center\">"+str(PopSome)+"</td>")
+            htmlfile.write("</table>")
+            htmlfile.write("</html>")
+            htmlfile.close()
+    except:
+        raise Exception, msgPopStats
+    
     # create parameter file
     parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
     parafile = open(gp.workspace+"\\Output\\parameters_"+now.strftime("%Y-%m-%d-%H-%M")+".txt","w") 
@@ -405,9 +454,10 @@ try:
 
     # delete superfluous intermediate data
     gp.workspace = interws
-    del1 = [AOI_lyr, DEM_2poly, DEM_2poly_lyr, DEM_1_rc, DEM_land, DEM_sea, DEM_sea_rc, vshed_rc]
-    del2 = [AOI_geo, NegPoints_geo, vshed_2poly, zstatsPop]
-    deletelist = del1 + del2
+    del1 = [AOI_lyr, DEM_2poly, DEM_2poly_lyr, DEM_1_rc, DEM_land, DEM_sea, DEM_sea_rc]
+    del2 = [vshed_rc1, vshed_2poly, vp_prj_lyr, vshed_vp_intrsct, vshed_vp_intrsct_lyr]
+    del3 = [AOI_geo, vshed_rc2, zstatsPop]
+    deletelist = del1 + del2 + del3
     for data in deletelist:
         if gp.exists(data):
             gp.delete_management(data)
