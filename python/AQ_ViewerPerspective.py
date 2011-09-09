@@ -4,9 +4,6 @@
 # 09/02/11
 
 ## OFFSET A MUST BE POSITIVE
-## FIX AREA STATS
-## 1) BREAK UP BY POSITIVE AND NEGATIVE WITH RC: Neg, Pos, 0
-## 2) SUBTRACT CHANGE AND COLOR CODE PROPERLY
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -313,13 +310,13 @@ try:
         # snap outputs to the (resampled) DEM resolution
         gp.snapRaster = DEM_vs
 
-        # create array for zonal stats results (PTID, AREA, SUM, MAX, MIN, EXISTENCE, LAT, LONG)
+        # create array for zonal stats results (PTID, AREA NEG, AREA POS, SUM, EXISTENCE, LAT, LONG)
         NumPoints = int(len(PtsList))
-        AQStatsCurList = np.zeros(NumPoints*8, dtype=np.float64)
-        AQStatsCurArray = np.reshape(AQStatsCurList, (NumPoints,8))
+        AQStatsCurList = np.zeros(NumPoints*7, dtype=np.float64)
+        AQStatsCurArray = np.reshape(AQStatsCurList, (NumPoints,7))
         if FutWgtField:
-            AQStatsFutList = np.zeros(NumPoints*8, dtype=np.float64)
-            AQStatsFutArray = np.reshape(AQStatsFutList, (NumPoints,8))
+            AQStatsFutList = np.zeros(NumPoints*7, dtype=np.float64)
+            AQStatsFutArray = np.reshape(AQStatsFutList, (NumPoints,7))
 
         # start expression for combining individual vshed raster outputs
         SumExpr = outputws+"vshed"+str(PtsList[0])+"_pt"
@@ -341,11 +338,13 @@ try:
             gp.BuildRasterAttributeTable_management(interws+"vshd_int"+str(PtsList[i]), "Overwrite")
             # if not empty, mark array and perform zonal stats   
             if gp.GetCount(interws+"vshd_int"+str(PtsList[i])) > 0:
-                AQStatsCurArray[i][5] = 1
+                AQStatsCurArray[i][4] = 1
                 gp.SetNull_sa(interws+"vshd_cur"+str(PtsList[i]), interws+"vshd_cur"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_cur", '"VALUE" = 0')
-                gp.ZonalStatisticsAsTable_sa(AOI, "FID", outputws+"vshed"+str(PtsList[i])+"_cur", interws+"zstats_cur"+str(PtsList[i]), "DATA")
+                gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_cur", "VALUE", "0 2 1;-2 0 -1", interws+"vshd_rcc"+str(PtsList[i]), "DATA")
+                gp.ZonalStatisticsAsTable_sa(interws+"vshd_rcc"+str(PtsList[i]), "VALUE", outputws+"vshed"+str(PtsList[i])+"_cur", interws+"zstats_cur"+str(PtsList[i]), "DATA")
+                gp.Delete_management(interws+"vshd_rcc"+str(PtsList[i])) 
             else:
-                gp.delete_management(interws+"vshd_cur"+str(PtsList[i])) # if empty raster, delete output
+                gp.Delete_management(interws+"vshd_cur"+str(PtsList[i])) # if empty raster, delete output
 
             if FutWgtField:
                 # create 'future' outputs; multiply by vp_fut
@@ -355,35 +354,43 @@ try:
                 gp.BuildRasterAttributeTable_management(interws+"vshd_int"+str(PtsList[i]), "Overwrite")
                 # if not empty, mark array and perform zonal stats                      
                 if gp.GetCount(interws+"vshd_int"+str(PtsList[i])) > 0:
-                    AQStatsFutArray[i][5] = 1
+                    AQStatsFutArray[i][4] = 1
                     gp.SetNull_sa(interws+"vshd_fut"+str(PtsList[i]), interws+"vshd_fut"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_fut", '"VALUE" = 0')
-                    gp.ZonalStatisticsAsTable_sa(AOI, "FID", outputws+"vshed"+str(PtsList[i])+"_fut", interws+"zstats_fut"+str(PtsList[i]), "DATA")
+                    gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_fut", "VALUE", "0 2 1;-2 0 -1", interws+"vshd_rcf"+str(PtsList[i]), "DATA")
+                    gp.ZonalStatisticsAsTable_sa(interws+"vshd_rcf"+str(PtsList[i]), "VALUE", outputws+"vshed"+str(PtsList[i])+"_fut", interws+"zstats_fut"+str(PtsList[i]), "DATA")
+                    gp.Delete_management(interws+"vshd_rcf"+str(PtsList[i])) 
                 else:
-                    gp.delete_management(interws+"vshd_fut"+str(PtsList[i])) # if empty raster, delete output
+                    gp.Delete_management(interws+"vshd_fut"+str(PtsList[i])) # if empty raster, delete output
 
         # create expression for combining individual vshed raster outputs
         gp.SingleOutputMapAlgebra_sa(SumExpr, vshedcmb_pts)
 
         for i in range(0,len(PtsList)):
             # search through zonal stats table for population within current viewshed
-            if AQStatsCurArray[i][5] == 1:
+            if AQStatsCurArray[i][4] == 1:
                 cur = gp.UpdateCursor(interws+"zstats_cur"+str(PtsList[i]))
                 row = cur.Next()
-                AQStatsCurArray[i][0] = PtsList[i]
-                AQStatsCurArray[i][1] = (row.GetValue("AREA")/1000)
-                AQStatsCurArray[i][2] = row.GetValue("SUM")
-                AQStatsCurArray[i][3] = row.GetValue("MAX")
-                AQStatsCurArray[i][4] = row.GetValue("MIN")
+                while row:
+                    AQStatsCurArray[i][0] = PtsList[i]
+                    if row.GetValue("MEAN") == -1:
+                        AQStatsCurArray[i][1] = (row.GetValue("AREA")/1000)
+                    else:
+                        AQStatsCurArray[i][2] = (row.GetValue("AREA")/1000)
+                    AQStatsCurArray[i][3] = AQStatsCurArray[i][3] + row.GetValue("SUM")
+                    row = cur.next()
                 del row, cur
 
-            if AQStatsFutArray[i][5] == 1:
+            if AQStatsFutArray[i][4] == 1:
                 cur = gp.UpdateCursor(interws+"zstats_fut"+str(PtsList[i]))
                 row = cur.Next()
-                AQStatsFutArray[i][0] = PtsList[i]
-                AQStatsFutArray[i][1] = int(row.GetValue("AREA")/1000)
-                AQStatsFutArray[i][2] = row.GetValue("SUM")
-                AQStatsFutArray[i][3] = row.GetValue("MAX")
-                AQStatsFutArray[i][4] = row.GetValue("MIN")
+                while row:
+                    AQStatsFutArray[i][0] = PtsList[i]
+                    if row.GetValue("VALUE") == -1:
+                        AQStatsFutArray[i][1] = (row.GetValue("AREA")/1000)
+                    else:
+                        AQStatsFutArray[i][2] = (row.GetValue("AREA")/1000)
+                    AQStatsFutArray[i][3] = AQStatsFutArray[i][3] + row.GetValue("SUM")
+                    row = cur.next()
                 del row, cur
 
         # grab datum and reprojected 'ObserverPts' in geographic/unprojected
@@ -397,10 +404,10 @@ try:
             feat = row.Shape
             midpoint = feat.Centroid
             midList = shlex.split(midpoint)
-            AQStatsCurArray[PtIndex][6] = float(midList[1])
-            AQStatsCurArray[PtIndex][7] = float(midList[0])
-            AQStatsFutArray[PtIndex][6] = float(midList[1])
-            AQStatsFutArray[PtIndex][7] = float(midList[0])
+            AQStatsCurArray[PtIndex][5] = float(midList[1])
+            AQStatsCurArray[PtIndex][6] = float(midList[0])
+            AQStatsFutArray[PtIndex][5] = float(midList[1])
+            AQStatsFutArray[PtIndex][6] = float(midList[0])
             PtIndex = PtIndex + 1
             row = cur.Next()
         del cur, row
@@ -436,7 +443,7 @@ try:
                         src=\"http://maps.google.com/maps/api/staticmap?center="+str(latAOI)+","+str(longAOI)+"&zoom=10&size=600x600&maptype=hybrid")
         for i in range(0,len(PtsList)):
             htmlfile.write("&markers=color:red%7Ccolor:red%7Clabel:"+str(PtsList[i])+"%7C"\
-                            +str(AQStatsCurArray[i][6])+","+str(AQStatsCurArray[i][7]))
+                            +str(AQStatsCurArray[i][5])+","+str(AQStatsCurArray[i][6]))
         htmlfile.write("&sensor=false\"></iframe><br/></small>"\
                        "<a href=\"http://maps.google.com/maps?q="\
                         +str(48.961)+","+str(-125.274)+\
@@ -449,8 +456,8 @@ try:
                        "&t=h@z=11@vpsrc=6style=\"color:#0000FF;text-align:center\">View Larger Map</a></small><br>\n</td><td>")
         
         htmlfile.write("<br><H2>Viewshed Statistics (by Observer)</H2><table border=\"1\", cellpadding=\"8\">\
-                        <tr><th colspan=1></th><th colspan=6>EXTENT<br>(Area of Polygons (sq. km) within Viewshed)</th><th colspan=3>INTENSITY<br>(Sum of Polygon Ratings<br>within Viewshed)</th></tr>\
-                        <tr><th colspan=1></th><th colspan=3>Positive</th><th colspan=3>Negative</th></th><th colspan=3></th></tr>\
+                        <tr><th colspan=1></th><th colspan=6>EXTENT<br>Area of Polygons within Viewshed</th><th colspan=3>INTENSITY<br>Cumulative Rating <br>(All Polygons within Viewshed)</th></tr>\
+                        <tr><th colspan=1></th><th colspan=3>Negative Views (sq. km)</th><th colspan=3>Positive Views (sq. km)</th></th><th colspan=3></th></tr>\
                         <td align=\"center\"><b>Point ID</b></td><td align=\"center\"><b>Current</b></td><td align=\"center\"><b>Future</b></td>\
                         <td align=\"center\"><b>Change</b></td><td align=\"center\"><b>Current</b></td>\
                         <td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td>\
@@ -458,42 +465,44 @@ try:
         for i in range(0,len(PtsList)):        
             htmlfile.write("<tr><td align=\"center\">"+str(PtsList[i])+"</td>")
             if FutWgtField:
+                # negative area
                 if (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) > 0.0:
                     htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
-                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
+                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
                 elif (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) == 0.0:
                     htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
                                     <td align=\"center\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")                     
                 else:
                     htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
-                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
-                    
-                if (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) > 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
                                     <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
-                elif (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) == 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
-                                    <td align=\"center\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")                     
+
+                # positive area                    
+                if (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) > 0.0:
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
+                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")
+                elif (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) == 0.0:
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
+                                    <td align=\"center\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")                     
                 else:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
-                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
+                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")
 
             else:
                 htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">N/A</td>\
                                 <td align=\"center\">N/A</td>")
             if FutWgtField:
-                if (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) > 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][2],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][2],3))+"</td>\
-                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(round(AQStatsFutArray[i][2]-AQStatsCurArray[i][2],3))+"</td>")
+                if (AQStatsFutArray[i][3] - AQStatsCurArray[i][3]) > 0.0:
+                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
+                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
 
-                elif (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) == 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][2],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][2],3))+"</td>\
-                                    <td align=\"center\">"+str(round(AQStatsFutArray[i][2]-AQStatsCurArray[i][2],3))+"</td>")
+                elif (AQStatsFutArray[i][3] - AQStatsCurArray[i][3]) == 0.0:
+                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
+                                    <td align=\"center\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
                 else:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][2],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][2],3))+"</td>\
-                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(round(AQStatsFutArray[i][2]-AQStatsCurArray[i][2],3))+"</td>")
+                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
+                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
             else:
-                htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][2],3))+"</td><td align=\"center\">N/A</td>\
+                htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">N/A</td>\
                                 <td align=\"center\">N/A</td>")
             htmlfile.write("</tr>")
         htmlfile.write("</tr></table></html>")
@@ -526,7 +535,7 @@ try:
     deletelist = del1 + del2
     for data in deletelist:
         if gp.exists(data):
-            gp.delete_management(data)
+            gp.Delete_management(data)
     del gp
 
 except Exception, ErrorDesc:
