@@ -83,6 +83,7 @@ PT2 = interws + "PT2.shp"
 PT1_Z = interws + "PT1_Z.shp"
 PT2_Z = interws + "PT2_Z.shp"
 LandPoint_Buff = interws + "LandPoint_Buff.shp"
+LandPoint_Buff100k = interws + "LandPoint_Buff100k.shp"
 LandPoint_Geo = interws + "LandPoint_Geo.shp"
 Shoreline = interws + "Shoreline.shp"
 Shoreline_Buff_Clip = interws + "Shoreline_Buff_Clip.shp"
@@ -106,6 +107,7 @@ BathyProfile = outputws + "BathyProfile.txt"
 CreatedProfile = outputws + "CreatedProfile.txt"
 Profile_Pts = outputws + "Profile_Pts.shp"
 Profile_Plot = outputws + "Profile_Plot.png"
+Fetch_Plot = outputws + "Fetch_Plot.png"
 Fetch_Vectors = outputws + "Fetch_Vectors.shp"
 ProfileErosion_HTML = outputws + "ProfileErosion_Results.html"
 
@@ -172,17 +174,7 @@ def compareProjections(LandPoint, LandPoly):
         gp.AddError("Projection Error: "+LandPoint+" is in a different projection from the LandPoly data.  The two inputs must be the same projection to calculate depth profile.")
         raise Exception
 
-def Indexed(x,value):
-    mylist=abs(x-value);    
-    if isinstance(x,num.ndarray):
-        mylist=mylist.tolist()
-    minval=min(mylist)
-    ind=[i for i, v in enumerate(mylist) if v == minval]
-    ind=ind[0]
-    return ind
-
-# function to create point transects
-def PTCreate(PTType, midx, midy, TransectDist):
+def PTCreate(PTType, midx, midy, TransectDist): # function to create point transects
     if PTType == 1:
         y1 = midy + TransectDist
         y2 = midy - TransectDist
@@ -215,8 +207,47 @@ def PTCreate(PTType, midx, midy, TransectDist):
         x2 = midx - TransectDist
     return x1, y1, x2, y2
 
+def Indexed(x,value): #Locates index of point in vector x that has closest value as variable value
+    mylist=abs(x-value);    
+    if isinstance(x,num.ndarray):
+        mylist=mylist.tolist()
+    minval=min(mylist)
+    ind=[i for i, v in enumerate(mylist) if v == minval]
+    ind=ind[0]
+    return ind
 
-# check that correct inputs were provided based on 'ProfileQuestion'
+def SlopeModif(X,Y,SlopeMod,OffMod,ShoreMod):  #Replaces/adds linear portion to profile
+    m=1.0/SlopeMod; #Slope
+    Xend=X[-1]; #Last point in profile
+    if ShoreMod<Xend: #if modified portion in within profile
+        of=Indexed(X,OffMod)#Locate offshore point
+        sho=Indexed(X,ShoreMod)#Locate shoreward point
+            
+        #Modify the slope between offshore and shoreward points
+        Y[of:sho]=m*X[of:sho]+Y[of]-m*X[of]
+    else:
+        of=Indexed(X,OffMod)#Locate offshore point
+        dist=ShoreMod-OffMod;
+        temp_x=num.arange(0,int(dist),1)#Length of the segment modified/added
+        out=num.arange(Indexed(temp_x,dist)+1,len(temp_x),1); #Remove points that are beyond shoreward limit 
+        temp_y=m*temp_x+Y[of];temp_y=num.delete(temp_y,out,None); #New profile
+        Y=num.append(Y[0:of-1],temp_y,None); #Append depth vector
+        X=num.append(X[0:of-1],temp_x+X[of],None) #append X vector
+
+        #Resample on vector with dx=1;
+        F=interp1d(X,Y);X=num.arange(0,len(X),1);
+        Y=F(X);
+    return X,Y
+
+def DataRemove(X,Y,OffDel,ShoreDel):  #Remove date from transect 
+    of=Indexed(Xmod,OffDel);sho=Indexed(Xmod,ShoreDel)#Locate offshore and shoreward points
+    out=num.arange(of,sho+1,1);
+    Y=num.delete(Y,out,None); #Remove points from Ymod
+    X=num.delete(X,out,None); #Remove points from Xmod
+    X=num.arange(0,len(X),1) #Resample X-axis
+    return X,Y
+
+#___check that correct inputs were provided based on 'ProfileQuestion'
 if ProfileQuestion == "(1) Yes":
     if not BathyGrid:
         gp.AddError("A bathymetry grid input is required.")
@@ -226,8 +257,8 @@ elif ProfileQuestion == "(2) No, but I will upload a cross-shore profile":
         gp.AddError("A cross-shore profile input is required.")
         raise Exception
 
-
-ckDatum(LandPoint) # check that datum is WGS84 and projected in meters
+#_____check that datum is WGS84 and projected in meters
+ckDatum(LandPoint) 
 # check that three inputs are projected
 ckProjection(LandPoint)
 ckProjection(LandPoly)
@@ -235,44 +266,46 @@ if BathyGrid:
     ckProjection(BathyGrid)
 geo_projection = getDatum(LandPoint) # get datum of 'LandPoint'
 
-if InputTable:
-    # import Profile Builder info from Excel file
-    xlApp = Dispatch("Excel.Application")
-    xlApp.Visible=0
-    xlApp.DisplayAlerts=0
-    xlApp.Workbooks.Open(InputTable)
-    cell = xlApp.Worksheets("Profile Generator Input")
-    cell2 = xlApp.Worksheets("Uploaded Profile Modification")
+#_____import Profile Builder info from Excel file
+xlApp = Dispatch("Excel.Application")
+xlApp.Visible=0
+xlApp.DisplayAlerts=0
+xlApp.Workbooks.Open(InputTable)
+cell = xlApp.Worksheets("ProfileGeneratorInput")
+cell1 = xlApp.Worksheets("HelpCreatingBackshoreProfile")
+cell2 = xlApp.Worksheets("UploadedProfileModification")
 
-    # check what type of data user has
-    WaveClimateCheck = cell.Range("e92").Value # 1 model chooses, 2 if enter
-    DuneCheck = cell.Range("e93").Value # 1 don't know, 2 no, 3 don't know, 4 Yes
-    Diam = cell.Range("e8").Value # Sediment diam [mm]
+# Wave climate data
+WaveClimateCheck = cell.Range("e47").Value # 1 model provides He,Hmod,Tmod; 2 user enters data
+if WaveClimateCheck == 2:    # load wave climate info
+    He=cell.Range("h18").Value # effective wave height
+    Hm=cell.Range("i18").Value # modal wave height
+    Tm=cell.Range("j18").Value # modal wave period
 
-    # load wave climate info
-    if WaveClimateCheck == 2:
-        He=cell.Range("h18").Value # effective wave height
-        Hm=cell.Range("i18").Value # modal wave height
-        Tm=cell.Range("j18").Value # modal wave period
+# Tide information        
+MSL = cell.Range("d23").Value # mean sea level
+HT = cell.Range("e23").Value # high tide elevation
+HAT = cell.Range("f23").Value # highest tide elevation
+hc=-ceil(1.57*He) # closure depth 
 
-    # load tide information        
-    MSL = cell.Range("d23").Value # mean sea level
-    HT = cell.Range("e23").Value # high tide elevation
-    HAT = cell.Range("f23").Value # high tide elevation
+#__Check if user needs backshore help
+BackHelp=cell.Range("e48").Value #1: need prof. builder, 2: modifies, 3: No change
 
-    # foreshore    
-    Slope = cell.Range("f31").Value # foreshore slope = 1/Slope
+# Beach parameters
+Diam = cell.Range("e8").Value # Sediment diam [mm]
+A = cell.Range("e49").Value # sediment scale factor
+
+if BackHelp==1: #Read Profile Build Information
+    # Foreshore    
+    Slope = cell1.Range("f7").Value # foreshore slope = 1/Slope
     m =1.0/Slope; # bed slope
 
-    # beach parameters
-    A = cell.Range("e94").Value # sediment scale factor
-    hc=-ceil(1.57*He) # closure depth 
+    # Read HelpCreatingBackshoreProfile Sheet
+    DuneCheck = cell1.Range("f33").Value # 1 don't know, 2 no, 3 don't know, 4 Yes
+    BermCrest = cell1.Range("f16").Value
+    BermLength = cell1.Range("g16").Value
 
-    # berm and dune
-    BermCrest = cell.Range("f41").Value
-    BermLength = cell.Range("g41").Value
-
-    # if user doesn't know dune size, estimate from Short and Hesp
+    #Estimate dune size from Short and Hesp
     if DuneCheck==1 or DuneCheck==3: 
         Hb=0.39*9.81**(1.0/5)*(Tm*Hm**2)**(2.0/5)
         a=0.00000126
@@ -301,38 +334,34 @@ if InputTable:
         BermLength=50 # beach has no dune and infinitely long berm
             
     elif DuneCheck==4: # user has data
-        DuneCrest = cell.Range("j51").Value
+        DuneCrest = cell1.Range("j25").Value
+elif BackHelp==2: # Read UploadedProfileModification sheet
+    SlopeMod1=cell2.Range("e6").Value
+    SlopeMod2=cell2.Range("e7").Value
+    SlopeMod3=cell2.Range("e8").Value
+    OffMod1=cell2.Range("f6").Value
+    OffMod2=cell2.Range("f7").Value
+    OffMod3=cell2.Range("f8").Value
+    ShoreMod1=cell2.Range("g6").Value
+    ShoreMod2=cell2.Range("g7").Value
+    ShoreMod3=cell2.Range("g8").Value
 
-    # vegetation
-    do1v=cell.Range("e60").Value # starting depth of vegetation field
-    Lveg=cell.Range("f60").Value # ending depth of vegetation field
+    OffDel1=cell2.Range("e11").Value
+    OffDel2=cell2.Range("e12").Value
+    ShoreDel1=cell2.Range("f11").Value
+    ShoreDel2=cell2.Range("f12").Value
 
-    if ProfileQuestion == "(2) No, but I will upload a cross-shore profile":
-        # modifications if profile is uploaded by user
-        SlopeMod1=cell2.Range("e6").Value
-        SlopeMod2=cell2.Range("e7").Value
-        SlopeMod3=cell2.Range("e8").Value
-        OffMod1=cell2.Range("f6").Value
-        OffMod2=cell2.Range("f7").Value
-        OffMod3=cell2.Range("f8").Value
-        ShoreMod1=cell2.Range("g6").Value
-        ShoreMod2=cell2.Range("g7").Value
-        ShoreMod3=cell2.Range("g8").Value
-
-    xlApp.ActiveWorkbook.Close(SaveChanges=0)
-    xlApp.Quit()
+xlApp.ActiveWorkbook.Close(SaveChanges=0)
+xlApp.Quit()
     
-# put bathy profiles together #
-x=num.arange(0,10000.1,.1) # long axis
-
-# nearshore bathy profile
+#_____Cut, read or create nearshore bathy profile
 if ProfileQuestion == "(1) Yes": # model extracts value from GIS layers
     gp.AddMessage("\nCreating Point Transects...")
     # create transect and read transect file
     gp.Buffer_analysis(LandPoint, LandPoint_Buff, str(BufferDist)+" Meters", "FULL", "ROUND", "NONE", "")
     gp.Extent = LandPoint_Buff
     gp.PolygonToLine_management(LandPoly, Shoreline)
-    gp.Extent = ""    
+    gp.Extent = ""
     gp.Clip_analysis(Shoreline, LandPoint_Buff, Shoreline_Buff_Clip, "")
     # check to make sure that clipped shoreline is not empty FC
     if gp.GetCount_management(Shoreline_Buff_Clip) == 0:
@@ -488,14 +517,14 @@ if ProfileQuestion == "(1) Yes": # model extracts value from GIS layers
             break
         DepthStart2 = DepthStart2 +1
 
-    # create final lists of cross-shore distance (xd) and depth (Dmeas)
-    xd = []   
+    # create final lists of cross-shore distance (Dx) and depth (Dmeas)
+    Dx = []   
     Dmeas = []
     counter = 0
     if DepthStart1 < DepthStart2:
         for i in range(DepthStart1-1,len(Dmeas1)):
             if Dmeas1[i] < 0.0 and Dmeas1[i] <> -9999.0:
-                xd.append(counter)
+                Dx.append(counter)
                 Dmeas.append(Dmeas1[i])
                 counter = counter + 1
             else:
@@ -503,7 +532,7 @@ if ProfileQuestion == "(1) Yes": # model extracts value from GIS layers
     else:
         for j in range(DepthStart2-1,len(Dmeas2)):
             if Dmeas2[j] < 0.0 and Dmeas2[j] <> -9999.0:
-                xd.append(counter)
+                Dx.append(counter)
                 Dmeas.append(Dmeas2[j])
                 counter = counter + 1
             else:
@@ -516,7 +545,7 @@ if ProfileQuestion == "(1) Yes": # model extracts value from GIS layers
     # create txt profile for bathy portion
     file = open(BathyProfile, "w")
     for i in range(0,len(Dmeas)):
-        file.writelines(str(xd[i])+"\t"+str(Dmeas[i])+"\n")
+        file.writelines(str(Dx[i])+"\t"+str(Dmeas[i])+"\n")
     file.close()
 
     # create final point transect file
@@ -526,93 +555,46 @@ if ProfileQuestion == "(1) Yes": # model extracts value from GIS layers
         gp.Select_analysis(PT2_Z, Profile_Pts, "\"PT_ID\" > "+str(DepthStart2-1)+" AND \"PT_ID\" < "+str(DepthStart2+counter))
 
     # smooth profile and create x axis
-    Dx=xd;L=len(Dmeas) # length of original data
-    Dmeas=num.array(Dmeas);xd=num.array(xd)
-    Dmeas=Dmeas[::-1] # reverse order so deeper values starts at x=0 (for plot only)
-
-    # smooth data
-    yd=SignalSmooth.smooth(Dmeas,max(int(len(Dmeas)/int(SmoothParameter)),5),'flat')
-
-    # find A value for erosion model
-    Yeq=yd;Xeq=xd
-    if abs(Yeq[0])>abs(Yeq[-1]): # make sure that profile starts with deeper point
-        Yeq=Yeq[::-1]
-        
-    la=num.argmin(abs(Yeq-hc)) # locate closure depth
-    Yeq=Yeq[0:la];Xeq=Xeq[0:la]
-
-    fitfunc=lambda p, ix: p[0]*(ix)**(2.0/3) # target function for eq. beach profile
-    errfunc=lambda p, ix, iy: fitfunc(p, ix) - iy # distance to the target function
-    p0=[0.1] # initial guess for the parameters
-    p1,success=optimize.leastsq(errfunc, p0[:], args=(Xeq,-Yeq))
-    A=p1[0] # sediment scale factor
+    lx=len(Dmeas) # length of original data
+    Dx=num.array(Dx);xd=Dx[:];
+    Dmeas=num.array(Dmeas);Dmeas=Dmeas[::-1] # reverse order so deeper values starts at x=0
+    yd=SignalSmooth.smooth(Dmeas,int(SmoothParameter),'flat')
 
 # upload user's profile
-if ProfileQuestion == "(2) No, but I will upload a cross-shore profile":
+elif ProfileQuestion == "(2) No, but I will upload a cross-shore profile":
     # read in user's cross-shore profile
     TextData = open(CSProfile,"r") 
-    ex=[];Dmeas=[];h=[]
+    Dx=[];Dmeas=[];
     for line in TextData.readlines():
         linelist= [float(s) for s in line.split("\t")] # split the list by tab delimiter
-        ex.append(linelist[0])
+        Dx.append(linelist[0])
         Dmeas.append(linelist[1])
-        h.append(linelist[1])
-
-    Dmeas=num.array(Dmeas);ex=num.array(ex);
-    
-    mylist=abs(ex-ShoreMod1);mylist=mylist.tolist();
-    minval=min(mylist)
-    sho=[i for i, v in enumerate(mylist) if v == minval];sho=sho[0];
-
-    mylist=abs(ex-OffMod1);mylist=mylist.tolist();
-    minval=min(mylist)
-    of=[i for i, v in enumerate(mylist) if v == minval];of=of[0];
-
-    m=1./SlopeMod1;
-    h[of:sho]=m*ex[of:sho]+Dmeas[of]-m*ex[of]
-
-    if SlopeMod2<>0:
-        mylist=abs(ex-ShoreMod2);mylist=mylist.tolist();
-        minval=min(mylist)
-        sho=[i for i, v in enumerate(mylist) if v == minval];sho=sho[0];
-
-        mylist=abs(ex-OffMod2);mylist=mylist.tolist();
-        minval=min(mylist)
-        of=[i for i, v in enumerate(mylist) if v == minval];of=of[0];
-
-        m=1./SlopeMod2;
-        h[of:sho]=m*ex[of:sho]+Dmeas[of]-m*ex[of]
-
-    if SlopeMod3<>0:
-        mylist=abs(ex-ShoreMod3);mylist=mylist.tolist();
-        minval=min(mylist)
-        sho=[i for i, v in enumerate(mylist) if v == minval];sho=sho[0];
-
-        mylist=abs(ex-OffMod3);mylist=mylist.tolist();
-        minval=min(mylist)
-        of=[i for i, v in enumerate(mylist) if v == minval];of=of[0];
-
-        m=1./SlopeMod3;
-        h[of:sho]=m*ex[of:sho]+Dmeas[of]-m*ex[of]
+    Dmeas=num.array(Dmeas);Dx=num.array(Dx);lx=len(Dx);
+    xd=Dx[:];
+    yd=SignalSmooth.smooth(Dmeas,int(SmoothParameter),'flat')
 
 # equilibrium beach profile; in case we don't have nearshore bathy
-if ProfileQuestion == "(3) No, please assume an equilibrium beach profile":
-    temp=float(2)/(3)
-    yd=x**(temp)# eq. profile
-    out=Indexed(yd,-hc)
-    yd=num.delete(yd,out,None)# water depths down to hc
-    xd=num.delete(x,out,None)
-    yd=-yd[::-1] # reverse order so deeper values starts at x=0
-    Dmeas=yd;Dx=xd
+elif ProfileQuestion == "(3) No, please assume an equilibrium beach profile":
+    x=num.arange(0,10001,1) # long axis
+    temp=2.0/3
+    Dmeas=x**(temp)# eq. profile
+    out=num.nonzero(Dmeas>-hc)
+    Dmeas=num.delete(Dmeas,out,None)# water depths down to hc
+    Dx=num.delete(x,out,None);lx=len(Dx);
+    Dmeas=-Dmeas[::-1] # reverse order so deeper values starts at x=0
+    yd=Dmeas[:];xd=Dx[:];
 
-# prepare whole profile for erosion model
-if InputTable:
-    # add foreshore, berm and dune
-    # foreshore
-    yf=float(1)/Slope*x+yd[-1]
+#___Profile modification
+gp.AddMessage("\nCustomizing Depth Profile...")
+
+if BackHelp==1: # Create Backshore profile  
+    x=num.arange(0,10001,1) # long axis
+
+    # add foreshore
+    yf=1.0/Slope*x+yd[-1]
     Above=num.nonzero(yf>BermCrest)
     xf=num.delete(x,Above[0],None)
-    yf=num.delete(yf,Above[0],None) # remove values that are above MHW
+    yf=num.delete(yf,Above[0],None) # remove values that are above BermCrest
 
     # berm and dune
     if DuneCheck == 2: # no dunes are present, just berm   # 1 = DK, 2 = No, 3 = Maybe 4 = Have data
@@ -626,38 +608,24 @@ if InputTable:
         yb=num.array(len(xb)*[0.0])+BermCrest # horizontal berm 100m long          
     else: # dune exists; we'll create it as sinusoid for representation
         xb=num.arange(0,1000.1,1)
-        if BermLength <> 0: # there is a berm
+        if BermLength <> 0: # Berm width in front of dune
             # berm profile
             yb=num.array(len(xb)*[0.0])+BermCrest
             Toe=abs(xb-BermLength).argmin()# locate toe to separate berm and dune
-            
-            # dune profile
-            DuneWidth=3*DuneCrest # width of sinusoid....won't use...for plotting purposes only
-            yb[Toe:-1]=float(DuneCrest)*num.sin(2*pi*(xb[Toe:-1]-xb[Toe])/float(DuneWidth))+(BermCrest)
-            DunePlotEnd=xb[Toe]+3*DuneWidth
-            DunePlotSmall=xb[Toe]+DuneCrest
+        else: Toe=0
+        
+        # dune profile
+        DuneWidth=3*DuneCrest # width of sinusoid....won't use...for plotting purposes only
+        yb[Toe:-1]=float(DuneCrest)*num.sin(2*pi*(xb[Toe:-1]-xb[Toe])/float(DuneWidth))+(BermCrest)
+        DunePlotEnd=xb[Toe]+3*DuneWidth
+        DunePlotSmall=xb[Toe]+DuneCrest
 
-            out=num.arange(DunePlotEnd,len(yb),1)
-            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]/10
-            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]+yb[DunePlotSmall-1]-yb[DunePlotSmall]
+        out=num.arange(DunePlotEnd,len(yb),1)
+        yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]/10
+        yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]+yb[DunePlotSmall-1]-yb[DunePlotSmall]
 
-            xb=num.delete(xb,out,None)
-            yb=num.delete(yb,out,None); yb[-1]=yb[-2];
-           
-        else: # there's no berm; pretty much same code as above
-           # dune profile
-            DuneWidth=3*DuneCrest # width of sinusoid....won't use...for plotting purposes only
-
-            yb[Toe:-1]=float(DuneCrest)*num.sin(2*pi*(xb[Toe:-1]-xb[Toe])/float(DuneWidth))+(BermCrest)
-            DunePlotEnd=xb[Toe]+3*DuneWidth
-            DunePlotSmall=xb[Toe]+DuneCrest
-  
-            out=num.arange(DunePlotEnd,len(yb),1)
-            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]/10
-            yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]+yb[DunePlotSmall-1]-yb[DunePlotSmall]
-
-            xb=num.delete(xb,out,None)
-            yb=num.delete(yb,out,None); yb[-1]=yb[-2];
+        xb=num.delete(xb,out,None)
+        yb=num.delete(yb,out,None); yb[-1]=yb[-2];
   
     # combine all vectors together
     xf=xf+xd[-1];xb=xb+xf[-1] # make one long x-axis
@@ -667,57 +635,81 @@ if InputTable:
   
     yd.extend(yf);xd.extend(xf) # make one y-axis
     xd.extend(xb);yd.extend(yb)
+    yd=num.array(yd);xd=num.array(xd);
     
-    # vegetation variables
-    if Lveg>0: # fill in seagrass vectors
-        temp=num.nonzero(num.array(yd)<=do1v);temp=temp[0];pos1=temp[-1]; # depths shallower than shallowest depth
-        Xveg=xd[pos1]-Lveg; #X position where veg. ends
-        temp=num.nonzero(num.array(xd)<=Xveg);temp=temp[0];pos2=temp[-1]; # index where veg. ends
-        PlntPlot=yd[pos2:pos1+1];Xplant=xd[pos2:pos1+1];do2v=yd[pos2]
+elif BackHelp==2: # Modify profile   
+    Xmod=[Dx[i] for i in range(lx)];Xmod=num.array(Xmod);
+    Ymod=[Dmeas[i] for i in range(lx)];Ymod=num.array(Ymod);
+    #Modify existing profile    
+    if SlopeMod1<>0: #Modification 1
+        if ShoreMod1<OffMod1:
+            gp.AddError("In Modification 1, XInshore should be larger than XOffshore.")
+            raise Exception
+        Xmod,Ymod=SlopeModif(Xmod,Ymod,SlopeMod1,OffMod1,ShoreMod1)
+    if SlopeMod2<>0: #Modification 2
+        if ShoreMod2<OffMod2:
+            gp.AddError("In Modification 2, XInshore should be larger than XOffshore.")
+            raise Exception
+        Xmod,Ymod=SlopeModif(Xmod,Ymod,SlopeMod2,OffMod2,ShoreMod2)
+    if SlopeMod3<>0: #Modification 3
+        if ShoreMod3<OffMod3:
+            gp.AddError("In Modification 3, XInshore should be larger than XOffshore.")
+            raise Exception
+        Xmod,Ymod=SlopeModif(Xmod,Ymod,SlopeMod3,OffMod3,ShoreMod3)
+
+    #Remove portions of existing profile
+    if (OffDel1+ShoreDel1)<>0: #Removal 1
+        Xmod,Ymod=DataRemove(Xmod,Ymod,OffDel1,ShoreDel1)
+    if (OffDel2+ShoreDel2)<>0: #Removal 2
+        Xmod,Ymod=DataRemove(Xmod,Ymod,OffDel2,ShoreDel2)
+
+    #Smooth the signal
+    xd=Xmod[:];
+    yd=SignalSmooth.smooth(Ymod,int(SmoothParameter),'flat')
+    
+#__Plot
+gp.AddMessage("\nPlotting Profile...")
+#depth limits for plotting
+AbvHT=num.nonzero(yd>HT+2);AbvHT=AbvHT[0]
+AtMSLoc=num.nonzero(yd>0);AtMSLoc=AtMSLoc[0];
+if len(AtMSLoc)>0:
+    AtMSLoc=AtMSLoc[0]
+    AtMSL=xd[AtMSLoc]
+else: AtMSL=xd[1]
 
 
 # plot and save
-gp.AddMessage("\nPlotting Profile...")
-if ProfileQuestion <> "(3) No, please assume an equilibrium beach profile": # model extracts value from GIS Layer
-    # depth limits for plotting
-    VegLow=max([do2v,hc]);# min depth for veg. plot
-    AbvHT=num.nonzero(num.array(yd)>HT+2);AbvHT=AbvHT[0]
-    if len(AbvHT)==1: VegEnd=xd[AbvHT]
-    else: VegEnd=xd[-1]
+##subplot(221)
+plot(Dx,Dmeas,'r',xd,yd);grid();hold
+plot(xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT,'--k') 
+ylabel('Elevation [m]', size='large')
+##
+##subplot(222)
+##plot(xd,yd);grid()
+##xlim(AtMSL-10,xd[-1]+10);ylim(-1,max(yd)+2)
+##
+##if BackHelp==1: # Create Backshore profile  
+##    subplot (223)
+##    plot(Dx,Dmeas,'r',xd,yd);grid()
+####        legend(('Initial Profile','Modified Profile'),'lower right')
+##
+##elif BackHelp==2:
+##    subplot (223)
+##    plot(Xmod,Ymod,'r',xd,yd);grid()
+####        legend(('Initial Profile','Modified Profile'),'lower right')
+##
+##    subplot (224)
+####        legend(('Initial Profile','Modified Profile'),'lower right')
+##else: #no backshore modif req'd
+##    plot(Dx,Dmeas,'r',xd,yd);grid()
 
-    AtMSLoc=num.nonzero(num.array(yd)>0);AtMSLoc=AtMSLoc[0];AtMSLoc=AtMSLoc[0]
-    AtMSL=xd[AtMSLoc]
-
-    # plot  
-    subplot(221)
-    plot(num.array(xd),num.array(yd),Xplant,PlntPlot,'-xg');grid();hold
-    plot(num.array(xd),num.array(yd)*0,'k',num.array(xd),num.array(yd)*0-MSL,'--k',num.array(xd),num.array(yd)*0+HT,'--k') 
-    xlim(Xplant[0]-50,VegEnd);ylim(VegLow-2,HT+2)
-
-    ylabel('Elevation [m]', size='large')
-
-    subplot(222)
-    plot(num.array(xd),num.array(yd));grid()
-    xlim(AtMSL-10,xd[-1]+10);ylim(-1,max(yd)+2)
-
-    subplot (223)
-    plot(num.array(xd),num.array(yd));grid()
-    ylim(min(yd)-1,2);
-
-    subplot (224)
-    plot(num.array(xd),num.array(yd));grid()
-    
-else:
-    plot(ex,Dmeas,'r');hold
-    plot(ex,h);grid()
-    legend(('Initial Profile','Modified Profile'),'lower right')
 
 # save plot to .PNG
 savefig(Profile_Plot, dpi=(640/8))
 
-
 # create txt profile for created portion
-yd2=yd[::-1]# reverse depth profile
+##yd2=yd[::-1]# reverse depth profile
+yd2=yd# reverse depth profile
 file = open(CreatedProfile, "w")
 for i in range(0,len(yd2)):
     file.writelines(str(xd[i])+"\t"+str(yd2[i])+"\n")
@@ -730,8 +722,59 @@ for filename in os.listdir(outputws):
         dest_file = os.path.join(scratchws, filename[:-4]+"_"+now.strftime("%Y-%m-%d-%H-%M")+".txt")
         shutil.copyfile(source_file, dest_file)
 
+
+if WW3_Pts or FetchQuestion == 'Yes':
+    # buffer 'LandPoint' by 100,000 meters
+    gp.Buffer_analysis(LandPoint, LandPoint_Buff100k, "100000 Meters", "FULL", "ROUND", "NONE", "")
+    
+    # convert buffered 'LandPoint' into bathy polygon
+    gp.Extent = LandPoint_Buff100k
+
+    # grab projection spatial reference from 'LandPoly' input
+    dataDesc = gp.describe(LandPoly)
+    spatialRef = dataDesc.SpatialReference
+    gp.CreateFeatureClass_management(interws, "Fetch_AOI.shp", "POLYGON", "#", "#", "#", spatialRef)
+
+    # grab four corners from 'PtsCopyLR'
+    CoordList = shlex.split(gp.Extent)
+
+    # when creating a polygon, the coordinates for the starting point must be the same as the coordinates for the ending point
+    cur = gp.InsertCursor(Fetch_AOI)
+    row = cur.NewRow()
+    PolygonArray = gp.CreateObject("Array")
+    pnt = gp.CreateObject("Point")
+    pnt.x = float(CoordList[0])
+    pnt.y = float(CoordList[1])
+    PolygonArray.add(pnt)
+    pnt.x = float(CoordList[0])
+    pnt.y = float(CoordList[3])
+    PolygonArray.add(pnt)
+    pnt.x = float(CoordList[2])
+    pnt.y = float(CoordList[3])
+    PolygonArray.add(pnt)
+    pnt.x = float(CoordList[2])
+    pnt.y = float(CoordList[1])
+    PolygonArray.add(pnt)
+    pnt.x = float(CoordList[0])
+    pnt.y = float(CoordList[1])
+    PolygonArray.add(pnt)
+    row.shape = PolygonArray
+    cur.InsertRow(row)
+    del row, cur
+
+    # erase from 'Fetch_AOI' areas where there is land
+    LandPoly = AddField(LandPoly, "ERASE", "SHORT", "0", "0")
+    gp.CalculateField_management(LandPoly, "ERASE", "1", "VB")
+    UnionExpr = Fetch_AOI+" 1; "+LandPoly+" 2"        
+    gp.Union_analysis(UnionExpr, UnionFC)
+
+    # select features where "ERASE = 0"
+    gp.Select_analysis(UnionFC, SeaPoly, "\"ERASE\" = 0")
+
 if FetchQuestion == 'Yes':
     # create fetch vectors
+    gp.AddMessage("\nComputing Fetch Vectors...")
+    
     # copy original point twice and add fields to second copy
     gp.CopyFeatures_management(LandPoint, PtsCopy, "", "0", "0", "0")
     gp.CopyFeatures_management(LandPoint, PtsCopy2, "", "0", "0", "0")
@@ -826,50 +869,6 @@ if FetchQuestion == 'Yes':
         addrecs.insertrow(addrec)
         rec = recs.next()
 
-    # convert DEM into bathy polygon
-    gp.Extent = PtsCopyLR
-
-    # grab projection spatial reference from 'LandPoly' input
-    dataDesc = gp.describe(LandPoly)
-    spatialRef = dataDesc.SpatialReference
-    gp.CreateFeatureClass_management(interws, "Fetch_AOI.shp", "POLYGON", "#", "#", "#", spatialRef)
-
-    # grab four corners from 'PtsCopyLR'
-    CoordList = shlex.split(gp.Extent)
-
-    # when creating a polygon, the coordinates for the starting point must be the same as the coordinates for the ending point
-    cur = gp.InsertCursor(Fetch_AOI)
-    row = cur.NewRow()
-    PolygonArray = gp.CreateObject("Array")
-    pnt = gp.CreateObject("Point")
-    pnt.x = float(CoordList[0])
-    pnt.y = float(CoordList[1])
-    PolygonArray.add(pnt)
-    pnt.x = float(CoordList[0])
-    pnt.y = float(CoordList[3])
-    PolygonArray.add(pnt)
-    pnt.x = float(CoordList[2])
-    pnt.y = float(CoordList[3])
-    PolygonArray.add(pnt)
-    pnt.x = float(CoordList[2])
-    pnt.y = float(CoordList[1])
-    PolygonArray.add(pnt)
-    pnt.x = float(CoordList[0])
-    pnt.y = float(CoordList[1])
-    PolygonArray.add(pnt)
-    row.shape = PolygonArray
-    cur.InsertRow(row)
-    del row, cur
-
-    # erase from 'Fetch_AOI' areas where there is land
-    LandPoly = AddField(LandPoly, "ERASE", "SHORT", "0", "0")
-    gp.CalculateField_management(LandPoly, "ERASE", "1", "VB")
-    UnionExpr = Fetch_AOI+" 1; "+LandPoly+" 2"        
-    gp.Union_analysis(UnionExpr, UnionFC)
-
-    # select features where "ERASE = 0"
-    gp.Select_analysis(UnionFC, SeaPoly, "\"ERASE\" = 0")
-
     # erase parts of line where it overlaps land (works for ArcView)
     gp.Intersect_analysis(PtsCopyLR+" 1;"+SeaPoly+" 2", PtsCopyEL, "ALL", "", "INPUT")
     gp.MultipartToSinglepart_management(PtsCopyEL, PtsCopyExp)
@@ -881,31 +880,140 @@ if FetchQuestion == 'Yes':
     Fetch_Vectors = AddField(Fetch_Vectors, "LENGTH_M", "LONG", "6", "")
     gp.CalculateField_management(Fetch_Vectors, "LENGTH_M", "!shape.length@meters!", "PYTHON", "")
 
-### plot fetch on rose
-##radians = (num.pi / 180.0)
-##pi = num.pi
-##theta16 = [0*radians,22.5*radians,45*radians,67.5*radians,90*radians,112.5*radians,135*radians,157.5*radians,180*radians,202.5*radians,225*radians,247.5*radians,270*radians,292.5*radians,315*radians,337.5*radians]
-##rc('grid', color='#316931', linewidth=1, linestyle='-')
-##rc('xtick', labelsize=0)
-##rc('ytick', labelsize=15)
-### force square figure and square axes looks better for polar, IMO
-##width, height = matplotlib.rcParams['figure.figsize']
-##size = min(width, height)
-### make a square figure
-##plt = figure(figsize=(size, size))
-##ax = plt.add_axes([0.1, 0.1, 0.8, 0.8], polar=True, axisbg='w')
-### plot
-##bars = ax.bar(theta16, FetchList, width=.35, color='#ee8d18', lw=1)
-##for r,bar in zip(FetchList, bars):
-##    bar.set_facecolor( cm.YlOrRd(r/10.))
-##    bar.set_alpha(.65)
-##ax.set_rmax(max(FetchList)+1)
-##grid(True)
-##ax.set_title("Average Fetch (meters)", fontsize=15)
-##plt.savefig(outputws+"Fetch_Plot.png", dpi=(640/8))
+    # populate fetch distances to a list
+    AngleList = [0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5, 180.0, 202.5, 225.0, 247.5, 270.0, 292.5, 315.0, 337.5]
+    FetchList = [0.0]*16
+    # translate information from list into perp transect attribute table
+    cur = gp.UpdateCursor(Fetch_Vectors, "", "", "BEARING; LENGTH_M")
+    row = cur.Next()
+    while row:
+        Angle = float(row.GetValue("BEARING"))
+        if Angle in AngleList:
+            indexAngle = AngleList.index(Angle)
+            FetchList[indexAngle] = float(row.GetValue("LENGTH_M"))
+        row = cur.Next()
+    del cur    
+    del row
 
+    binD1 = []; binBiAng1 = []
+    binD2 = []; binBiAng2 = []
+    binD3 = []; binBiAng3 = []
+    binD4 = []; binBiAng4 = []
+    binD5 = []; binBiAng5 = []
+    binD6 = []; binBiAng6 = []
+    binD7 = []; binBiAng7 = []
+    binD8 = []; binBiAng8 = []
+    binD9 = []; binBiAng9 = []
+    binD10 = []; binBiAng10 = []
+    binD11 = []; binBiAng11 = []
+    binD12 = []; binBiAng12 = []
+    binD13 = []; binBiAng13 = []
+    binD14 = []; binBiAng14 = []
+    binD15 = []; binBiAng15 = []
+    binD16 = []; binBiAng16 = []
 
+    cur = gp.UpdateCursor(Fetch_Vectors, "", "", "BEARING; LENGTH_M; BISECTANG")
+    row = cur.Next()    
+    while row:
+        Bearing = float(row.GetValue("BEARING"))
+        if Bearing >= 2.25 and Bearing <= 20.25:
+            binD1.append(row.GetValue("LENGTH_M"))
+            binBiAng1.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 24.75 and Bearing <= 42.75:
+            binD2.append(row.GetValue("LENGTH_M"))
+            binBiAng2.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 47.25 and Bearing <= 65.25:
+            binD3.append(row.GetValue("LENGTH_M"))
+            binBiAng3.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 69.75 and Bearing <= 87.75:
+            binD4.append(row.GetValue("LENGTH_M"))
+            binBiAng4.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 92.25 and Bearing <= 110.25:
+            binD5.append(row.GetValue("LENGTH_M"))
+            binBiAng5.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 114.75 and Bearing <= 132.75:
+            binD6.append(row.GetValue("LENGTH_M"))
+            binBiAng6.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 137.25 and Bearing <= 155.25:
+            binD7.append(row.GetValue("LENGTH_M"))
+            binBiAng7.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 159.75 and Bearing <= 177.75:
+            binD8.append(row.GetValue("LENGTH_M"))
+            binBiAng8.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 182.25 and Bearing <= 200.25:
+            binD9.append(row.GetValue("LENGTH_M"))
+            binBiAng9.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 204.75 and Bearing <= 222.75:
+            binD10.append(row.GetValue("LENGTH_M"))
+            binBiAng10.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 227.25 and Bearing <= 245.25:
+            binD11.append(row.GetValue("LENGTH_M"))
+            binBiAng11.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 249.75 and Bearing <= 267.75:
+            binD12.append(row.GetValue("LENGTH_M"))
+            binBiAng12.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 272.25 and Bearing <= 290.25:
+            binD13.append(row.GetValue("LENGTH_M"))
+            binBiAng13.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 294.75 and Bearing <= 312.75:
+            binD14.append(row.GetValue("LENGTH_M"))
+            binBiAng14.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 317.25 and Bearing <= 335.25:
+            binD15.append(row.GetValue("LENGTH_M"))
+            binBiAng15.append(row.GetValue("BiSectAng"))
+        elif Bearing >= 339.75 and Bearing <= 357.75:
+            binD16.append(row.GetValue("LENGTH_M"))
+            binBiAng16.append(row.GetValue("BiSectAng"))
+        cur.UpdateRow(row)
+        row = cur.Next()
+    del row, cur
+    
+    # use 'FetchMean' function to summarize bins
+    def FetchCalc(binD, binBiAng, index):
+        if len(binD) > 0:
+            numer = 0.0
+            denom = 0.0
+            for i in range(0,len(binD)):
+                numer = numer + binD[i]*num.cos(binBiAng[i])
+                denom = denom + num.cos(binBiAng[i])
+            FetchList[index] = (numer/denom)
+        return FetchList
+
+    FetchList = num.zeros(16, dtype=num.float64)
+    FetchCalc(binD4, binBiAng4, 0); FetchCalc(binD3, binBiAng3, 1); FetchCalc(binD2, binBiAng2, 2); FetchCalc(binD1, binBiAng1, 3)
+    FetchCalc(binD16, binBiAng16, 4); FetchCalc(binD15, binBiAng15, 5); FetchCalc(binD14, binBiAng14, 6); FetchCalc(binD13, binBiAng13, 7)
+    FetchCalc(binD12, binBiAng12, 8); FetchCalc(binD11, binBiAng11, 9); FetchCalc(binD10, binBiAng10, 10); FetchCalc(binD9, binBiAng9, 11)
+    FetchCalc(binD8, binBiAng8, 12); FetchCalc(binD7, binBiAng7, 13); FetchCalc(binD6, binBiAng6, 14); FetchCalc(binD5, binBiAng5, 15)
+
+    gp.AddMessage("Fetch Distances (from 90 degrees, counter clockwise): \n"+str(FetchList))
+
+    # plot fetch on rose    
+    radians = (num.pi / 180.0)
+    pi = num.pi
+    theta16 = [0*radians,22.5*radians,45*radians,67.5*radians,90*radians,112.5*radians,135*radians,157.5*radians,180*radians,202.5*radians,225*radians,247.5*radians,270*radians,292.5*radians,315*radians,337.5*radians]
+    rc('grid', color='#316931', linewidth=1, linestyle='-')
+    rc('xtick', labelsize=0)
+    rc('ytick', labelsize=15)
+    # force square figure and square axes looks better for polar, IMO
+    width, height = matplotlib.rcParams['figure.figsize']
+    size = min(width, height)
+    # make a square figure
+    plt = figure(figsize=(size, size))
+    ax = plt.add_axes([0.1, 0.1, 0.8, 0.8], polar=True, axisbg='w')
+    # plot
+    bars = ax.bar(theta16, FetchList, width=.35, color='#ee8d18', lw=1)
+    for r,bar in zip(FetchList, bars):
+        bar.set_facecolor(cm.YlOrRd(r/10.))
+        bar.set_alpha(.65)
+    ax.set_rmax(max(FetchList)+1)
+    grid(True)
+    ax.set_title("Average Fetch (meters)", fontsize=15)
+    plt.savefig(Fetch_Plot, dpi=(640/8))
+
+#_____Read WW3 Info
 if WW3_Pts:
+    gp.AddMessage("\nReading Wave Watch III Information...")
+
     # create cost surface based on 'SeaPoly'
     gp.Extent = Fetch_AOI
     projection = grabProjection(LandPoint)
@@ -958,8 +1066,9 @@ if WW3_Pts:
     xlApp.Visible=0
     xlApp.DisplayAlerts=0
     xlApp.Workbooks.Open(InputTable)
+    
     # write WW3 results to Excel sheet 'Erosion Model Input'
-    cell2 = xlApp.Worksheets("Erosion Model Input")
+    cell2 = xlApp.Worksheets("ErosionModelInput")
     # maximum wave height
     cell2.Range("e85").Value = WW3_ValuesList[55]
     cell2.Range("f85").Value = WW3_ValuesList[56]
@@ -982,10 +1091,15 @@ if WW3_Pts:
         cell2.Range(letterList[i-18]+"91").Value = WW3_ValuesList[i]
     # 10-yr wind speed
     cell2.Range("e92").Value = WW3_ValuesList[50]
+    
     xlApp.ActiveWorkbook.Close(SaveChanges=1) # save changes
     xlApp.Quit()
 
+##    # Define He,Hmod and Tmod in case user doesn't enter these value
+##    He=WW3_ValuesList[58];
+##    Hm=WW3_ValuesList[59]; Tm=WW3_ValuesList[60];
 
+gp.AddMessage("\nCreating outputs...")
 # return projected point to geographic (unprojected)
 gp.Project_management(LandPoint, LandPoint_Geo, geo_projection)
 # grab coordinates for Google Maps plot
@@ -1019,10 +1133,12 @@ htmlfile.write("&amp;aq=&amp;")
 htmlfile.write("sll=37.160317,-95.712891&amp;sspn=48.113934,71.455078&amp;ie=UTF8&amp;z=10&amp;ll=")
 htmlfile.write(PtLat+","+PtLong)
 htmlfile.write("\" style=\"color:#0000FF;text-align:center\">View Larger Map</a></small><br>\n")
+htmlfile.write("</td><td>")
+htmlfile.write("<img src=\"Fetch_Plot.png\" alt=\"Fetch Distance Plot\">")
 htmlfile.write("</td></tr><tr><td>")
 htmlfile.write("<img src=\"Profile_Plot.png\" alt=\"Profile Generator Plot\" width=\"640\" height=\"480\">")
 htmlfile.write("</td><td>")
-htmlfile.write("<img src=\"Erosion_Plot.png\" alt=\"FORTHCOMING: Erosion Plot\" width=\"640\" height=\"480\">")
+htmlfile.write("<img src=\"Erosion_Plot.png\" alt=\"Erosion Plot\" width=\"640\" height=\"480\">")
 htmlfile.write("</table><br>\n")
 htmlfile.write("<br><HR><H2>Site Information</H2>\n")
 htmlfile.write("<li><u>The site is located at</u> - Latitude: "+PtLat+", Longitude: "+PtLong+"<br>\n")
@@ -1032,6 +1148,7 @@ htmlfile.write("<li><u>The backshore has a slope that is</u>: xxx m high and yyy
 htmlfile.write("<li><u>The beach is backed by a sand dune that is</u>: xxx m high<br>\n")
 htmlfile.write("<li>There is vegetation in the sub- and inter-tidal area.  The vegetation characteristics are xxx.<br>\n")
 htmlfile.close()
+
 
 # create parameter file
 parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
