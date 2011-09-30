@@ -1134,7 +1134,7 @@ try:
         # Load allowed per cell = table wq_annload / number of cells in watershed
         gp.Lookup_sa(wshed_nut_join, wp_annload_field, wshed_annual_load)
         gp.Lookup_sa(wshed_nut_join, "COUNT", wshed_num_cells)
-        gp.Divide_sa(wshed_annual_load, wshed_num_cells, allowed_load_cell)
+        gp.SingleOutputMapAlgebra_sa("FLOAT(" + wshed_annual_load + ") / FLOAT(" + wshed_num_cells + ")", allowed_load_cell)
         # Subtract allowed from total retention to get the service
         gp.Minus_sa(daccum_raster, allowed_load_cell, total_retention1)
         # Change negative values to zeroes
