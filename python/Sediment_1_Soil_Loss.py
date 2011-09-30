@@ -7,7 +7,7 @@
 # Driss Ennaanay, Guillermo Mendoza, Marc Conte
 # for the Natural Capital Project
 #
-# Last edited: 2/6/2011
+# Last edited: 4/22/2011
 #
 # First script for Avoided Reservoir Sedimentation
 # Calculates biophysical components of sedimentation using the
@@ -67,11 +67,11 @@ try:
         Landuse = sys.argv[5]
         parameters.append("Landcover: " + Landuse)
 
-        # Polygon of whole watershed
+        # Watersheds shapefile
         watershed = sys.argv[6]
-        parameters.append("Watershed: " + watershed)
+        parameters.append("Watersheds: " + watershed)
 
-        # Sub-watershed polygons
+        # Sub-watersheds shapefile
         sub_watersheds = sys.argv[7]
         parameters.append("Sub-watersheds: " + sub_watersheds)
 
@@ -83,9 +83,9 @@ try:
         Biophys_Table = sys.argv[9]
         parameters.append("Biophysical coefficient table: " + Biophys_Table)
 
-        # Table containing sediment valuation information - critical loading and/or dead volume
-        value_table = sys.argv[10]
-        parameters.append("Sediment valuation table: " + value_table)
+        # Table containing sediment threshold information - critical loading and/or dead volume
+        threshold_table = sys.argv[10]
+        parameters.append("Sediment threshold table: " + threshold_table)
 
         # Are we valuing dredging?
         value_dredging = sys.argv[11]
@@ -150,7 +150,7 @@ try:
         if not gp.exists(pfparent + folder):
             gp.CreateFolder_management(pfparent, pixelfolder)
     except:
-        gp.AddError( "\nError creating folders: " + gp.GetMessages(2))
+        gp.AddError( "\nError creating output folders: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -206,6 +206,7 @@ try:
         sws_ups_retention_table = interws + "sws_ups_ret.dbf"
         sws_export_table = interws + "sws_exp.dbf"
         ws_export_table = interws + "ws_exp.dbf"
+        ws_retention_table = interws + "ws_ret.dbf"
         wshed_ras = interws + "wshed_ras"
         wshed_ras2 = interws + "wshed_ras2"
         wshed_ras3 = interws + "wshed_ras3"
@@ -227,16 +228,16 @@ try:
         total_retention_dr1 = interws + "sret_dr1"
         watersheds_sjoin = interws + "wsheds_sjoin.shp"
         total_retention = interws + "s_retain1"
+        ws_retention_table_dr = interws + "ws_ret_dr.dbf"
+        ws_retention_table_wq = interws + "ws_ret_wq.dbf"
 
-
-        # Input table field names
-        # Biophysical Models table
+        # Biophysical Models table field names
         lucode_field = "lucode"
         c_field = "usle_c"
         p_field = "usle_p"
         retention_efficiency_field = "sedret_eff"
 
-        # Sediment valuation table
+        # Sediment valuation table field names
         value_id_field = "ws_id"
         wq_ann_load_field = "wq_annload"
         dr_dead_vol_field = "dr_deadvol"
@@ -246,30 +247,31 @@ try:
         wshed_id_field = "ws_id"
         subwshed_id_field = "subws_id"
 
-        # Output files
+        # Pixel output files
         v_stream = pixelws + "v_stream"
         USLE = pixelws + "USLE"
         total_retention_wq = pixelws + "sret_wq"
         total_retention_dr = pixelws + "sret_dr"
+
         # Output tables
-        ws_out_table_name = "sediment_export_watershed" + Suffix + ".dbf"
-        sws_out_table_name = "sediment_export_subwatershed" + Suffix + ".dbf"
+        ws_out_table_name = "sediment_watershed" + Suffix + ".dbf"
+        sws_out_table_name = "sediment_subwatershed" + Suffix + ".dbf"
         daccum_raster_fname = "ups_retain"
         export_raster_fname = "s_export"
 
-        # Watershed/sub-watershed outputs
-        sws_USLE_mean = outputws + "usle_sws_m"
-        sws_USLE_sum = outputws + "usle_sws_s"
-        sws_ups_retention_mean = outputws + "upret_sw_m"
-        sws_ups_retention_sum = outputws + "upret_sw_s"
-        sws_export_mean = outputws + "sexp_sw_m"
-        sws_export_sum = outputws + "sexp_sw_s"
+        # Sub-watershed outputs
+        sws_USLE_mean = outputws + "usle_mn"
+        sws_USLE_sum = outputws + "usle_sm"
+        sws_ups_retention_mean = outputws + "upret_mn"
+        sws_ups_retention_sum = outputws + "upret_sm"
+        sws_export_mean = outputws + "sexp_mn"
+        sws_export_sum = outputws + "sexp_sm"
         
         # Service outputs
-        sws_total_retention_mean_wq = servicews + "sret_sw_qm"
-        sws_total_retention_sum_wq = servicews + "sret_sw_qs"
-        sws_total_retention_mean_dr = servicews + "sret_sw_dm"
-        sws_total_retention_sum_dr = servicews + "sret_sw_ds"
+        sws_total_retention_mean_wq = servicews + "sret_mn_wq"
+        sws_total_retention_sum_wq = servicews + "sret_sm_wq"
+        sws_total_retention_mean_dr = servicews + "sret_mn_dr"
+        sws_total_retention_sum_dr = servicews + "sret_sm_dr"
 
     except:
         gp.AddError( "\nError configuring local variables: " + gp.GetMessages(2))
@@ -279,7 +281,7 @@ try:
     # Add suffix to end of output filenames
     # Constrain length of output raster filenames to 13 characters
     try:
-        Outputnames = [LS, RKLS, USLE, sws_USLE_mean, sws_USLE_sum, daccum_raster_fname, export_raster_fname, v_stream, total_retention, sws_ups_retention_mean, sws_ups_retention_sum, sws_export_mean, sws_export_sum, sws_total_retention_mean_wq, sws_total_retention_sum_wq, sws_total_retention_mean_dr, sws_total_retention_sum_dr]
+        Outputnames = [LS, RKLS, USLE, sws_USLE_mean, sws_USLE_sum, daccum_raster_fname, export_raster_fname, v_stream, total_retention, sws_ups_retention_mean, sws_ups_retention_sum, sws_export_mean, sws_export_sum, sws_total_retention_mean_wq, sws_total_retention_sum_wq, sws_total_retention_mean_dr, sws_total_retention_sum_dr, total_retention_dr, total_retention_wq]
         num = 0
         for x in Outputnames:
             y = x.split("\\")
@@ -311,6 +313,9 @@ try:
         sws_total_retention_sum_wq = str(Outputnames[14])
         sws_total_retention_mean_dr= str(Outputnames[15])
         sws_total_retention_sum_dr = str(Outputnames[16])
+        total_retention_dr = str(Outputnames[17])
+        total_retention_wq = str(Outputnames[18])
+
 
     except:
         gp.AddError ("\nError validating output filenames: " + gp.GetMessages(2))
@@ -319,7 +324,7 @@ try:
 
     # Check input raster projections - they should all be the same
     try:
-        gp.AddMessage("\nValidating input raster projections...")
+        gp.AddMessage("\nChecking input raster projections...")
         DEMDesc = gp.describe(DEM)
         DEMspatref = DEMDesc.SpatialReference
         
@@ -338,7 +343,7 @@ try:
                 gp.AddError("\nError: " + x + " is not in the same coordinate system as the hydrology rasters.  " + x + " is projected in " + spatreflc.name + " while the hydrology layers are in " + DEMspatref.name + ".  Please project raster in the same projection as the hydrology layers.\n")  
                 raise Exception
     except:
-        gp.AddError("\nError in validating input raster projections: " + gp.GetMessages(2)) 
+        gp.AddError("\nError checking input raster projections: " + gp.GetMessages(2)) 
         raise Exception
 
     
@@ -350,7 +355,7 @@ try:
         # Make sure all temporary files go in the Intermediate folder
         gp.workspace = interws
     except:
-        gp.AddError( "\nError configuring environment: " + gp.GetMessages(2))
+        gp.AddError( "\nError setting geoprocessing environment: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -380,8 +385,8 @@ try:
         flowdir_cardinals = [1, 2, 4, 8, 16, 32, 64, 128]
 
         # Arc10 doesn't create an attribute table for flow dir by default
-        if (install_info["Version"] == "10.0"):
-            gp.BuildRasterAttributeTable_management(Hydrows + "Flow_dir")
+##        if (install_info["Version"] == "10.0"):
+        gp.BuildRasterAttributeTable_management(Hydrows + "Flow_dir", "OVERWRITE")
 
         fd_rows = gp.SearchCursor(Hydrows + "Flow_dir")
         fd_row = fd_rows.Reset
@@ -406,7 +411,7 @@ try:
 
         # Problems with GetRasterProperties in Arc 9.3.1 and 10, 
         # so do a workaround for determining number of sinks
-        gp.BuildRasterAttributeTable_management(Hydrows + "Sinks")
+        gp.BuildRasterAttributeTable_management(Hydrows + "Sinks", "OVERWRITE")
         si_rows = gp.SearchCursor(Hydrows + "Sinks")
         si_row = si_rows.Reset
         si_row = si_rows.Next()
@@ -424,7 +429,7 @@ try:
         flow_dir = Hydrows + "Flow_dir"
         flow_acc = Hydrows + "Flow_acc"
         percent_slope = Hydrows + "Slope"
-        drop_raster = Hydrows + "Drop_ras"
+
         
     except:
         gp.AddError("\nError processing hydrology layers: " + gp.GetMessages(2))
@@ -451,7 +456,7 @@ try:
                         raise Exception
                 table_field = table_fields.next()
 
-            # Make sure that all required fields ('fields') are in the input table ('foundfields')
+            # Make sure that all required fields are in the input table 
             for f in fields:
                 if not f.upper() in foundfields:
                     gp.AddError("\nError: Required table field " + str(f) + " not found in input table " + str(table) + "\n")
@@ -501,9 +506,9 @@ try:
         checkfields([lucode_field, c_field, p_field, retention_efficiency_field], Biophys_Table)
 
         if value_dredging:
-            checkfields([value_id_field, dr_dead_vol_field, dr_time_field], value_table)
+            checkfields([value_id_field, dr_dead_vol_field, dr_time_field], threshold_table)
         if value_wquality:
-            checkfields([value_id_field, wq_ann_load_field], value_table)
+            checkfields([value_id_field, wq_ann_load_field], threshold_table)
         
         # Define flow direction to streams, using
         # the input threshold flow accumulation value
@@ -577,11 +582,10 @@ try:
 
         # Aggregate by watersheds and sub-watersheds
 
-        gp.ZonalStatistics_sa(sub_watersheds, subwshed_id_field, USLE, sws_USLE_sum, "SUM", "DATA")
-
         area_ha_field = "AREA_HA"
         mean_ha_field = "MEAN_HA"
         
+        gp.ZonalStatistics_sa(sub_watersheds, subwshed_id_field, USLE, sws_USLE_sum, "SUM", "DATA")
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, USLE, sws_USLE_table, "DATA")
         gp.AddField(sws_USLE_table, area_ha_field, "double")
         gp.AddField(sws_USLE_table, mean_ha_field, "double")
@@ -589,6 +593,8 @@ try:
         gp.CalculateField_management(sws_USLE_table, mean_ha_field, "[SUM] / [" + area_ha_field + "]", "VB")
 
         gp.FeatureToRaster_conversion(sub_watersheds, subwshed_id_field, wshed_ras, cell_size)
+        # Arc10 - attribute table not created by default 
+        gp.BuildRasterAttributeTable_management(wshed_ras, "OVERWRITE")
         gp.MakeRasterLayer_management(wshed_ras, "wsheds", "#", "#")
         gp.MakeTableView(sws_USLE_table, "usle_table_view")
         
@@ -597,14 +603,13 @@ try:
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "VALUE"
-            
+
         gp.AddJoin_management("wsheds", "VALUE", "usle_table_view", zstat_id_field)
         gp.CopyRaster_management("wsheds", wsheds_j)
         
-        # Delete this now or Arc10 won't delete the Intermediate folder at the end
         if (install_info["Version"] == "10.0"):
-            gp.Delete_management("wsheds")
             gp.Delete_management("usle_table_view")
+            gp.Delete_management("wsheds")
 
         gp.Lookup_sa(wsheds_j, mean_ha_field, sws_USLE_mean)
 
@@ -658,7 +663,6 @@ try:
             subws_count += 1
             
             # Get watershed id
-            # TO DO: ADD SUPPORT FOR QUERYING GEODATABASES select_exp = "[subws_id]"
             subws_id = str(int(ws_row.GetValue(subwshed_id_field)))
             select_exp = "\"subws_id\" = " + subws_id
 
@@ -666,7 +670,7 @@ try:
             dsc = gp.describe(USLE)
             cell_size = str(dsc.MeanCellHeight)
             
-            # Select one watershed and output to ws_mask_file for use by gp.Mask
+            # Select one watershed and use as a mask for subsequent calculations
             gp.Select_analysis(sub_watersheds, ws_mask_poly, select_exp)
             gp.FeatureToRaster_conversion(ws_mask_poly, subwshed_id_field, ws_mask_ras, cell_size)
             gp.Mask = ws_mask_ras
@@ -710,7 +714,7 @@ try:
                 daccum_grid_raster_subws = str(Outputnames[1])
 
             except:
-                gp.AddError ("\nError generating sub-watershed output filenames: " + gp.GetMessages(2))
+                gp.AddError ("\nError generating temporary sub-watershed output filenames: " + gp.GetMessages(2))
                 raise Exception           
     
 
@@ -744,18 +748,18 @@ try:
                         frac_removed_rs = frac_removed
                 
                 except:
-                    gp.AddError("\nError in validating input raster resolution: " + gp.GetMessages(2)) 
+                    gp.AddError("\nError validating input raster resolution: " + gp.GetMessages(2)) 
                     raise Exception
 
                 # Extract input rasters, using the input mask
                 # so that all extents are the same
 
                 # Sediment loading at each cell
-                gp.ExtractByMask_sa(USLE, ws_mask_poly, loads_ext)
+                gp.ExtractByMask_sa(USLE, ws_mask_ras, loads_ext)
                 # Flow direction 
-                gp.ExtractByMask_sa(flowdir_rs, ws_mask_poly, flowdir_ext)
+                gp.ExtractByMask_sa(flowdir_rs, ws_mask_ras, flowdir_ext)
                 # Fraction of incoming sediment retained by each cell
-                gp.ExtractByMask_sa(frac_removed_rs, ws_mask_poly, frac_removed_ext)
+                gp.ExtractByMask_sa(frac_removed_rs, ws_mask_ras, frac_removed_ext)
 
                 # Create accumulation and export grids from loads input raster, fill with zeroes
                 gp.Times_sa(loads_ext, "0.0", daccum_grid)
@@ -906,8 +910,13 @@ try:
                 gp.AddError("\nError pre-processing sub-watershed " + str(subws_id) + ": " + gp.GetMessages(2))
                 gp.AddError("It's possible that the sub-watershed is too large.")
                 gp.AddError("Skipping to next sub-watershed...\n")
+                input_flowdir.close()
+                daccum_recgrid.close()
+                export_recgrid.close()
+                input_loads.close()
+                input_frac_removed.close()
+                ws_row = ws_rows.Next()
                 continue
-#                raise Exception
 
             # Follow flow path of each cell's load,
             #   calculating sediment retention along the way
@@ -1205,15 +1214,23 @@ try:
             dsc = gp.describe(total_retention)
             cell_size = str(dsc.MeanCellHeight)
 
-            gp.CopyRows_management(value_table, "sed_tmp_wq.dbf")
+            gp.CopyRows_management(threshold_table, "sed_tmp_wq.dbf")
             gp.FeatureToRaster_conversion(watershed, wshed_id_field, wshed_ras2, cell_size)
+            # Arc 10 doesn't build the attribute table automatically
+            gp.BuildRasterAttributeTable_management(wshed_ras2, "OVERWRITE")
             gp.MakeRasterLayer_management(wshed_ras2, "wshed_tmp_wq")
             gp.AddJoin_management("wshed_tmp_wq", "Value", "sed_tmp_wq.dbf", value_id_field)
             gp.CopyRaster_management("wshed_tmp_wq", wshed_wq_join)
+
+            if (install_info["Version"] == "10.0"):
+                gp.Delete_management("sed_tmp_wq.dbf")
+                gp.Delete_management("wshed_tmp_wq")
+            
             # Load allowed per cell = table wq_annload / number of cells in watershed
             gp.Lookup_sa(wshed_wq_join, wq_ann_load_field, wshed_annual_load)
             gp.Lookup_sa(wshed_wq_join, "COUNT", wshed_num_cells)
-            gp.SingleOutputMapAlgebra_sa("FLOAT(" + wshed_annual_load + ") / FLOAT(" + wshed_num_cells + ")", allowed_load_cell_wq)
+            gp.Divide_sa(wshed_annual_load, wshed_num_cells, allowed_load_cell_wq)
+            # Subtract allowed from total retention to get the service
             gp.Minus_sa(total_retention, allowed_load_cell_wq, total_retention_wq1)
             # Change negative values to zeroes
             gp.SingleOutputMapAlgebra_sa("CON(" + total_retention_wq1 + " < 0, 0, " + total_retention_wq1 + ")", total_retention_wq)
@@ -1227,15 +1244,23 @@ try:
             dsc = gp.describe(total_retention)
             cell_size = str(dsc.MeanCellHeight)
 
-            gp.CopyRows_management(value_table, "sed_tmp_dr.dbf")
+            gp.CopyRows_management(threshold_table, "sed_tmp_dr.dbf")
             gp.FeatureToRaster_conversion(watershed, wshed_id_field, wshed_ras3, cell_size)
+            gp.BuildRasterAttributeTable_management(wshed_ras3, "OVERWRITE")
             gp.MakeRasterLayer_management(wshed_ras3, "wshed_tmp_dr")
             gp.AddJoin_management("wshed_tmp_dr", "Value", "sed_tmp_dr.dbf", value_id_field)
             gp.CopyRaster_management("wshed_tmp_dr", wshed_dr_join)
+
+            if (install_info["Version"] == "10.0"):
+                gp.Delete_management("sed_tmp_dr.dbf")
+                gp.Delete_management("wshed_tmp_dr")
+
+            # Load allowed per cell = (table dr_dead_vol * sediment density) / (number of cells * time span)
             gp.Lookup_sa(wshed_dr_join, dr_dead_vol_field, wshed_dead_vol)
             gp.Lookup_sa(wshed_dr_join, dr_time_field, wshed_dr_time)
             gp.Lookup_sa(wshed_dr_join, "COUNT", wshed_num_cells2)
             gp.SingleOutputMapAlgebra_sa("(" + wshed_dead_vol + " * 1.26) / (" + wshed_num_cells2 + " * " + wshed_dr_time + ")", allowed_load_cell_dr)
+            # Subtract allowed from total retention to get the service
             gp.Minus_sa(total_retention, allowed_load_cell_dr, total_retention_dr1)
             # Change negative values to zeroes
             gp.SingleOutputMapAlgebra_sa("CON(" + total_retention_dr1 + " < 0, 0, " + total_retention_dr1 + ")", total_retention_dr)
@@ -1249,6 +1274,7 @@ try:
     try:
 
         if (value_wquality):
+            # Total sediment retention (upstream + what originates on the cell)
             gp.ZonalStatistics_sa(sub_watersheds, subwshed_id_field, total_retention_wq, sws_total_retention_sum_wq, "SUM", "DATA")
             gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, total_retention_wq, sws_total_retention_table_wq, "DATA")
             gp.AddField(sws_total_retention_table_wq, area_ha_field, "double")
@@ -1261,7 +1287,12 @@ try:
             gp.CopyRaster_management("wsheds_tr_wq", wsheds_totret_wq)
             gp.Lookup_sa(wsheds_totret_wq, mean_ha_field, sws_total_retention_mean_wq)
 
+            if (install_info["Version"] == "10.0"):
+                gp.Delete_management("totret_wq_table_view")
+                gp.Delete_management("wsheds_tr_wq")
+
         if (value_dredging):
+            # Total sediment retention (upstream + what originates on the cell)
             gp.ZonalStatistics_sa(sub_watersheds, subwshed_id_field, total_retention_dr, sws_total_retention_sum_dr, "SUM", "DATA")
             gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, total_retention_dr, sws_total_retention_table_dr, "DATA")
             gp.AddField(sws_total_retention_table_dr, area_ha_field, "double")
@@ -1274,9 +1305,14 @@ try:
             gp.CopyRaster_management("wsheds_tr_dr", wsheds_totret_dr)
             gp.Lookup_sa(wsheds_totret_dr, mean_ha_field, sws_total_retention_mean_dr)
 
+            if (install_info["Version"] == "10.0"):
+                gp.Delete_management("totret_dr_table_view")
+                gp.Delete_management("wsheds_tr_dr")
 
+        # Sediment retention from what originates upstream
         gp.ZonalStatistics_sa(sub_watersheds, subwshed_id_field, daccum_raster, sws_ups_retention_sum, "SUM", "DATA")
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, daccum_raster, sws_ups_retention_table, "DATA")
+        # Compute value per hectare
         gp.AddField(sws_ups_retention_table, area_ha_field, "double")
         gp.AddField(sws_ups_retention_table, mean_ha_field, "double")
         gp.CalculateField_management(sws_ups_retention_table, area_ha_field, "[AREA] / 10000", "VB")
@@ -1286,9 +1322,15 @@ try:
         gp.AddJoin_management("wsheds_ups", "VALUE", "ups_table_view", zstat_id_field)
         gp.CopyRaster_management("wsheds_ups", wsheds_upsret)
         gp.Lookup_sa(wsheds_upsret, mean_ha_field, sws_ups_retention_mean)
-        
+
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management("ups_table_view")
+            gp.Delete_management("wsheds_ups")
+
+        # Sediment exported to the stream
         gp.ZonalStatistics_sa(sub_watersheds, subwshed_id_field, export_raster, sws_export_sum, "SUM", "DATA")
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, export_raster, sws_export_table, "DATA")
+        # Compute value per hectare
         gp.AddField(sws_export_table, area_ha_field, "double")
         gp.AddField(sws_export_table, mean_ha_field, "double")
         gp.CalculateField_management(sws_export_table, area_ha_field, "[AREA] / 10000", "VB")
@@ -1298,6 +1340,10 @@ try:
         gp.AddJoin_management("wsheds_exp", "VALUE", "exp_table_view", zstat_id_field)
         gp.CopyRaster_management("wsheds_exp", wsheds_export)
         gp.Lookup_sa(wsheds_export, mean_ha_field, sws_export_mean)
+
+        if (install_info["Version"] == "10.0"):
+            gp.Delete_management("exp_table_view")
+            gp.Delete_management("wsheds_exp")
         
         gp.AddMessage("\nCreated sub-watershed outputs:")
         if value_wquality:
@@ -1314,65 +1360,107 @@ try:
     
 
     # Table to hold generated output values per watershed
-    gp.AddMessage("\nCreating watershed loads output table...")
+    gp.AddMessage("\nCreating watershed sediment output table...")
     try:
         # output table field names
         out_table_wshed_id_field = "ws_id"
-        out_table_load_field = "sed_load"
+        out_table_export_field = "sed_export"
+        out_table_retention_dr_field = "sed_ret_dr"
+        out_table_retention_wq_field = "sed_ret_wq"
         
         gp.CreateTable_management(outputws, ws_out_table_name)
         ws_out_table = outputws + ws_out_table_name
-        
+
         gp.AddField(ws_out_table, out_table_wshed_id_field, "long")
-        gp.AddField(ws_out_table, out_table_load_field, "double")
+        gp.AddField(ws_out_table, out_table_export_field, "double")
+        if(value_dredging):
+            gp.AddField(ws_out_table, out_table_retention_dr_field, "double")
+        if(value_wquality):
+            gp.AddField(ws_out_table, out_table_retention_wq_field, "double")
         # Remove Field1 - it's added by default and not used
         gp.DeleteField_management(ws_out_table, "Field1")
 
         ws_out_table_rows = gp.InsertCursor(ws_out_table)
 
-        gp.ZonalStatisticsAsTable_sa(watershed, wshed_id_field, export_raster, ws_export_table, "DATA")
+        # Zonal stats field name changed in Arc10
+        if (install_info["Version"] == "10.0"):
+            zstat_id_field = wshed_id_field
+        else:
+            zstat_id_field = "Value"
 
-        # Populate it with Watershed Loads values
-        wse_rows = gp.SearchCursor(ws_export_table)
+        # Populate table with watershed export/retention values
+        gp.ZonalStatisticsAsTable_sa(watershed, wshed_id_field, export_raster, ws_export_table, "DATA")
+        wse_rows = gp.SearchCursor(ws_export_table, "", "", "", zstat_id_field + " A")
         wse_row = wse_rows.Reset
         wse_row = wse_rows.Next()
 
+        if (value_dredging):
+            gp.ZonalStatisticsAsTable_sa(watershed, wshed_id_field, total_retention_dr, ws_retention_table_dr, "DATA")
+
+            ws_rdr_rows = gp.SearchCursor(ws_retention_table_dr, "", "", "", zstat_id_field + " A")
+            ws_rdr_row = ws_rdr_rows.Reset
+            ws_rdr_row = ws_rdr_rows.Next()
+
+        if (value_wquality):
+            gp.ZonalStatisticsAsTable_sa(watershed, wshed_id_field, total_retention_wq, ws_retention_table_wq, "DATA")
+
+            ws_rwq_rows = gp.SearchCursor(ws_retention_table_wq, "", "", "", zstat_id_field + " A")
+            ws_rwq_row = ws_rwq_rows.Reset
+            ws_rwq_row = ws_rwq_rows.Next()
+
         while (wse_row):
-            # Zonal stats field name has changed in Arc 10
+            # Zonal stats field name changed in Arc 10
             if (install_info["Version"] == "10.0"):
-                ws_id = wse_row.getValue("ID")
+                ws_id = wse_row.getValue(wshed_id_field)
             else:
                 ws_id = wse_row.getValue("VALUE")
-                
-            ws_total_load = float(wse_row.getValue("SUM"))
-            
+
             new_row = ws_out_table_rows.NewRow()
             new_row.setValue(out_table_wshed_id_field, ws_id)
-            new_row.setValue(out_table_load_field, ws_total_load)
+                        
+            ws_export = float(wse_row.getValue("SUM"))
+            new_row.setValue(out_table_export_field, ws_export)
+
+            if (value_dredging):
+                ws_retention_dr = float(ws_rdr_row.getValue("SUM"))
+                new_row.setValue(out_table_retention_dr_field, ws_retention_dr)
+                ws_rdr_row = ws_rdr_rows.Next()
+            if(value_wquality):
+                ws_retention_wq = float(ws_rwq_row.getValue("SUM"))
+                new_row.setValue(out_table_retention_wq_field, ws_retention_wq)
+                ws_rwq_row = ws_rwq_rows.Next()
 
             ws_out_table_rows.InsertRow(new_row)
             wse_row = wse_rows.Next()
 
-        gp.AddMessage("\tCreated watershed loads output table: \n\t" + str(ws_out_table))
+        del new_row
+
+        gp.AddMessage("\n\tCreated watershed sediment output table: \n\t" + str(ws_out_table))
         
     except:
-        gp.AddError ("\nError creating watershed loads output table:" + gp.GetMessages(2))
+        gp.AddError ("\nError creating watershed sediment output table:" + gp.GetMessages(2))
         raise Exception
 
     # Table to hold generated output values per sub-watershed
-    gp.AddMessage("\nCreating sub-watershed loads output table...")
+    gp.AddMessage("\nCreating sub-watershed sediment output table...")
     try:
         # output table field names
         out_table_wsid_field = "ws_id"
         out_table_subwshed_id_field = "subws_id"
-        out_table_load_field = "sed_load"
-        
+        out_table_export_field = "sed_export"
+        out_table_retention_dr_field = "sed_ret_dr"
+        out_table_retention_wq_field = "sed_ret_wq"
+
         gp.CreateTable_management(outputws, sws_out_table_name)
         sws_out_table = outputws + sws_out_table_name
-        
+
         gp.AddField(sws_out_table, out_table_subwshed_id_field, "long")
         gp.AddField(sws_out_table, out_table_wsid_field, "long")
-        gp.AddField(sws_out_table, out_table_load_field, "double")
+        gp.AddField(sws_out_table, out_table_export_field, "double")
+        if(value_dredging):
+            gp.AddField(sws_out_table, out_table_retention_dr_field, "double")
+        if(value_wquality):
+            gp.AddField(sws_out_table, out_table_retention_wq_field, "double")
         # Remove Field1 - it's added by default and not used
         gp.DeleteField_management(sws_out_table, "Field1")
 
@@ -1381,10 +1469,26 @@ try:
         # Map sub-watersheds to their corresponding watersheds
         gp.SpatialJoin_analysis(sub_watersheds, watershed, watersheds_sjoin, "JOIN_ONE_TO_ONE", "KEEP_ALL", "#", "IS_WITHIN")
 
-        # Populate output table with watershed load values
+        # Zonal stats field name changed in Arc10
+        if (install_info["Version"] == "10.0"):
+            zstat_id_field = subwshed_id_field
+        else:
+            zstat_id_field = "Value"
+
+        # Populate output table with watershed export/retention values
         swse_rows = gp.SearchCursor(sws_export_table, "", "", "", zstat_id_field + " A")
         swse_row = swse_rows.Reset
         swse_row = swse_rows.Next()
+
+        if (value_dredging):
+            sws_rdr_rows = gp.SearchCursor(sws_total_retention_table_dr, "", "", "", zstat_id_field + " A")
+            sws_rdr_row = sws_rdr_rows.Reset
+            sws_rdr_row = sws_rdr_rows.Next()
+
+        if (value_wquality):
+            sws_rwq_rows = gp.SearchCursor(sws_total_retention_table_wq, "", "", "", zstat_id_field + " A")
+            sws_rwq_row = sws_rwq_rows.Reset
+            sws_rwq_row = sws_rwq_rows.Next()
 
         while (swse_row):
 
@@ -1395,24 +1499,32 @@ try:
             while (int(sj_row.getValue(subwshed_id_field)) <> int(swse_row.getValue(zstat_id_field))):
                 sj_row = sj_rows.Next()
             
-            # Zonal stats field name has changed in Arc 10
+            # Zonal stats field name changed in Arc 10
             if (install_info["Version"] == "10.0"):
-                sws_id = swse_row.getValue("ID")
+                sws_id = swse_row.getValue(subwshed_id_field)
             else:
                 sws_id = swse_row.getValue("VALUE")
                 
             sws_total_load = float(swse_row.getValue("SUM"))
-            
             new_row = sws_out_table_rows.NewRow()
             new_row.setValue(out_table_subwshed_id_field, sws_id)
             new_row.setValue(out_table_wsid_field, int(sj_row.getValue(wshed_id_field)))
-            new_row.setValue(out_table_load_field, sws_total_load)
+            new_row.setValue(out_table_export_field, sws_total_load)
+
+            if (value_dredging):
+                sws_retention_dr = float(sws_rdr_row.getValue("SUM"))
+                new_row.setValue(out_table_retention_dr_field, sws_retention_dr)
+                sws_rdr_row = sws_rdr_rows.Next()
+            if(value_wquality):
+                sws_retention_wq = float(sws_rwq_row.getValue("SUM"))
+                new_row.setValue(out_table_retention_wq_field, sws_retention_wq)
+                sws_rwq_row = sws_rwq_rows.Next()
 
             sws_out_table_rows.InsertRow(new_row)
             swse_row = swse_rows.Next()
             del sj_row, sj_rows
 
-        gp.AddMessage("\tCreated sub-watershed loads output table: \n\t" + str(sws_out_table))
+        gp.AddMessage("\n\tCreated sub-watershed sediment output table: \n\t" + str(sws_out_table))
         
     except:
         gp.AddError ("\nError creating output tables:" + gp.GetMessages(2))
@@ -1423,7 +1535,7 @@ try:
     try:
         parameters.append("Script location: " + os.path.dirname(sys.argv[0]) + "\\" + os.path.basename(sys.argv[0]))
         gp.workspace = gp.GetParameterAsText(0)
-        parafile = open(gp.workspace + "\\Output\\Sediment_1_Soil_Loss_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
+        parafile = open(gp.workspace + "\\Output\\Sediment_Soil_Loss_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
         parafile.writelines("SEDIMENT 1 - SOIL LOSS PARAMETERS\n")
         parafile.writelines("_________________________________\n\n")
 
@@ -1439,7 +1551,7 @@ try:
     # Clean up temporary files
     gp.AddMessage("\nCleaning up temporary files...\n")
     try:
-        del ws_row, ws_rows, ws_out_table_rows, new_row, fd_row, fd_rows
+        del ws_row, ws_rows, new_row, ws_out_table_rows, fd_row, fd_rows
         del wse_row, wse_rows, sws_out_table_rows, swse_row, swse_rows
         gp.Delete_management(interws)
     except:
