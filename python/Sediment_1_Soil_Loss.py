@@ -1213,7 +1213,7 @@ try:
             # Load allowed per cell = table wq_annload / number of cells in watershed
             gp.Lookup_sa(wshed_wq_join, wq_ann_load_field, wshed_annual_load)
             gp.Lookup_sa(wshed_wq_join, "COUNT", wshed_num_cells)
-            gp.Divide_sa(wshed_annual_load, wshed_num_cells, allowed_load_cell_wq)
+            gp.SingleOutputMapAlgebra_sa("FLOAT(" + wshed_annual_load + ") / FLOAT(" + wshed_num_cells + ")", allowed_load_cell_wq)
             gp.Minus_sa(total_retention, allowed_load_cell_wq, total_retention_wq1)
             # Change negative values to zeroes
             gp.SingleOutputMapAlgebra_sa("CON(" + total_retention_wq1 + " < 0, 0, " + total_retention_wq1 + ")", total_retention_wq)
