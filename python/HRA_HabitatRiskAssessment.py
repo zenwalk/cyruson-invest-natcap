@@ -308,7 +308,7 @@ try:
                 gp.MakeFeatureLayer_management(StressVariable, StressLyrList[i][:-4]+".lyr", "", interws, "")
                 
             SelectStress = gp.SelectLayerByLocation_management(StressLyrList[i][:-4]+".lyr", "INTERSECT", GS_HQ_lyr, "", "NEW_SELECTION")
-            if gp.GetCount_management(SelectStress) == 0:
+            if gp.GetCount_management(SelectStress) == 0:                
                 StressNoDataList.append("yes")
             else:
                 StressNoDataList.append("no")
@@ -367,11 +367,18 @@ try:
                     CmbExpr = "hab_"+str(i+1)+";"+"stress_"+str(j+1)
                     gp.Combine_sa(CmbExpr, "H"+str(i+1)+"S"+str(j+1))
                     OverlapList.append("H"+str(i+1)+"S"+str(j+1))
-                    gp.BuildRasterAttributeTable_management("H"+str(i+1)+"S"+str(j+1), "Overwrite")
+                    gp.BuildRasterAttributeTable_management("H"+str(i+1)+"S"+str(j+1), "Overwrite")                   
                     if gp.GetCount("H"+str(i+1)+"S"+str(j+1)) == 0:
                         OverlapNoDataList.append("yes")
                     else:
-                        OverlapNoDataList.append("no")
+                        cur = gp.UpdateCursor("H"+str(i+1)+"S"+str(j+1))
+                        row = cur.Next()
+                        rstValue = row.GetValue("VALUE")
+                        del cur, row
+                        if rstValue < 0:
+                            OverlapNoDataList.append("yes")
+                        else:
+                            OverlapNoDataList.append("no")
                 else:
                     OverlapList.append("H"+str(i+1)+"S"+str(j+1))
                     OverlapNoDataList.append("yes")
@@ -716,8 +723,9 @@ try:
         del3 = []
         for k in range(0,HabCount):
             if HabNoDataList[k] == "no":
-                gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRISK_H"+str(k+1), interws+"cr_h"+str(k+1), cellsize)
-                gp.SetNull_sa(interws+"cr_h"+str(k+1), interws+"cr_h"+str(k+1), "cum_risk_h"+str(k+1), "\"VALUE\" <= 0")
+                gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRISK_H"+str(k+1), interws+"cr_h"+str(k+1), cellsize)       
+                SetNullExp = "setnull("+interws+"cr_h"+str(k+1)+" <= 0 , "+interws+"cr_h"+str(k+1)+")"
+                gp.SingleOutputMapAlgebra_sa(SetNullExp, "cum_risk_h"+str(k+1))
                 del3.append("cr_h"+str(k+1))
 
         # create raster output for ecosystem risk and habitat recovery      
