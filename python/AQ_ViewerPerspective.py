@@ -1,9 +1,7 @@
 # Marine InVEST: Viewer Perspective (Aesthetic Quality)
-# Authors: Gregg Verutes
+# Author: Gregg Verutes
 # Coded for ArcGIS 9.3 and 10
-# 09/02/11
-
-## OFFSET A MUST BE POSITIVE
+# 10/05/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -50,19 +48,18 @@ try:
         if cellsize:
             cellsize = int(gp.GetParameterAsText(2))
         parameters.append("Cell Size (meters): "+ str(cellsize))
-        ObserverPts = gp.GetParameterAsText(3)
-        parameters.append("Viewer Locations: "+ ObserverPts)
-        visualPolys = gp.GetParameterAsText(4)
-        parameters.append("Polygon Areas Impacting Aesthetic Quality: "+ visualPolys)
-        CurWgtField = gp.GetParameterAsText(5)
-        parameters.append("Current Weight Field: "+ CurWgtField)
-        FutWgtField = gp.GetParameterAsText(6)
-        parameters.append("Future Weight Field: "+ FutWgtField)
-        DEM = gp.GetParameterAsText(7)
+        DEM = gp.GetParameterAsText(3)
         parameters.append("Digital Elevation Model (DEM): "+ DEM)
+        ObserverPts = gp.GetParameterAsText(4)
+        parameters.append("Viewer (Point) Locations: "+ ObserverPts)
+        visualPolys = gp.GetParameterAsText(5)
+        parameters.append("Areas (Polygon) Impacting Aesthetic Quality: "+ visualPolys)
+        CurWgtField = gp.GetParameterAsText(6)
+        parameters.append("Current Weight Field for Areas Impacting Visual Quality: "+ CurWgtField)
+        FutWgtField = gp.GetParameterAsText(7)
+        parameters.append("Future Weight Field for Areas Impacting Visual Quality: "+ FutWgtField)
         RefractCoeff = float(gp.GetParameterAsText(8))
         parameters.append("Refractivity Coefficient: "+ str(RefractCoeff))
-
     except:
         raise Exception, msgArguments + gp.GetMessages(2)
 
@@ -166,7 +163,8 @@ try:
         ckProjection(ObserverPts)
         ckProjection(DEM)
         compareProjections(ObserverPts, DEM)
-        ckProjection(visualPolys)
+        if visualPolys:
+            ckProjection(visualPolys)
         cellsizeDEM = checkCellSize(DEM)
         if cellsize:
             if int(cellsize) < int(cellsizeDEM):
@@ -178,83 +176,83 @@ try:
         gp.Mask = AOI
 
         # ID and grab poly info to lists
-        visualPolys = AddField(visualPolys, "POLY_ID", "LONG", "0", "0")        
-        gp.CalculateField_management(visualPolys, "POLY_ID", "[FID]+1", "VB")
-        PolyList = []
-        CurWghtList = []
-        if FutWgtField:
+        if visualPolys and CurWgtField <> '':
+            visualPolys = AddField(visualPolys, "POLY_ID", "LONG", "0", "0")
+            gp.CalculateField_management(visualPolys, "POLY_ID", "[FID]+1", "VB")
+            PolyList = []
+            CurWghtList = []
             FutWghtList = []  
-        cur = gp.UpdateCursor(visualPolys)
-        row = cur.Next()   
-        while row:
-            PolyList.append(row.GetValue("POLY_ID"))
-            CurWghtList.append(row.GetValue(CurWgtField))
-            if FutWgtField:
-                FutWghtList.append(row.GetValue(FutWgtField))
-            cur.UpdateRow(row)
-            row = cur.next()
-        del row
-        del cur
+            cur = gp.UpdateCursor(visualPolys)
+            row = cur.Next()   
+            while row:
+                PolyList.append(row.GetValue("POLY_ID"))
+                CurWghtList.append(row.GetValue(CurWgtField))
+                if FutWgtField <> '':
+                    FutWghtList.append(row.GetValue(FutWgtField))
+                cur.UpdateRow(row)
+                row = cur.next()
+            del row
+            del cur
 
-        # normalize the values
-        # convert lists to numpy array
-        CurWghtArray = np.array(CurWghtList)
-        FutWghtArray = np.array(FutWghtList)
-        rescaleNeg = 1.0
-        rescalePos = 1.0
-        if FutWgtField:
-            if max(CurWghtList) >= max(FutWghtList):
-                maxWght = max(CurWghtList)
-            else:
-                maxWght = max(FutWghtList)
-                
-            if min(CurWghtList) <= min(FutWghtList):
-                minWght = min(CurWghtList)
-            else:
-                minWght = min(FutWghtList)
-
-            if minWght < 0 and maxWght > 0:
-                if np.abs(minWght) < np.abs(maxWght):
-                    rescaleNeg = np.abs(minWght)/np.abs(maxWght)
+            # normalize the values
+            # convert lists to numpy array
+            CurWghtArray = np.array(CurWghtList)
+            FutWghtArray = np.array(FutWghtList)
+            rescaleNeg = 1.0
+            rescalePos = 1.0
+            if FutWgtField <> '':
+                if max(CurWghtList) >= max(FutWghtList):
+                    maxWght = max(CurWghtList)
                 else:
-                    rescalePos = np.abs(maxWght)/np.abs(minWght)
-            CurWghtArray = np.where(CurWghtArray > 0.0, ((CurWghtArray/maxWght)*rescalePos), CurWghtArray)
-            CurWghtArray = np.where(CurWghtArray < 0.0, ((CurWghtArray/(minWght*-1.0))*rescaleNeg), CurWghtArray)
-            FutWghtArray = np.where(FutWghtArray > 0.0, ((FutWghtArray/maxWght)*rescalePos), FutWghtArray)            
-            FutWghtArray = np.where(FutWghtArray < 0.0, ((FutWghtArray/(minWght*-1.0))*rescaleNeg), FutWghtArray) 
-    
-        else:
-            if min(CurWghtList) < 0 and max(CurWghtList) > 0:
-                if np.abs(min(CurWghtList)) < np.abs(max(CurWghtList)):
-                    rescaleNeg = np.abs((min(CurWghtList))/np.abs(max(CurWghtList)))
+                    maxWght = max(FutWghtList)
+                    
+                if min(CurWghtList) <= min(FutWghtList):
+                    minWght = min(CurWghtList)
                 else:
-                    rescalePos = np.abs((max(CurWghtList))/np.abs(min(CurWghtList)))
-            CurWghtArray = np.where(CurWghtArray > 0.0, ((CurWghtArray/max(CurWghtList))*rescalePos), CurWghtArray)
-            CurWghtArray = np.where(CurWghtArray < 0.0, ((CurWghtArray/(min(CurWghtList)*-1.0))*rescaleNeg), CurWghtArray)  
+                    minWght = min(FutWghtList)
 
+                if minWght < 0 and maxWght > 0:
+                    if np.abs(minWght) < np.abs(maxWght):
+                        rescaleNeg = np.abs(minWght)/np.abs(maxWght)
+                    else:
+                        rescalePos = np.abs(maxWght)/np.abs(minWght)
+                CurWghtArray = np.where(CurWghtArray > 0.0, ((CurWghtArray/maxWght)*rescalePos), CurWghtArray)
+                CurWghtArray = np.where(CurWghtArray < 0.0, ((CurWghtArray/(minWght*-1.0))*rescaleNeg), CurWghtArray)
+                FutWghtArray = np.where(FutWghtArray > 0.0, ((FutWghtArray/maxWght)*rescalePos), FutWghtArray)            
+                FutWghtArray = np.where(FutWghtArray < 0.0, ((FutWghtArray/(minWght*-1.0))*rescaleNeg), FutWghtArray) 
+        
+            else:
+                if min(CurWghtList) < 0 and max(CurWghtList) > 0:
+                    if np.abs(min(CurWghtList)) < np.abs(max(CurWghtList)):
+                        rescaleNeg = np.abs((min(CurWghtList))/np.abs(max(CurWghtList)))
+                    else:
+                        rescalePos = np.abs((max(CurWghtList))/np.abs(min(CurWghtList)))
+                CurWghtArray = np.where(CurWghtArray > 0.0, ((CurWghtArray/max(CurWghtList))*rescalePos), CurWghtArray)
+                CurWghtArray = np.where(CurWghtArray < 0.0, ((CurWghtArray/(min(CurWghtList)*-1.0))*rescaleNeg), CurWghtArray)  
 
-        # add normalized value fields to 'visualPolys'
-        visualPolys = AddField(visualPolys, "CUR_NORM", "FLOAT", "0", "0")
-        if FutWgtField:
-            visualPolys = AddField(visualPolys, "FUT_NORM", "FLOAT", "0", "0")
-        # return normalized values to 'visualPolys'                                    
-        cur = gp.UpdateCursor(visualPolys)
-        row = cur.Next()
-        id = 0
-        while row:
-            row.SetValue("CUR_NORM", CurWghtArray[id])
-            if FutWgtField:
-                row.SetValue("FUT_NORM", FutWghtArray[id])
-            cur.UpdateRow(row)
-            row = cur.next()
-            id = id + 1
-        del row
-        del cur
-   
-        # convert 'visualPolys' to current and future rasters with weights as values
-        gp.FeatureToRaster_conversion(visualPolys, "CUR_NORM", vp_cur, "50")
-        if FutWgtField:
-            gp.FeatureToRaster_conversion(visualPolys, "FUT_NORM", vp_fut, "50")
+            # add normalized value fields to 'visualPolys'
+            visualPolys = AddField(visualPolys, "CUR_NORM", "FLOAT", "0", "0")
+            if FutWgtField <> '':
+                visualPolys = AddField(visualPolys, "FUT_NORM", "FLOAT", "0", "0")
+            # return normalized values to 'visualPolys'                                    
+            cur = gp.UpdateCursor(visualPolys)
+            row = cur.Next()
+            id = 0
+            while row:
+                row.SetValue("CUR_NORM", CurWghtArray[id])
+                if FutWgtField <> '':
+                    row.SetValue("FUT_NORM", FutWghtArray[id])
+                cur.UpdateRow(row)
+                row = cur.next()
+                id = id + 1
+            del row
+            del cur
+       
+            # convert 'visualPolys' to current and future rasters with weights as values
+            gp.FeatureToRaster_conversion(visualPolys, "CUR_NORM", vp_cur, "50")
+            if FutWgtField <> '':
+                gp.FeatureToRaster_conversion(visualPolys, "FUT_NORM", vp_fut, "50")
+
 
         # change resolution if specified by user
         if cellsize:
@@ -288,9 +286,9 @@ try:
         raise Exception, msgDataPrep
 
 
-    ###########################################################
-    ############## VIEWSHED & POPULATION ANALYSIS #############
-    ###########################################################
+    ##############################################
+    ############## VIEWSHED ANALYSIS #############
+    ##############################################
     try:
         gp.AddMessage("\nConducting the viewshed analysis...")
         
@@ -309,14 +307,17 @@ try:
 
         # snap outputs to the (resampled) DEM resolution
         gp.snapRaster = DEM_vs
-
+        
         # create array for zonal stats results (PTID, AREA NEG, AREA POS, SUM, EXISTENCE, LAT, LONG)
         NumPoints = int(len(PtsList))
-        AQStatsCurList = np.zeros(NumPoints*7, dtype=np.float64)
-        AQStatsCurArray = np.reshape(AQStatsCurList, (NumPoints,7))
-        if FutWgtField:
-            AQStatsFutList = np.zeros(NumPoints*7, dtype=np.float64)
-            AQStatsFutArray = np.reshape(AQStatsFutList, (NumPoints,7))
+
+        if visualPolys and CurWgtField <> '':
+            AQStatsCurList = np.zeros(NumPoints*7, dtype=np.float64)
+            AQStatsCurArray = np.reshape(AQStatsCurList, (NumPoints,7))
+            if FutWgtField <> '':
+                AQStatsFutList = np.zeros(NumPoints*7, dtype=np.float64)
+                AQStatsFutArray = np.reshape(AQStatsFutList, (NumPoints,7))
+
 
         # start expression for combining individual vshed raster outputs
         SumExpr = outputws+"vshed"+str(PtsList[0])+"_pt"
@@ -324,190 +325,173 @@ try:
         for i in range(0,len(PtsList)):
             # run viewshed on all points, one at a time
             gp.MakeFeatureLayer_management(ObserverPts, interws+"Observer_pt"+str(PtsList[i])+".lyr", "\"PTS_ID\" = "+str(PtsList[i]), "", "")
-            gp.Viewshed_sa(DEM_vs, interws+"Observer_pt"+str(PtsList[i])+".lyr", outputws+"vshed"+str(PtsList[i])+"_pt", "1", "CURVED_EARTH", str(RefractCoeff))
-
+            gp.Viewshed_sa(DEM_vs, interws+"Observer_pt"+str(PtsList[i])+".lyr", outputws+"vshed"+str(PtsList[i])+"_pt", "1", "CURVED_EARTH", str(RefractCoeff))   
             if i <> 0:
                 SumExpr = SumExpr + " + " + outputws+"vshed"+str(PtsList[i])+"_pt" # continuing appending to expression
-            gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_pt", "VALUE", "0 NODATA;1 1", interws+"vshd_rc"+str(PtsList[i]), "DATA")
-            gp.SingleOutputMapAlgebra_sa("Float("+interws+"vshd_rc"+str(PtsList[i])+")", interws+"vshd_flt"+str(PtsList[i]))
 
-            # create 'current' outputs; multiply by vp_cur
-            CurMultExpr = interws+"vshd_flt"+str(PtsList[i])+" * "+vp_cur
-            gp.SingleOutputMapAlgebra_sa(CurMultExpr, interws+"vshd_cur"+str(PtsList[i]))
-            gp.Int_sa(interws+"vshd_cur"+str(PtsList[i]), interws+"vshd_int"+str(PtsList[i]))
-            gp.BuildRasterAttributeTable_management(interws+"vshd_int"+str(PtsList[i]), "Overwrite")
-            # if not empty, mark array and perform zonal stats   
-            if gp.GetCount(interws+"vshd_int"+str(PtsList[i])) > 0:
-                AQStatsCurArray[i][4] = 1
-                gp.SetNull_sa(interws+"vshd_cur"+str(PtsList[i]), interws+"vshd_cur"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_cur", '"VALUE" = 0')
-                gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_cur", "VALUE", "0 2 1;-2 0 -1", interws+"vshd_rcc"+str(PtsList[i]), "DATA")
-                gp.ZonalStatisticsAsTable_sa(interws+"vshd_rcc"+str(PtsList[i]), "VALUE", outputws+"vshed"+str(PtsList[i])+"_cur", interws+"zstats_cur"+str(PtsList[i]), "DATA")
-                gp.Delete_management(interws+"vshd_rcc"+str(PtsList[i])) 
-            else:
-                gp.Delete_management(interws+"vshd_cur"+str(PtsList[i])) # if empty raster, delete output
+            if visualPolys and CurWgtField <> '':                 
+                gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_pt", "VALUE", "0 NODATA;1 1", interws+"vshd_rc"+str(PtsList[i]), "DATA")
+                gp.SingleOutputMapAlgebra_sa("Float("+interws+"vshd_rc"+str(PtsList[i])+")", interws+"vshd_flt"+str(PtsList[i]))
 
-            if FutWgtField:
-                # create 'future' outputs; multiply by vp_fut
-                FutMultExpr = interws+"vshd_flt"+str(PtsList[i])+" * "+vp_fut
-                gp.SingleOutputMapAlgebra_sa(FutMultExpr, interws+"vshd_fut"+str(PtsList[i]))
-                gp.Int_sa(interws+"vshd_fut"+str(PtsList[i]), interws+"vshd_int"+str(PtsList[i]))
+                # create 'current' outputs; multiply by vp_cur
+                CurMultExpr = interws+"vshd_flt"+str(PtsList[i])+" * "+vp_cur
+                gp.SingleOutputMapAlgebra_sa(CurMultExpr, interws+"vshd_cur"+str(PtsList[i]))
+                gp.Int_sa(interws+"vshd_cur"+str(PtsList[i]), interws+"vshd_int"+str(PtsList[i]))
                 gp.BuildRasterAttributeTable_management(interws+"vshd_int"+str(PtsList[i]), "Overwrite")
-                # if not empty, mark array and perform zonal stats                      
+                # if not empty, mark array and perform zonal stats   
                 if gp.GetCount(interws+"vshd_int"+str(PtsList[i])) > 0:
-                    AQStatsFutArray[i][4] = 1
-                    gp.SetNull_sa(interws+"vshd_fut"+str(PtsList[i]), interws+"vshd_fut"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_fut", '"VALUE" = 0')
-                    gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_fut", "VALUE", "0 2 1;-2 0 -1", interws+"vshd_rcf"+str(PtsList[i]), "DATA")
-                    gp.ZonalStatisticsAsTable_sa(interws+"vshd_rcf"+str(PtsList[i]), "VALUE", outputws+"vshed"+str(PtsList[i])+"_fut", interws+"zstats_fut"+str(PtsList[i]), "DATA")
-                    gp.Delete_management(interws+"vshd_rcf"+str(PtsList[i])) 
+                    AQStatsCurArray[i][4] = 1
+                    gp.SetNull_sa(interws+"vshd_cur"+str(PtsList[i]), interws+"vshd_cur"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_cur", '"VALUE" = 0')
+                    gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_cur", "VALUE", "0 2 1;-2 0 -1", interws+"vshd_rcc"+str(PtsList[i]), "DATA")
+                    gp.ZonalStatisticsAsTable_sa(interws+"vshd_rcc"+str(PtsList[i]), "VALUE", outputws+"vshed"+str(PtsList[i])+"_cur", interws+"zstats_cur"+str(PtsList[i]), "DATA")
+                    gp.Delete_management(interws+"vshd_rcc"+str(PtsList[i])) 
                 else:
-                    gp.Delete_management(interws+"vshd_fut"+str(PtsList[i])) # if empty raster, delete output
+                    gp.Delete_management(interws+"vshd_cur"+str(PtsList[i])) # if empty raster, delete output
+
+                if FutWgtField <> '':
+                    # create 'future' outputs; multiply by vp_fut
+                    FutMultExpr = interws+"vshd_flt"+str(PtsList[i])+" * "+vp_fut
+                    gp.SingleOutputMapAlgebra_sa(FutMultExpr, interws+"vshd_fut"+str(PtsList[i]))
+                    gp.Int_sa(interws+"vshd_fut"+str(PtsList[i]), interws+"vshd_int"+str(PtsList[i]))
+                    gp.BuildRasterAttributeTable_management(interws+"vshd_int"+str(PtsList[i]), "Overwrite")
+                    # if not empty, mark array and perform zonal stats                      
+                    if gp.GetCount(interws+"vshd_int"+str(PtsList[i])) > 0:
+                        AQStatsFutArray[i][4] = 1
+                        gp.SetNull_sa(interws+"vshd_fut"+str(PtsList[i]), interws+"vshd_fut"+str(PtsList[i]), outputws+"vshed"+str(PtsList[i])+"_fut", '"VALUE" = 0')
+                        gp.Reclassify_sa(outputws+"vshed"+str(PtsList[i])+"_fut", "VALUE", "0 2 1;-2 0 -1", interws+"vshd_rcf"+str(PtsList[i]), "DATA")
+                        gp.ZonalStatisticsAsTable_sa(interws+"vshd_rcf"+str(PtsList[i]), "VALUE", outputws+"vshed"+str(PtsList[i])+"_fut", interws+"zstats_fut"+str(PtsList[i]), "DATA")
+                        gp.Delete_management(interws+"vshd_rcf"+str(PtsList[i])) 
+                    else:
+                        gp.Delete_management(interws+"vshd_fut"+str(PtsList[i])) # if empty raster, delete output
 
         # create expression for combining individual vshed raster outputs
         gp.SingleOutputMapAlgebra_sa(SumExpr, vshedcmb_pts)
 
-        for i in range(0,len(PtsList)):
-            # search through zonal stats table for population within current viewshed
-            if AQStatsCurArray[i][4] == 1:
-                cur = gp.UpdateCursor(interws+"zstats_cur"+str(PtsList[i]))
-                row = cur.Next()
-                while row:
-                    AQStatsCurArray[i][0] = PtsList[i]
-                    if row.GetValue("MEAN") == -1:
-                        AQStatsCurArray[i][1] = (row.GetValue("AREA")/1000)
-                    else:
-                        AQStatsCurArray[i][2] = (row.GetValue("AREA")/1000)
-                    AQStatsCurArray[i][3] = AQStatsCurArray[i][3] + row.GetValue("SUM")
-                    row = cur.next()
-                del row, cur
 
-            if AQStatsFutArray[i][4] == 1:
-                cur = gp.UpdateCursor(interws+"zstats_fut"+str(PtsList[i]))
-                row = cur.Next()
-                while row:
-                    AQStatsFutArray[i][0] = PtsList[i]
-                    if row.GetValue("VALUE") == -1:
-                        AQStatsFutArray[i][1] = (row.GetValue("AREA")/1000)
-                    else:
-                        AQStatsFutArray[i][2] = (row.GetValue("AREA")/1000)
-                    AQStatsFutArray[i][3] = AQStatsFutArray[i][3] + row.GetValue("SUM")
-                    row = cur.next()
-                del row, cur
+        if visualPolys and CurWgtField <> '': 
+            for i in range(0,len(PtsList)):
+                # search through zonal stats table for population within current viewshed
+                if AQStatsCurArray[i][4] == 1:
+                    cur = gp.UpdateCursor(interws+"zstats_cur"+str(PtsList[i]))
+                    row = cur.Next()
+                    while row:
+                        AQStatsCurArray[i][0] = PtsList[i]
+                        if row.GetValue("VALUE") < 0:
+                            AQStatsCurArray[i][1] = (row.GetValue("AREA")/1000)
+                        else:
+                            AQStatsCurArray[i][2] = (row.GetValue("AREA")/1000)
+                        AQStatsCurArray[i][3] = AQStatsCurArray[i][3] + row.GetValue("SUM")
+                        row = cur.next()
+                    del row, cur
 
-        # grab datum and reprojected 'ObserverPts' in geographic/unprojected
-        geo_projection = getDatum(ObserverPts)
-        gp.Project_management(ObserverPts, ObserverPts_geo, geo_projection)
-        # grab latitude value of AOI polygons's centroid
-        cur = gp.UpdateCursor(ObserverPts_geo)
-        row = cur.Next()
-        PtIndex = 0
-        while row:
+                if FutWgtField <> '':
+                    if AQStatsFutArray[i][4] == 1:
+                        cur = gp.UpdateCursor(interws+"zstats_fut"+str(PtsList[i]))
+                        row = cur.Next()
+                        while row:
+                            AQStatsFutArray[i][0] = PtsList[i]
+                            if row.GetValue("VALUE") < 0:
+                                AQStatsFutArray[i][1] = (row.GetValue("AREA")/1000)
+                            else:
+                                AQStatsFutArray[i][2] = (row.GetValue("AREA")/1000)
+                            AQStatsFutArray[i][3] = AQStatsFutArray[i][3] + row.GetValue("SUM")
+                            row = cur.next()
+                        del row, cur
+
+            # grab datum and reprojected 'ObserverPts' in geographic/unprojected
+            geo_projection = getDatum(ObserverPts)
+            gp.Project_management(ObserverPts, ObserverPts_geo, geo_projection)
+            # grab latitude value of AOI polygons's centroid
+            cur = gp.UpdateCursor(ObserverPts_geo)
+            row = cur.Next()
+            PtIndex = 0
+            while row:
+                feat = row.Shape
+                midpoint = feat.Centroid
+                midList = shlex.split(midpoint)
+                AQStatsCurArray[PtIndex][5] = float(midList[1])
+                AQStatsCurArray[PtIndex][6] = float(midList[0])
+                if FutWgtField <> '':
+                    AQStatsFutArray[PtIndex][5] = float(midList[1])
+                    AQStatsFutArray[PtIndex][6] = float(midList[0])
+                PtIndex = PtIndex + 1
+                row = cur.Next()
+            del cur, row
+
+            # get projection from AOI
+            projection = grabProjection(AOI)
+            # return projected AOI to geographic (unprojected)
+            geo_projection = getDatum(AOI)
+            gp.Project_management(AOI, AOI_geo, geo_projection)
+            # grab latitude value of AOI polygons's centroid
+            cur = gp.UpdateCursor(AOI_geo)
+            row = cur.Next()
             feat = row.Shape
             midpoint = feat.Centroid
             midList = shlex.split(midpoint)
-            AQStatsCurArray[PtIndex][5] = float(midList[1])
-            AQStatsCurArray[PtIndex][6] = float(midList[0])
-            AQStatsFutArray[PtIndex][5] = float(midList[1])
-            AQStatsFutArray[PtIndex][6] = float(midList[0])
-            PtIndex = PtIndex + 1
-            row = cur.Next()
-        del cur, row
+            midList = [float(s) for s in midList]
+            del cur, row
+            latAOI = midList[1]
+            longAOI = midList[0]
 
-        # get projection from AOI
-        projection = grabProjection(AOI)
-        # return projected AOI to geographic (unprojected)
-        geo_projection = getDatum(AOI)
-        gp.Project_management(AOI, AOI_geo, geo_projection)
-        # grab latitude value of AOI polygons's centroid
-        cur = gp.UpdateCursor(AOI_geo)
-        row = cur.Next()
-        feat = row.Shape
-        midpoint = feat.Centroid
-        midList = shlex.split(midpoint)
-        midList = [float(s) for s in midList]
-        del cur
-        del row
-        latAOI = midList[1]
-        longAOI = midList[0]
+            # create html file output
+            htmlfile = open(vshedStatsHTML, "w")
+            htmlfile.write("<html>\n")
+            htmlfile.write("<title>Marine InVEST</title>")
+            htmlfile.write("<center><H1>Aesthetic Quality Model</H1><H2>(Viewer Perspective)</H2></center><br>")          
+            htmlfile.write("<br><H2>Viewshed Statistics (by Observer)</H2><table border=\"1\", cellpadding=\"8\">\
+                            <tr><th colspan=1></th><th colspan=6>EXTENT<br>Area of Polygons within Viewshed</th><th colspan=3>INTENSITY<br>Cumulative Rating <br>(All Polygons within Viewshed)</th></tr>\
+                            <tr><th colspan=1></th><th colspan=3>Negative Views (sq. km)</th><th colspan=3>Positive Views (sq. km)</th></th><th colspan=3></th></tr>\
+                            <td align=\"center\"><b>Point ID</b></td><td align=\"center\"><b>Current</b></td><td align=\"center\"><b>Future</b></td>\
+                            <td align=\"center\"><b>Change</b></td><td align=\"center\"><b>Current</b></td>\
+                            <td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td>\
+                            <td align=\"center\"><b>Current</b></td><td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td></tr>")
+            for i in range(0,len(PtsList)):
+                htmlfile.write("<tr><td align=\"center\">"+str(PtsList[i])+"</td>")
+                if FutWgtField <> '':
+                    # negative area
+                    if (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) > 0.0:
+                        htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                        <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
+                    elif (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) == 0.0:
+                        htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                        <td align=\"center\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")                     
+                    else:
+                        htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
+                                        <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
 
-        # create html file output
-        htmlfile = open(vshedStatsHTML, "w")
-        htmlfile.write("<html>\n")
-        htmlfile.write("<title>Marine InVEST</title>")
-        htmlfile.write("<center><H1>Aesthetic Quality Model</H1></center><br>")
-        htmlfile.write("This page contains results from running the Marine InVEST Aesthetic Quality Model.")
-        
-        htmlfile.write("<br><HR><H2>Map of Viewer Locations</H2>\n")
-        htmlfile.write("This is a map showing the point location of each observer in the analysis. <br>\n")
-        htmlfile.write("<table border=\"0\"><tr><td>")
-        htmlfile.write("<iframe width=\"600\" height=\"600\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"\
-                        src=\"http://maps.google.com/maps/api/staticmap?center="+str(latAOI)+","+str(longAOI)+"&zoom=10&size=600x600&maptype=hybrid")
-        for i in range(0,len(PtsList)):
-            htmlfile.write("&markers=color:red%7Ccolor:red%7Clabel:"+str(PtsList[i])+"%7C"\
-                            +str(AQStatsCurArray[i][5])+","+str(AQStatsCurArray[i][6]))
-        htmlfile.write("&sensor=false\"></iframe><br/></small>"\
-                       "<a href=\"http://maps.google.com/maps?q="\
-                        +str(48.961)+","+str(-125.274)+\
-                       "&hl=en&ll="\
-                        +str(48.9224)+","+str(-125.1383)+\
-                       "&spn="\
-                        +str(0.360945)+","+str(0.797195)+\
-                       "&sll="\
-                        +str(48.961)+","+str(-125.274)+\
-                       "&t=h@z=11@vpsrc=6style=\"color:#0000FF;text-align:center\">View Larger Map</a></small><br>\n</td><td>")
-        
-        htmlfile.write("<br><H2>Viewshed Statistics (by Observer)</H2><table border=\"1\", cellpadding=\"8\">\
-                        <tr><th colspan=1></th><th colspan=6>EXTENT<br>Area of Polygons within Viewshed</th><th colspan=3>INTENSITY<br>Cumulative Rating <br>(All Polygons within Viewshed)</th></tr>\
-                        <tr><th colspan=1></th><th colspan=3>Negative Views (sq. km)</th><th colspan=3>Positive Views (sq. km)</th></th><th colspan=3></th></tr>\
-                        <td align=\"center\"><b>Point ID</b></td><td align=\"center\"><b>Current</b></td><td align=\"center\"><b>Future</b></td>\
-                        <td align=\"center\"><b>Change</b></td><td align=\"center\"><b>Current</b></td>\
-                        <td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td>\
-                        <td align=\"center\"><b>Current</b></td><td align=\"center\"><b>Future</b></td><td align=\"center\"><b>Change</b></td></tr>")
-        for i in range(0,len(PtsList)):        
-            htmlfile.write("<tr><td align=\"center\">"+str(PtsList[i])+"</td>")
-            if FutWgtField:
-                # negative area
-                if (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) > 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
-                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
-                elif (AQStatsFutArray[i][1] - AQStatsCurArray[i][1]) == 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
-                                    <td align=\"center\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")                     
+                    # positive area                    
+                    if (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) > 0.0:
+                        htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
+                                        <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")
+                    elif (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) == 0.0:
+                        htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
+                                        <td align=\"center\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")                     
+                    else:
+                        htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
+                                        <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")
+
                 else:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][1])+"</td>\
-                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][1]-AQStatsCurArray[i][1])+"</td>")
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">N/A</td><td align=\"center\">N/A</td>")
+                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">N/A</td><td align=\"center\">N/A</td>")
+                    
+                if FutWgtField <> '':
+                    # intensity
+                    if (AQStatsFutArray[i][3] - AQStatsCurArray[i][3]) > 0.0:
+                        htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
+                                        <td align=\"center\" bgcolor=\"#00FF00\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
 
-                # positive area                    
-                if (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) > 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
-                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")
-                elif (AQStatsFutArray[i][2] - AQStatsCurArray[i][2]) == 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
-                                    <td align=\"center\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")                     
+                    elif (AQStatsFutArray[i][3] - AQStatsCurArray[i][3]) == 0.0:
+                        htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
+                                        <td align=\"center\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
+                    else:
+                        htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
+                                        <td align=\"center\" bgcolor=\"#FF0000\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
                 else:
-                    htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][2])+"</td><td align=\"center\">"+str(AQStatsFutArray[i][2])+"</td>\
-                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(AQStatsFutArray[i][2]-AQStatsCurArray[i][2])+"</td>")
-
-            else:
-                htmlfile.write("<td align=\"center\">"+str(AQStatsCurArray[i][1])+"</td><td align=\"center\">N/A</td>\
-                                <td align=\"center\">N/A</td>")
-            if FutWgtField:
-                if (AQStatsFutArray[i][3] - AQStatsCurArray[i][3]) > 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
-                                    <td align=\"center\" bgcolor=\"#00FF00\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
-
-                elif (AQStatsFutArray[i][3] - AQStatsCurArray[i][3]) == 0.0:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
-                                    <td align=\"center\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
-                else:
-                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">"+str(round(AQStatsFutArray[i][3],3))+"</td>\
-                                    <td align=\"center\" bgcolor=\"#FF0000\">"+str(round(AQStatsFutArray[i][3]-AQStatsCurArray[i][3],3))+"</td>")
-            else:
-                htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">N/A</td>\
-                                <td align=\"center\">N/A</td>")
-            htmlfile.write("</tr>")
-        htmlfile.write("</tr></table></html>")
-        htmlfile.close()
-
+                    htmlfile.write("<td align=\"center\">"+str(round(AQStatsCurArray[i][3],3))+"</td><td align=\"center\">N/A</td><td align=\"center\">N/A</td>")
+                htmlfile.write("</tr>")
+            htmlfile.write("</tr></table></html>")
+            htmlfile.close()
     except:
         raise Exception, msgVShed
 
