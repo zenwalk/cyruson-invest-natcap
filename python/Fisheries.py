@@ -2,9 +2,8 @@
 # Author: Gregg Verutes
 # 10/06/11
 
-## DISSOLVE ZONES SO MULTIPLE FEATURES GET PUT INTO ONE ##
-## DISSOLVING TAKES TOO LONG, CLIP FIRST? NEED TO DISSOLVE AT ALL? ##
-## 'ZONESFIELD' NEEDS TO BE NUMRIC NOW.  WANT TO ALLOW FOR STRINGS TOO --- DICTIONARY? ##
+## CHECK THAT ZONESFIELD EXISTS ##
+## 'ZONESFIELD' DICTIONARY? ##
 
 # import modules
 import sys, string, os, datetime, csv
@@ -122,10 +121,9 @@ gp.AddMessage("\nChecking and preparing the inputs...")
 ckProjection(InputZones)
 ckProjection(FishingArea)
 ckProjection(DEM)
-gp.CopyFeatures_management(InputZones, Zones, "", "0", "0", "0")
+gp.Dissolve_management(InputZones,  Zones, ZonesField)
 
 gp.AddMessage("\nProcessing DEM and modifying fishing areas...")
-
 gp.Reclassify_sa(DEM, "Value", "-1000000 "+str(-Depth)+" 1;0 100000000 2", DEM_rc, "NODATA")
 gp.RasterToPolygon_conversion(DEM_rc, removeFA, "SIMPLIFY", "VALUE")
 
@@ -148,22 +146,18 @@ Zones = AddField(Zones, "AREA", "FLOAT", "0", "0")
 gp.CalculateField_management(Zones, "AREA", "!shape.area@squarekilometers!", "PYTHON", "")
 
 # create 'AreaStatsArray' to store calcs
-NumCols = 3
-if Mangrove:
-    NumCols += 1
-if Coral:
-    NumCols += 1
-if Seagrass:
-    NumCols += 1
-AreaStatsList = np.zeros(gp.GetCount_management(Zones)*NumCols, dtype=np.float64)
-AreaStatsArray = np.reshape(AreaStatsList, (gp.GetCount_management(Zones),NumCols))
+AreaStatsArray = []
+for i in range(gp.GetCount_management(Zones)):
+    AreaStatsArray.append([0]*6)
 
+ZonesFieldList = []  
 cur = gp.UpdateCursor(Zones)
 row = cur.Next()
 count = 0
 while row:
-    AreaStatsArray[count][0] = row.GetValue(ZonesField) ## has to be float now ##
-    AreaStatsArray[count][1] = row.GetValue("AREA") 
+    ZonesFieldList.append(row.GetValue(ZonesField))
+    AreaStatsArray[count][0] = row.GetValue(ZonesField)
+    AreaStatsArray[count][1] = round(row.GetValue("AREA"), 2)
     count += 1
     row = cur.next()
 del row, cur
@@ -184,10 +178,9 @@ FishingAreaZones = AddField(FishingAreaZones, "AREA", "FLOAT", "0", "0")
 gp.CalculateField_management(FishingAreaZones, "AREA", "!shape.area@squarekilometers!", "PYTHON", "")
 cur = gp.UpdateCursor(FishingAreaZones)
 row = cur.Next()
-count = 0
 while row:
-    AreaStatsArray[count][2] = row.GetValue("AREA") 
-    count += 1
+    indexID = ZonesFieldList.index(row.GetValue(ZonesField))
+    AreaStatsArray[indexID][2] = round(row.GetValue("AREA"), 2)
     row = cur.next()
 del row, cur
 
@@ -204,10 +197,9 @@ if Mangrove:
     gp.CalculateField_management(MangroveZones, "AREA", "!shape.area@squarekilometers!", "PYTHON", "")
     cur = gp.UpdateCursor(MangroveZones)
     row = cur.Next()
-    count = 0
     while row:
-        AreaStatsArray[count][3] = row.GetValue("AREA") 
-        count += 1
+        indexID = ZonesFieldList.index(row.GetValue(ZonesField))
+        AreaStatsArray[indexID][3] = round(row.GetValue("AREA"), 2)
         row = cur.next()
     del row, cur
     
@@ -224,10 +216,9 @@ if Coral:
     gp.CalculateField_management(CoralZones, "AREA", "!shape.area@squarekilometers!", "PYTHON", "")
     cur = gp.UpdateCursor(CoralZones)
     row = cur.Next()
-    count = 0
     while row:
-        AreaStatsArray[count][4] = row.GetValue("AREA") 
-        count += 1
+        indexID = ZonesFieldList.index(row.GetValue(ZonesField))
+        AreaStatsArray[indexID][4] = round(row.GetValue("AREA"), 2)
         row = cur.next()
     del row, cur
     
@@ -244,10 +235,9 @@ if Seagrass:
     gp.CalculateField_management(SeagrassZones, "AREA", "!shape.area@squarekilometers!", "PYTHON", "")
     cur = gp.UpdateCursor(SeagrassZones)
     row = cur.Next()
-    count = 0
     while row:
-        AreaStatsArray[count][5] = row.GetValue("AREA") 
-        count += 1
+        indexID = ZonesFieldList.index(row.GetValue(ZonesField))
+        AreaStatsArray[indexID][5] = round(row.GetValue("AREA"), 2)
         row = cur.next()
     del row, cur
 
@@ -259,7 +249,8 @@ writer = csv.writer(AreaStatsCSV, delimiter=',', quoting=csv.QUOTE_NONE)
 count = -1
 while count < gp.GetCount_management(Zones):
     if count == -1:
-        writer.writerow(['ZONE_ID', 'ZONE_AREA', 'FISHING_AREA', 'MANGROVE_AREA', 'CORAL_AREA', 'SEAGRASS_AREA'])
+        writer.writerow(['ZONE ID', 'ZONE AREA', 'FISHING AREA', 'MANGROVE AREA', 'CORAL AREA', 'SEAGRASS AREA'])
+        writer.writerow(['(ID FIELD)', '(SQ. KM)', '(SQ. KM)', '(SQ. KM)', '(SQ. KM)', '(SQ. KM)'])
     else:
         writer.writerow(AreaStatsArray[count])
     count += 1
@@ -284,6 +275,3 @@ parafile.close()
 ##        if gp.exists(data):
 ##            gp.Delete_management(data)
 ##    del gp
-
-##except Exception, ErrorDesc:
-    ##gp.AddMessage(gp.GetMessages())
