@@ -1,7 +1,7 @@
 # Marine InVEST: Visual Impact from Objects (Aesthetic Quality)
 # Authors: Gregg Verutes, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 09/09/11
+# 10/05/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -430,8 +430,7 @@ try:
             htmlfile = open(PopHTML, "w")
             htmlfile.write("<html>\n")
             htmlfile.write("<title>Marine InVEST</title>")
-            htmlfile.write("<center><H1>Visual Impact from Objects (Aesthetic Quality)</H1></center><br>")
-            htmlfile.write("This page contains population results from running the Marine InVEST Aesthetic Quality model.")
+            htmlfile.write("<center><H1>Aesthetic Quality Model</H1><H2>(Visual Impact from Objects)</H2></center><br>")
             htmlfile.write("<br><HR><br><H2>Population Statistics</H2><table border=\"1\", cellpadding=\"5\"><tr>")
             htmlfile.write("<td align=\"center\"><b>Number of Features Visible</b></td><td align=\"center\"><b>Population (estimate)</b></td></tr>")
             htmlfile.write("<tr><td align=\"center\">None visible<br> (unaffected)</td><td align=\"center\">"+str(PopZero)+"</td>")
