@@ -1,20 +1,23 @@
 # ----------------------------------------------------------------------------------------
 # Sum_To_Threshold.py
 #
-# Coded by Stacie Wolny
+# By Stacie Wolny
 # for the Natural Capital Project
 # 
-# Last edit: 7/19/2011 
+# Last edit: 10/10/2011 
 #
-# Turns a grid into a set of points with associated values that are
-#   ranked, then summed up one at a time until a threshold is reached.
-# Outputs a grid of the selected cells
+# Chooses which grid cells on a landscape to select for water fund activities
+# based on a score layer defining which cells are most important to target.
+# Scores are ranked cell by cell, with a rank of 1 assigned to the highest
+# (largest) score.  The ranked cells are looped through one by one, starting 
+# with rank 1, adding up the activity cost associated with that cell, until the
+# budget threshold is reached.
 #
 # Inputs:
 #
 #   Workspace: Folder where temporary and final output files are written
 #   Score grid: Raster containing the scores/rankings assigned to each
-#               cell on the landscape for a particular activity.  These
+#               cell on the landscape for a particular activity.
 #               will be ordered largest to smallest, with the largest values
 #               selected first, in descending order, for budget allocation.
 #   Cost grid: Raster containing the cost per grid cell of the activity.
@@ -32,6 +35,13 @@
 #               is to be allocated
 #   Threshold: Number defining the amount of money that is to be allocated for
 #               the specified activity in the Watershed entered above.
+#
+# Outputs:
+#
+#   score_sel: Scores corresponding to the cells selected for budget allocation
+#   rank: Rank of the selected cells (from 1 -> N, where 1 has highest score)
+#   na_sel: New activity cells selected for budget allocation
+#   new_lu: Original land use grid, with selected new activity cells overlaid
 #   
 # ----------------------------------------------------------------------------------------
 
@@ -185,6 +195,8 @@ try:
 
     try:
 
+        gp.AddMessage("\nPreparing input grids...")
+
         # Make sure all temporary files go in the Intermediate folder
         gp.workspace = interws
         gp.Mask = wshed_mask
@@ -196,12 +208,14 @@ try:
         gp.ExtractByMask_sa(cost_grid, wshed_mask, cost_grid_clip)
         gp.ExtractByMask_sa(score_grid, wshed_mask, score_grid_clip)
 
-        # Try Extract to Points
-        gp.AddMessage("\nExtracting grids to points...")
+        # Can't easily work on a raster cell by cell, particularly
+        # when multiple attribute fields are necessary, so turn into points
+        gp.AddMessage("\nExtracting grids to points")
         # Make updates to a copy of the point grid file
         gp.RasterToPoint_conversion(cost_grid_clip, cost_points)
         gp.RasterToPoint_conversion(score_grid_clip, score_points)
-        # merges fields with duplicate field names, so rename them
+        
+        # Spatial Join merges fields with duplicate field names, so rename them
         gp.AddField_management(score_points, "sc_pointid", "LONG")
         gp.AddField_management(score_points, "sc_score", "DOUBLE")
         gp.CalculateField_management(score_points, "sc_pointid", "[POINTID]")
@@ -219,7 +233,7 @@ try:
         gp.AddMessage("spatial join")
         gp.SpatialJoin_analysis(score_points, cost_points, score_cost_join, "JOIN_ONE_TO_ONE", "KEEP_COMMON", "", "INTERSECTS")
         
-        # For those times when things don't quite line up        
+        # For those times when the cost/score layers don't quite line up        
 ##        gp.SpatialJoin_analysis(score_points, cost_points, score_cost_join, "JOIN_ONE_TO_ONE", "KEEP_COMMON", "", "CLOSEST")
 
     except:
@@ -234,10 +248,10 @@ try:
         scrows = gp.SearchCursor(score_cost_join, "", "", "", "sc_score D")
         scrow = scrows.Next()
         
-        gp.AddMessage("create table")
+        gp.AddMessage("Create ranking table...")
+        
         table_name = "score_sort_tmp" + Suffix + time_append + ".dbf"
         score_sort_table = interws + table_name
-        gp.AddMessage("score_sort_table = " + str(score_sort_table))
         gp.CreateTable_management(interws, table_name, score_points)
         score_fields = ["sc_pointid", "sc_score"]
         gp.AddMessage("create ordered sort table")
@@ -251,13 +265,12 @@ try:
             scrow = scrows.Next()
         del scrow, scrows, irow, irows
 
-
-        gp.AddMessage("add field, score sort table = " + score_sort_table)
         # Add rank field to sort table
         gp.AddField_management(score_sort_table, "rank_t", "LONG")
 
-        gp.AddMessage("add ranking")
-        # Add ranking value to each row in table (1 = highest score)
+        gp.AddMessage("Assign score ranking...")
+        
+        # Add ranking value to each row in table (1 = highest (largest) score)
         usrows = gp.UpdateCursor(score_sort_table)
 
         usrow = usrows.Next()
@@ -288,14 +301,13 @@ try:
         gp.CalculateField_management(score_cost_keep, "cost", "[co_cost]", "VB")
         gp.CalculateField_management(score_cost_keep, "score", "[sc_score]", "VB")
 
-        # Add a field denoting whether or not the point is selected as
-        # part of the sum - set initially to zero for not selected
+        # Add a field denoting whether or not the point is selected as part of
+        # the final budget allocation - set initially to zero for not selected
         gp.AddMessage("set keep to 0")
         gp.AddField_management(score_cost_keep, "keep", "SHORT")
         gp.CalculateField_management(score_cost_keep, "keep", "0")
 
     except:
-        print("Error calculating ranking")
         gp.AddError ("Error calculating ranking: " + gp.GetMessages(2))
         raise Exception
 
@@ -308,22 +320,21 @@ try:
         where_clause = "\"cost\" > 0 "
         gp.Select_analysis(score_cost_keep, score_cost_keep_sel, where_clause)
 
-        # Go through score/cost/rank layer, starting with highest rank
+        # Go through score/cost/rank layer, starting with highest rank (1)
         # summing up cost until threshold is met 
         
         scrows = gp.SearchCursor(score_cost_keep_sel, "", "", "", "rank A")
         scrow = scrows.Next()
 
+        # Working in a dictionary is much, much faster than cursors
         gp.AddMessage("populate dictionary")
         count = 0
         sc_dict = {}
         while scrow:
             sc_id = scrow.getValue("FID")
-##            gp.AddMessage("sc_id = " + str(sc_id))
             sc_dict[sc_id] = [scrow.getValue("rank"), scrow.getValue("cost"), scrow.getValue("keep")]
             scrow = scrows.Next()
             count = count + 1
-##            gp.AddMessage("sc_id = " + str(sc_id) + "\tcount = " + str(count))
 
         # Sort by rank
         gp.AddMessage("sort values")
@@ -332,19 +343,19 @@ try:
 
         del scrow, scrows
 
-        # Loop through point shapefile, summing one value at a time
-        # until the threshold is reached
+        # Loop through point shapefile, summing one cost value at a time
+        # until the budget threshold is reached
 
         psum = 0
 
-        gp.AddMessage("\nLooping...")
+        gp.AddMessage("\nSelecting cells for budget allocation...")
 
 
         for v in values:
 
             # Skip over any of the largest point values that are larger than the threshold
             if psum == 0 and v[1] > threshold:
-                gp.AddMessage("skipping value " + str(v[1]))
+                gp.AddMessage("Skipping cost value " + str(v[1]) + " - it's larger than the budget threshold")
             
             # Hit the threshold exactly
             elif (psum + v[1] == threshold):
@@ -353,12 +364,12 @@ try:
                 # Set keep value to 1
                 v[2] = 1
 
-                gp.AddMessage("Done - hit the threshold exactly")
+                gp.AddMessage("Done - hit the budget threshold exactly")
                 break
             
             # Went over the threshold, so don't add current value
             elif (psum + v[1] > threshold):
-                gp.AddMessage("Done - went over threshold")
+                gp.AddMessage("Done - went over budget threshold")
                 
                 break
 
@@ -368,85 +379,53 @@ try:
 
                 # Set keep value to 1
                 v[2] = 1
-                
-##                gp.AddMessage("Under threshold: rank = " +  str(v[0]) + " cost = " + str(v[1]) + " keep = " + str(v[2]))                   
 
-
-        gp.AddMessage("\nThreshold = " + str(threshold) + "\nFinal sum = " + str(psum) + "\n")
-        parameters.append("Output - final sum: " + str(psum))
+        gp.AddMessage("\nBudget threshold = " + str(threshold) + "\nFinal allocated sum = " + str(psum) + "\n")
+        parameters.append("Output - final allocated sum: " + str(psum))
             
 
     except:
-        gp.AddError ("Error selecting score/cost points: " + gp.GetMessages(2))
+        gp.AddError ("Error selecting cells for budget allocation: " + gp.GetMessages(2))
         raise Exception
 
 
     try:
         
         # Assign new keep values from dictionary to point shapefile
-##        gp.AddMessage("update cursor")
-##        urows = gp.UpdateCursor(score_cost_keep_sel, "", "", "", "rank A")
-##        urow = urows.Next()
+
+        gp.AddMessage("Create output layers...")
 
         # Sort values descending by 'keep', try to only process those that change to 1
-        gp.AddMessage("sort by keep")
         values.sort(key = itemgetter(2), reverse = True)
 
-#######  NEW STUFF HERE  ###############
-        
-        gp.AddMessage("trying new in memory table")
         lookupTblName = "rank_cost_keep_table"
         gp.CreateTable_management("in_memory", lookupTblName)
         gp.AddField_management("in_memory\\" + lookupTblName, "rank2", "LONG")
         gp.AddField_management("in_memory\\" + lookupTblName, "keep2", "LONG")
         insertRows = gp.insertcursor("in_memory\\" + lookupTblName)
+
         gp.AddMessage("for v in values")
         for v in values:
             insertRow = insertRows.newrow()
             insertRow.rank2 = v[0]
             insertRow.keep2 = v[2]
             insertRows.insertrow(insertRow)
+
         del insertRow
         del insertRows
+
         gp.AddMessage("copying to new table")
         newTable = interws + "rank_cost_keep_table2.dbf"
         gp.CopyRows_management("in_memory\\" + lookupTblName, newTable, "")
-##        gp.CopyRows_management("in_memory\\" + lookupTblName, r"C:\temp\testthis.dbf", "")
         gp.Delete_management("in_memory\\" + lookupTblName, "")
 
         gp.AddMessage("making new feature layer")
         gp.MakeFeatureLayer_management(score_cost_keep_sel, "sck_layer")
         gp.AddJoin_management("sck_layer", "rank", newTable, "rank2")
         gp.AddMessage("calculate field")
-##        gp.CalculateField_management("sck_layer", "keep", "[keep2]", "VB")
         gp.CopyFeatures_management("sck_layer", score_cost_keep_sel_update)
         gp.CalculateField_management(score_cost_keep_sel_update, "keep", "[rank_cos_1]")
-
-###########  NEW STUFF ENDS  ######################
         
-        
-##        gp.AddMessage("for v in values time = " + str(time.clock()))
-##        # values are already sorted ascending
-##        for v in values:
-##            gp.AddMessage("v0: " + str(v[0]) + "\tv1: " + str(v[1]) + "\tv2: " + str(v[2]))
-##            if v[2] == 1 :
-##                # Search for matching rank value in point shapefile
-##                urows = gp.UpdateCursor(score_cost_keep_sel, "", "", "", "rank A")
-##                urow = urows.Next()
-##                while (urow.getValue("rank") <> v[0]):
-##                    urow = urows.Next()
-####                gp.AddMessage("urow rank: " + str(urow.getValue("rank")))
-##                urow.setValue("keep", "1")
-##                urows.UpdateRow(urow)
-##
-####                gp.AddMessage("rank = " + str(urow.getValue("rank")) + " keep = " + str(urow.getValue("keep")))
-####            urow = urows.Next()
-##            else:
-##                gp.AddMessage("Breaking")
-##                break
-
-##        del urow, urows
-
         del sc_dict
 
         gp.AddMessage("Done with dictionary")
@@ -454,8 +433,6 @@ try:
         # Save the selected points to a new file
         gp.AddMessage("select grid points to keep")
         select_exp = "\"keep\" = 1"
-##        gp.Select_analysis(score_cost_keep_sel, score_cost_select, select_exp)
-        # Used for in_memory output
         gp.Select_analysis(score_cost_keep_sel_update, score_cost_select, select_exp)
 
         dsc = gp.Describe(score_grid)
@@ -471,7 +448,6 @@ try:
         gp.PointToRaster_conversion(score_cost_keep, "rank", rank_out, "", "", cell_size)
         gp.AddMessage("\n\tCreated ranking output file: \n\t" + str(rank_out))
 
-        gp.AddMessage("land use select")
         # Remap original landuse raster with selected new activity cells
         gp.SingleOutputMapAlgebra_sa("CON( " + score_select_out + " > 0, " + na_grid + " )", na_selected_null)
         gp.SingleOutputMapAlgebra_sa("CON(IsNull(" + na_selected_null + "), 0, " + na_selected_null + " )", na_selected)
@@ -516,11 +492,6 @@ try:
 ##        raise Exception
 
 
-    # REMOVE THIS
-##    gp.AddMessage("\nIGNORE THE FOLLOWING ERROR\n")
-##    raise Exception
-
-
 except:
-    gp.AddError ("Error running script")
+    gp.AddError ("\nError running script")
     raise Exception
