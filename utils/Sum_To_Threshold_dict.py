@@ -1,4 +1,4 @@
-# ---------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------
 # Sum_To_Threshold.py
 #
 # Coded by Stacie Wolny
@@ -9,7 +9,31 @@
 # Turns a grid into a set of points with associated values that are
 #   ranked, then summed up one at a time until a threshold is reached.
 # Outputs a grid of the selected cells
-# ---------------------------------------------------------------------------
+#
+# Inputs:
+#
+#   Workspace: Folder where temporary and final output files are written
+#   Score grid: Raster containing the scores/rankings assigned to each
+#               cell on the landscape for a particular activity.  These
+#               will be ordered largest to smallest, with the largest values
+#               selected first, in descending order, for budget allocation.
+#   Cost grid: Raster containing the cost per grid cell of the activity.
+#               Cells without a cost should be assigned NoData.  The cost for each
+#               Score-ordered cell will be added up until the budget Threshold is reached.
+#   New activity grid: Raster containing activity land use code(s) for each
+#               cell where the specified activity can occur.  Non-activity cells should
+#               have the Value NoData.  Once the budget has been allocated based on Score, 
+#               a raster will be output with the corresponding selected New Activity cells.
+#   Original land use grid: Raster containing land use codes for each cell
+#               on the current landscape.  The New Activity cells that are selected
+#               in the budget process will be overlaid on this land use grid
+#               to produce a scenario land use map that can be input into InVEST.
+#   Watershed mask: Shapefile with a polygon defining the watershed where the budget
+#               is to be allocated
+#   Threshold: Number defining the amount of money that is to be allocated for
+#               the specified activity in the Watershed entered above.
+#   
+# ----------------------------------------------------------------------------------------
 
 # Import system modules
 import sys, string, os, arcgisscripting, time, datetime, operator
@@ -190,11 +214,13 @@ try:
         gp.CalculateField_management(cost_points, "co_cost", "[GRID_CODE]")
         gp.DeleteField_management(cost_points, "POINTID;GRID_CODE")
 
-
+ 
         # Spatial join to merge cost grid with score grid
         gp.AddMessage("spatial join")
         gp.SpatialJoin_analysis(score_points, cost_points, score_cost_join, "JOIN_ONE_TO_ONE", "KEEP_COMMON", "", "INTERSECTS")
         
+        # For those times when things don't quite line up        
+##        gp.SpatialJoin_analysis(score_points, cost_points, score_cost_join, "JOIN_ONE_TO_ONE", "KEEP_COMMON", "", "CLOSEST")
 
     except:
         gp.AddError ("Error preparing input grids: " + gp.GetMessages(2))
@@ -366,6 +392,8 @@ try:
         gp.AddMessage("sort by keep")
         values.sort(key = itemgetter(2), reverse = True)
 
+#######  NEW STUFF HERE  ###############
+        
         gp.AddMessage("trying new in memory table")
         lookupTblName = "rank_cost_keep_table"
         gp.CreateTable_management("in_memory", lookupTblName)
@@ -393,6 +421,9 @@ try:
 ##        gp.CalculateField_management("sck_layer", "keep", "[keep2]", "VB")
         gp.CopyFeatures_management("sck_layer", score_cost_keep_sel_update)
         gp.CalculateField_management(score_cost_keep_sel_update, "keep", "[rank_cos_1]")
+
+###########  NEW STUFF ENDS  ######################
+        
         
 ##        gp.AddMessage("for v in values time = " + str(time.clock()))
 ##        # values are already sorted ascending
