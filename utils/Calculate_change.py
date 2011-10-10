@@ -117,7 +117,8 @@ try:
         
         # Output layers
         change = postprocws + "change"
-        percent_change =  postprocws + "pchange"
+##        percent_change =  postprocws + "pchange"
+        percent_change =  postprocws + "pch"
         pchange_lt_zero = postprocws + "pch_lt0"
         pchange_gte_zero = postprocws + "pch_gte0"
         change_lt_zero = postprocws + "ch_lt0"
@@ -178,7 +179,8 @@ try:
     try:
         if do_percent_change:
             gp.AddMessage ("\nCalculating percent change...")
-            gp.SingleOutputMapAlgebra_sa("((" + new_scenario + " - " + old_scenario + ") / " + old_scenario + ") / 100", percent_change)
+            gp.SingleOutputMapAlgebra_sa("((" + new_scenario + " - " + old_scenario + ") / " + old_scenario + ") * 100", percent_change)
+##            gp.SingleOutputMapAlgebra_sa("((" + new_scenario + " - " + old_scenario + ") / " + old_scenario + ")", percent_change)
             gp.AddMessage("\tCreated percent change output file: \n\t" + str(percent_change))
     except:
         gp.AddError ("Error calculating percent change: " + gp.GetMessages(2))
@@ -206,21 +208,23 @@ try:
         raise Exception
 
 
-    # Write input parameters to an output file for user reference
-    try:
-        parameters.append("Script location: " + os.path.dirname(sys.argv[0]) + "\\" + os.path.basename(sys.argv[0]))
-        gp.workspace = gp.GetParameterAsText(0)
-        parafile = open(gp.workspace + "\\Output\\PP_Calculate_Change_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
-        parafile.writelines("POST-PROCESSING - CALCULATE CHANGE\n")
-        parafile.writelines("__________________________________\n\n")
+# Throws an error in 9.3.1 - no time to figure out why right now
 
-        for para in parameters:
-            parafile.writelines(para + "\n")
-            parafile.writelines("\n")
-        parafile.close()
-    except:
-        gp.AddError ("Error creating parameter file:" + gp.GetMessages(2))
-        raise Exception
+##    # Write input parameters to an output file for user reference
+##    try:
+##        parameters.append("Script location: " + os.path.dirname(sys.argv[0]) + "\\" + os.path.basename(sys.argv[0]))
+##        gp.workspace = gp.GetParameterAsText(0)
+##        parafile = open(gp.workspace + "\\Output\\PP_Calculate_Change_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
+##        parafile.writelines("POST-PROCESSING - CALCULATE CHANGE\n")
+##        parafile.writelines("__________________________________\n\n")
+##
+##        for para in parameters:
+##            parafile.writelines(para + "\n")
+##            parafile.writelines("\n")
+##        parafile.close()
+##    except:
+##        gp.AddError ("Error creating parameter file:" + gp.GetMessages(2))
+##        raise Exception
 
 
     # Clean up temporary files
@@ -232,14 +236,6 @@ try:
         raise Exception
 
 
-    # REMOVE THIS
-    gp.AddMessage("\nIGNORE THE FOLLOWING ERROR\n")
-    raise Exception
-
-
-    # REMOVE THIS
-    gp.AddMessage("\nIGNORE THE FOLLOWING ERROR\n")
-    raise Exception
 
 except:
     gp.AddError ("Error running script")
