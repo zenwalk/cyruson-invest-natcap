@@ -4,7 +4,11 @@
 # Coded by Stacie Wolny
 # for the Natural Capital Project
 # 
-# Last edit: 4/21/2010 
+# Last edit: 10/26/2011 
+#
+# Combines selected activity maps (output by the budget scripts)
+# with original landuse map to produce the portfolio (scenario)
+# landuse map input to InVEST to do ROI calculations
 #
 # ---------------------------------------------------------------------------
 
@@ -136,7 +140,7 @@ try:
         # Make sure all temporary files go in the Intermediate folder
         gp.workspace = interws
 
-        # Remap input rasters so that NoDatas become zeros
+        # if a layer isn't input, create a blank one full of zeroes
         if not gp.Exists(fence):
             gp.AddMessage("no fence")
             fence = interws + "fence_tmp"
@@ -159,7 +163,7 @@ try:
             gp.SingleOutputMapAlgebra_sa("CON(" + orig_lu + " > 0, 0, 0 )", protect)
         
         # Combine new activities into one file
-        gp.SingleOutputMapAlgebra_sa(fence + " + " + restore + " + " + reforest + " + " + silvo + " + " + protect, na_all)
+        gp.SingleOutputMapAlgebra_sa(fence + " + " + restore + " + " + reforest + " + " + silvo + " + " + protect , na_all)
         # Combine new activities with original land use to produce final investment portfolio
         gp.SingleOutputMapAlgebra_sa("CON( " + na_all + " > 0, " + na_all + ", " + orig_lu + ")", lu_port)
         gp.AddMessage("\n\tCreated investment portfolio output file: \n\t" + str(lu_port))
