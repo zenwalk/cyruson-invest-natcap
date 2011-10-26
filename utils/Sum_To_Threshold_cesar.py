@@ -6,9 +6,14 @@
 # 
 # Last edit: 6/16/2011 
 #
-# Turns a grid into a set of points with associated values that are
-#   ranked, then summed up one at a time until a threshold is reached.
-# Outputs a grid of the selected cells
+# Turns a sediment or WP retention grid into a set of points with
+# associated values that are ranked, then summed up one at a time
+# until a threshold is reached.  The threshold is the total amount
+# of sediment/nutrient exported in the watershed.  We want to see
+# if the export can be balanced by retention within the serviceshed.
+#
+# Outputs a grid of the selected retention cells
+#
 # ---------------------------------------------------------------------------
 
 # Import system modules
