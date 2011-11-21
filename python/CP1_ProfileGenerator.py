@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Profile Generator)
 # Authors: Greg Guannel, Gregg Verutes
-# 11/18/11
+# 11/21/11
 
 # import libraries
 import numpy as num
@@ -120,6 +120,7 @@ PT2_Z=interws+"PT2_Z.shp"
 PT_Z_Near=interws+"PT_Z_Near.shp"
 Backshore_Pts=interws+"Backshore_Pts.shp"
 Profile_Pts_Merge=interws+"Profile_Pts_Merge.shp"
+Profile_Pts_Lyr=interws+"Profile_Pts_Lyr.lyr"
 LandPoint_Buff=interws+"LandPoint_Buff.shp"
 LandPoint_Buff50k=interws+"LandPoint_Buff50k.shp"
 LandPoint_Geo=interws+"LandPoint_Geo.shp"
@@ -1156,7 +1157,7 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
 
     # read habitat GIS layers to profile
     if HabDirectory:
-        gp.AddMessage("...rasterizing each habitat layer and locating presence along the profile")
+        gp.AddMessage("...locating each habitat's presence along the profile")
         gp.workspace=HabDirectory
         fcList=gp.ListFeatureClasses("*","all")
         fc=fcList.Next()
@@ -1185,45 +1186,28 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
             gp.AddError("There is an inconsistency between the number of habitat layers in the specified directory and the input spreadsheet.")
             raise Exception
 
-        gp.workspace=gp.GetParameterAsText(0)
-
-        gp.Extent=Fetch_AOI
+        gp.workspace=gp.GetParameterAsText(0) # reset workspace
         
-        # rasterize the layers and generate zone of influence
-        IntersectExpr=''
+        # find where each habitat layer intersects the profile
+        # add habitat abbreviation fields
         AbbrevList=['MG','MR','SG','DN','CR']
-        ExcludeList=["FID","Shape","Id","PT_ID","DEPTH"]
+        for i in range(0,len(AbbrevList)):
+            Profile_Pts_Merge=AddField(Profile_Pts_Merge,AbbrevList[i],"SHORT","0","0")
+
+        # mark "1" where habitat is present
+        gp.MakeFeatureLayer_management(Profile_Pts_Merge, Profile_Pts_Lyr, "", interws, "")
         for i in range(0,len(HabLyrList)):
-            HabVector=HabDirectory+"\\"+HabLyrList[i]
-            HabVector=AddField(HabVector,"ID","SHORT","0","0")
-            gp.CalculateField_management(HabVector,"ID",1,"VB")
-            gp.FeatureToRaster_conversion(HabVector,"ID",interws+HabAbbrevList[i],"25")
-            gp.Reclassify_sa(interws+HabAbbrevList[i],"VALUE","1 1;NODATA 0",interws+HabAbbrevList[i]+"_rc","DATA")
-            gp.ExtractValuesToPoints_sa(Profile_Pts_Merge,interws+HabAbbrevList[i]+"_rc",interws+HabAbbrevList[i]+".shp","NONE")
-            gp.AddField_management(interws+HabAbbrevList[i]+".shp",HabAbbrevList[i],"SHORT","0","0","","","NON_NULLABLE","NON_REQUIRED","")
-            gp.CalculateField_management(interws+HabAbbrevList[i]+".shp",HabAbbrevList[i],"[RASTERVALU]","VB")
-            gp.DeleteField_management(interws+HabAbbrevList[i]+".shp","RASTERVALU")
-            if i==0:
-                IntersectExpr=IntersectExpr+interws+HabAbbrevList[i]+".shp "+str(i+1)
-            else:
-                IntersectExpr=IntersectExpr+"; "+interws+HabAbbrevList[i]+".shp "+str(i+1)
-        # intersect the various habitat profile point plots
-        gp.Intersect_analysis(IntersectExpr,Profile_Pts_Hab,"NO_FID","","INPUT")
-
-        # delete extra fields
-        DeleteFieldList=[]
-        HabFieldList=[]
-        fieldList=gp.ListFields(Profile_Pts_Hab,"*","All")
-        field=fieldList.Next()
-        while field <> None:
-            if field.Name not in AbbrevList+ExcludeList:
-                DeleteFieldList.append(field.Name)
-            if field.Name in AbbrevList:
-                HabFieldList.append(HabFieldList)
-            field=fieldList.Next()
-        del fieldList,field
-        gp.DeleteField_management(Profile_Pts_Hab,DeleteFieldList)
-
+            selectPP = gp.SelectLayerByLocation_management(Profile_Pts_Lyr, "INTERSECT", HabDirectory+"\\"+HabLyrList[i], "", "NEW_SELECTION")
+            cur = gp.UpdateCursor(selectPP)
+            row = cur.Next()
+            while row:
+                row.SetValue(HabAbbrevList[i], 1)
+                cur.UpdateRow(row)
+                row = cur.Next()
+            del cur,row        
+        gp.SelectLayerByAttribute_management(Profile_Pts_Lyr, "CLEAR_SELECTION", "")        
+        gp.FeatureClassToFeatureClass_conversion(Profile_Pts_Lyr, maps, "Profile_Pts_Hab.shp", "")
+        
         # read 'Profile_Pts_Hab' to array 'ProfileHabArray'
         ProfileHabLength = gp.GetCount_management(Profile_Pts_Hab)
         ProfileHabList = np.zeros(ProfileHabLength*7, dtype=np.float64)
@@ -1235,13 +1219,23 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
             ProfileHabArray[j][0]=row.GetValue("PT_ID")
             ProfileHabArray[j][1]=row.GetValue("DEPTH")
             for i in range(0,len(AbbrevList)):
-                if AbbrevList[i] in HabFieldList:
-                    ProfileHabArray[j][i+2]=int(row.GetValue(AbbrevList[i]))
+                ProfileHabArray[j][i+2]=row.GetValue(AbbrevList[i])
             cur.UpdateRow(row)
             row=cur.next()
             j+=1
         del cur,row
 
+        ProfileHabArray = ProfileHabArray[ProfileHabArray[:,0].argsort()] # sort the array by 'PT_ID'
+
+        ## TO BE MODIFIED BY GG ##        
+        TextData=open(outputws+"Test.txt","w")
+        for i in range(0,ProfileHabLength):
+            for j in range(0,7):
+                TextData.write(str(ProfileHabArray[i][j])+" ")
+            TextData.write("\n")
+        TextData.close()        
+        ##########################
+        
 # upload user's profile
 elif ProfileQuestion=="(2) No,but I will upload a cross-shore profile":
     gp.AddMessage("\nRetrieving your profile...")
