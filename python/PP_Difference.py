@@ -44,6 +44,11 @@ try:
 
     gp.Extent = "MAXOF"
 
+    # check that output raster name doesn't exceed 13 characters.
+    if len(outputRst.split("\\")[-1]) > 13:
+        gp.AddError("\nThe file name of the 'Difference Raster Output' must not exceed 13 characters.")
+        raise Exception
+
     try:
         if Field:
             # check that attribute table and specified table exists in both inputs

@@ -1,9 +1,6 @@
 # Marine InVEST: Fisheries GIS Tool
 # Author: Gregg Verutes
-# 10/06/11
-
-## CHECK THAT ZONESFIELD EXISTS ##
-## 'ZONESFIELD' DICTIONARY? ##
+# 10/07/11
 
 # import modules
 import sys, string, os, datetime, csv
@@ -121,6 +118,7 @@ gp.AddMessage("\nChecking and preparing the inputs...")
 ckProjection(InputZones)
 ckProjection(FishingArea)
 ckProjection(DEM)
+
 gp.Dissolve_management(InputZones,  Zones, ZonesField)
 
 gp.AddMessage("\nProcessing DEM and modifying fishing areas...")
