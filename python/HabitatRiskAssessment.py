@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Gregg Verutes, Joey Bernhardt, Katie Arkema, Jeremy Davies 
-# 08/17/11
+# 11/21/11
 
 # import modules
 import sys, string, os, datetime, shlex
@@ -23,7 +23,7 @@ msgBuildVAT = "\nError building VAT for zonal statistics raster.  Make sure ther
 msgPrepHSLayers ="\nError preparing habitat and stressor input layers."
 msgCheckHSLayers = "\nError checking habitat and stressor input layers."
 msgBuffRastHULayers = "\nError buffering and rasterizing stressor and habitat input layers."
-msgOverlapPredomHab = "\nError calculating spatial overlap and predominant habitat."
+msgOverlap = "\nError calculating spatial overlap."
 msgGetHabStressRatings = "\nError obtaining habitat and stressor ratings from table."
 msgCalcRiskMap = "\nError calculating risk scores within analysis grid (GS)."
 msgPlotArrays = "\nError preparing exposure and consequence matrix values for plotting."
@@ -31,6 +31,7 @@ msgMapOutputs = "\nError generating map outputs."
 msgPlotHTMLOutputs = "\nError generating plot and HTML outputs."
 msgNumPyNo = "NumPy extension is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
 msgWin32ComNo = "PythonWin extension is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
+msgSciPyNo = "SciPy extension is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ for instructions on how to install."
 msgMatplotlibNo = "Matplotlib extension (version 1.0 or newer) is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
 
 # import modules
@@ -38,6 +39,12 @@ try:
     import numpy as np
 except:
     gp.AddError(msgNumPyNo)
+    raise Exception
+
+try:
+    from scipy import stats
+except:
+    gp.AddError(msgSciPyNo)
     raise Exception
     
 try:
@@ -63,10 +70,11 @@ try:
         HabStressRate_Table = gp.GetParameterAsText(4)
         parameters.append("Stressor Data Directory: "+ HabStressRate_Table)
         PlotBoolean = gp.GetParameterAsText(5)
-        parameters.append("Create HTML output with risk plots?: "+ PlotBoolean)
+        parameters.append("Create HTML output with risk plots: "+ PlotBoolean)
+        RiskBoolean = gp.GetParameterAsText(6)
+        parameters.append("Generate Habitat Risk Maps from Inputs: "+ RiskBoolean)
     except:
         raise Exception, msgArguments + gp.GetMessages(2)
-
 
     try:
         thefolders=["intermediate","Output"]
@@ -101,6 +109,7 @@ try:
     GS_HQ_risk = interws + "GS_HQ_risk.shp"
     GS_HQ_predom = interws + "GS_HQ_predom.shp"
     GS_HQ_area = interws + "GS_HQ_area.shp"
+    GS_HQ_intersect = interws + "GS_HQ_intersect.shp"
 
     # output
     ecosys_risk = maps + "ecosys_risk"
@@ -138,6 +147,13 @@ try:
         if thedata.find("0") == -1 and thedata.find("1") == -1 and thedata.find("2") == -1 and thedata.find("3") == -1 and thedata.find("4") == -1 and thedata.find("5") == -1 and thedata.find("6") == -1 and thedata.find("7") == -1 and thedata.find("8") == -1 and thedata.find("9") == -1:
             gp.AddError(thedata +" must contain an underscore followed by an integer ID at the end of it's name (e.g. filename_1.shp). This is necessary to properly link it with the input table.")
             raise Exception
+
+    # percentiles list (33%, 66%)
+    def getPercentiles(list):
+        PctList = []
+        PctList.append(stats.scoreatpercentile(list, 1.0/3.0))
+        PctList.append(stats.scoreatpercentile(list, 2.0/3.0))
+        return PctList
 
     try:
         gp.AddMessage("\nChecking and preparing inputs...")
@@ -275,7 +291,6 @@ try:
         gp.workspace = interws
         gp.Extent = GS_rst
         gp.MakeFeatureLayer_management(GS_HQ, GS_HQ_lyr, "", "", "")
-        
         HabNoDataList = []
         del_hab = []
         for i in range(0,len(HabLyrList)):
@@ -289,7 +304,6 @@ try:
                 HabNoDataList.append("yes")
             else:
                 gp.FeatureToRaster_conversion(HabVariable, "VID", "hab_"+str(i+1), "50")
-                gp.CopyFeatures_management(HabVariable, HabLyrList[i][:-5]+"h"+HabLyrList[i][-5:], "", "0", "0", "0")
                 HabNoDataList.append("no")
                 del_hab.append("hab_"+str(i+1))
             gp.SelectLayerByAttribute_management(HabLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
@@ -315,20 +329,21 @@ try:
                 del_stress.append("stress_"+str(i+1))
                 if StressBuffDistList[i] > 0:
                     gp.FeatureToRaster_conversion(StressLyrBuffList[i][:-4]+"_s"+str(i+1)+StressLyrBuffList[i][-4:], "VID", "stress_"+str(i+1), "50")
+                    gp.CopyFeatures_management(StressLyrBuffList[i][:-4]+"_s"+str(i+1)+StressLyrBuffList[i][-4:], maps+"s"+str(i+1)+"_"+StressLyrList[i][:-5]+"buff.shp", "", "0", "0", "0")
                 else:
                     gp.FeatureToRaster_conversion(StressVariable, "VID", "stress_"+str(i+1), "50")
-                    gp.CopyFeatures_management(StressVariable, StressLyrList[i][:-5]+"s"+StressLyrList[i][-5:], "", "0", "0", "0")
+                    gp.CopyFeatures_management(StressVariable, maps+"s"+str(i+1)+"_"+StressLyrList[i][:-6]+".shp", "", "0", "0", "0")
             gp.SelectLayerByAttribute_management(StressLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
     except:
         gp.AddError(msgBuffRastHULayers)
         raise Exception        
 
 
-    #############################################################    
-    ############ CALCULATE OVERLAP AND PREDOM HAB  ##############
-    #############################################################
+    ############################################# 
+    ############ CALCULATE OVERLAP ##############
+    #############################################
     try:
-        gp.AddMessage("\nCalculating spatial overlap and predominant habitat...")
+        gp.AddMessage("\nCalculating spatial overlap...")
 
         def difference(a, b): # show whats in list b which isn't in list a
             return list(set(b).difference(set(a)))
@@ -438,7 +453,7 @@ try:
         del row
         del cur               
     except:
-        gp.AddError(msgOverlapPredomHab)
+        gp.AddError(msgOverlap)
         raise Exception
 
     # delete some fields to avoid 250 max
@@ -1053,6 +1068,85 @@ try:
         gp.AddError(msgPlotHTMLOutputs)
         raise Exception
 
+
+    ##########################################################   
+    ######## GENERATE HABITAT MAPS OF RISK HOTSPOTS  #########
+    ##########################################################
+
+    if RiskBoolean == "true":
+        gp.AddMessage("\nGenerating habitat maps of risk hotspots...")
+        
+        # copy 'GS_HQ_area' and erase superfluous attributes before intersection
+        gp.CopyFeatures_management(GS_HQ_area, GS_HQ_intersect, "", "0", "0", "0")
+        keepFieldList = ["FID", "Shape", "CELL_SIZE"]
+        eraseFieldList = []
+        for i in range(0,HabCount):
+            keepFieldList.append("CUMRISK_H"+str(i+1))
+            for j in range(0,StressCount):
+                keepFieldList.append("RISK_H"+str(i+1)+"S"+str(j+1))
+        
+        fields = gp.ListFields(GS_HQ_intersect, "*")
+        fc_field = fields.Next()
+        while fc_field:
+            if fc_field.name not in keepFieldList:
+                eraseFieldList.append(fc_field.name)
+            fc_field = fields.Next()
+        del fc_field
+ 
+        EraseFieldExpr = eraseFieldList[0]
+        for i in range(1,len(eraseFieldList)):
+            EraseFieldExpr = EraseFieldExpr+";"+str(eraseFieldList[i])
+        gp.DeleteField_management(GS_HQ_intersect, EraseFieldExpr)
+
+        # intersect 'GS_HQ_area' with each habitat input and genrate risk hotspots
+        for i in range(0,len(HabLyrList)):
+            HabVariable = Hab_Directory+"\\"+HabLyrList[i]
+            IntersectExpr = HabVariable+" 1; "+GS_HQ_intersect+" 2"
+            gp.Intersect_analysis(IntersectExpr, maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "NO_FID", "", "INPUT")
+            for j in range(0,StressCount):
+                gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "S"+str(j+1)+"RISKNUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+            gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "CRISK_NUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+            gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "RISK_NUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+            gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "RISK_QUAL", "TEXT", "10", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+            
+            cur = gp.UpdateCursor(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp")          
+            row = cur.Next()
+            while row:
+                # individual stressor risk logic
+                for j in range(0,StressCount):
+                    if row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(1.0/3.0)):
+                        row.SetValue("S"+str(j+1)+"RISKNUM", 1)
+                    elif row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) >= (np.sqrt(8.0)*(1.0/3.0)) and row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(2.0/3.0)):
+                        row.SetValue("S"+str(j+1)+"RISKNUM", 2)
+                    else:
+                        row.SetValue("S"+str(j+1)+"RISKNUM", 3)        
+                    
+                # cumulative risk logic
+                if row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(1.0/3.0)):
+                    row.SetValue("CRISK_NUM", 1)
+                elif row.GetValue("CUMRISK_H"+str(i+1)) >= (np.sqrt(8.0*StressCount)*(1.0/3.0)) and row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(2.0/3.0)):
+                    row.SetValue("CRISK_NUM", 2)
+                else:
+                    row.SetValue("CRISK_NUM", 3)
+
+                # determine risk hotspots ratings
+                HotSpotRatingList = []
+                for k in range(0,StressCount):
+                    HotSpotRatingList.append(row.GetValue("S"+str(k+1)+"RISKNUM"))
+                HotSpotRatingList.append(row.GetValue("CRISK_NUM"))    
+                row.SetValue("RISK_NUM", max(HotSpotRatingList))
+                if row.GetValue("RISK_NUM") == 1:
+                    row.SetValue("RISK_QUAL", "Low")
+                elif row.GetValue("RISK_NUM") == 2:
+                    row.SetValue("RISK_QUAL", "Medium")
+                else:
+                    row.SetValue("RISK_QUAL", "High")            
+                cur.UpdateRow(row)
+                row = cur.next()
+            del row
+            del cur
+            
+    
     # create parameter file
     parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
     parafile = open(outputws+"parameters_"+now.strftime("%Y-%m-%d-%H-%M")+".txt","w") 

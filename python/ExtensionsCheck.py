@@ -1,6 +1,6 @@
 # Marine InVEST: Python and GIS Extensions Check
 # Author: Gregg Verutes
-# 05/09/11
+# 10/20/11
 
 # import basic extensions
 import sys, string, os
@@ -27,10 +27,11 @@ try:
     # get parameters
     AestheticQuality = gp.GetParameterAsText(0)
     CP_Tier0 = gp.GetParameterAsText(1)
-    FinfishAquaculture = gp.GetParameterAsText(2)
-    HabitatRiskAssessment = gp.GetParameterAsText(3)
-    OverlapAnalysis = gp.GetParameterAsText(4)
-    WaveEnergy = gp.GetParameterAsText(5)
+    CP_Tier1 = gp.GetParameterAsText(2)
+    FinfishAquaculture = gp.GetParameterAsText(3)
+    HabitatRiskAssessment = gp.GetParameterAsText(4)
+    OverlapAnalysis = gp.GetParameterAsText(5)
+    WaveEnergy = gp.GetParameterAsText(6)
 except:
     raise Exception, msgArguments + gp.GetMessages(2)
 
@@ -43,28 +44,28 @@ gp.AddMessage("\n")
 gp.AddMessage("Checking Python extensions needed for the selected model(s)...")
 
 try:
-    if AestheticQuality == "true" or CP_Tier0 == "true" or FinfishAquaculture  == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
+    if AestheticQuality == "true" or CP_Tier0 == "true" or CP_Tier1 == "true" or FinfishAquaculture  == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
         import numpy
         gp.AddMessage(msgNumPyYes)
 except:
     gp.AddError(msgNumPyNo)
     
 try:
-    if AestheticQuality == "true" or CP_Tier0 == "true" or WaveEnergy  == "true":
+    if AestheticQuality == "true" or HabitatRiskAssessment  == "true" or CP_Tier0 == "true" or CP_Tier1 == "true" or WaveEnergy  == "true":
         import scipy
         gp.AddMessage(msgSciPyYes) 
 except:
     gp.AddError(msgSciPyNo)
     
 try:
-    if CP_Tier0 == "true" or FinfishAquaculture  == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
+    if CP_Tier0 == "true" or CP_Tier1 == "true" or FinfishAquaculture  == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
         import win32com.client
         gp.AddMessage(msgWin32ComYes) 
 except:
     gp.AddError(msgWin32ComNo)
 
 try:
-    if HabitatRiskAssessment  == "true":
+    if HabitatRiskAssessment == "true" or CP_Tier1 == "true":
         import matplotlib
         gp.AddMessage(msgMatplotlibYes) 
 except:
@@ -75,7 +76,7 @@ gp.AddMessage("\n")
 gp.AddMessage("Checking ArcGIS extensions needed for the selected model(s)...")
 
 try:
-    if AestheticQuality == "true" or CP_Tier0 == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
+    if AestheticQuality == "true" or CP_Tier0 == "true" or CP_Tier1 == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
         gp.CheckOutExtension("spatial")
         gp.AddMessage(msgSpatialYes)
 except:
