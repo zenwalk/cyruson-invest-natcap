@@ -1,0 +1,129 @@
+\documentclass{article}
+\usepackage{fullpage}
+\usepackage{amsmath, amsthm, amssymb}
+\begin{document}
+
+\section{Dispersion/Advection/Absorption Equation}
+\label{sec:1}
+
+General form:
+
+\begin{equation}
+  \label{eq:1}
+  \nabla\cdot \mathbf{E}\nabla s - \mathbf{U} \nabla s - Ks = \frac{\partial s}{\partial t}
+\end{equation}
+
+\noindent where
+\begin{itemize}
+\item $\mathbf{E}$ Dispersion vector coefficient as a function of space and time,
+\item $\mathbf{U}$ Velocity vector as a function of space and time,
+\item $K$ decay coefficient as a function of space and time,
+\item $s$ density of pollutant as a function of space and time,
+\item $t$ time.
+\end{itemize}
+
+\noindent Boundary conditions:
+
+\begin{itemize}
+\item $s(\mathbf{p_0},t) = s_0$,
+\item $\lim\limits_{d(\mathbf{p},\mathbf{p_0}) \rightarrow \infty} s(\mathbf{p},t) = 0$ where $d$ is the distance function.
+\item $\lim\limits_{d(\mathbf{p},\mathbf{p_l}) \rightarrow 0} \nabla s(\mathbf{p},t) = 0$ where $p_l$ is a point on land.
+\end{itemize}
+
+\subsection{Two dimensional form}
+
+Below Equation~\ref{eq:1} is expanded into components for its two
+dimensional form.
+
+\begin{equation}
+  \label{eq:2}
+  \left(E_x\frac{\partial^2 s}{\partial x^2}+E_y\frac{\partial^2 s}{\partial y^2}\right) - \left(U_x \frac{\partial s}{\partial x}+U_y \frac{\partial s}{\partial y}\right) - K s = \frac{\partial s}{\partial t}
+\end{equation}
+
+\noindent where $U_x$ and $U_y$ represent the $x$ and $y$ components of the velocity vector $\mathbf{U}$ in Equation~\ref{eq:1}.
+
+\subsubsection{Finite Difference formulation}
+
+Below we derive the two dimensional finite element formulation of
+Equation~\ref{eq:2}.
+
+Using the following finite difference expansions:
+
+\begin{eqnarray}
+  \label{eq:3}
+  \left.\frac{\partial \phi}{\partial x}\right)_{i,j}&=&\frac{\phi_{i+1,j}^n-\phi_{i-1,j}^n}{2\Delta h}+\mathcal{O}(\Delta h^2)\\
+  \label{eq:4}
+  \left.\frac{\partial \phi^2}{\partial x^2}\right)_{i,j}&=&\frac{\phi_{i+1,j}^n-2\phi_{i,j}^n+\phi_{i-1,j}^n}{\Delta h^2}+\mathcal{O}(\Delta h^2)\\
+  \label{eq:5}
+  \left.\frac{\partial \phi}{\partial t}\right)_{i,j}&=&\frac{\phi_{i,j}^n-\phi_{i,j}^{n-1}}{\Delta t}+\mathcal{O}(\Delta t)
+\end{eqnarray}
+
+\noindent
+
+where
+\begin{itemize}
+\item $\phi(\mathbf{p},t)$ Continuous solution.
+\item $\phi(\mathbf{p_{i,j}},t_m)$ Continuous solution evalutated at 2D mesh points $(i,j)$ and time step $m$.
+\item $\phi^m_{i,j}$ Approximate numerical solution obtained via solution to finite difference equations.
+\end{itemize}
+
+We convert Equation~\ref{eq:1} into a finite different formulation
+using a Crank-Nicolson scheme which use the finite difference
+expansions in Equations~\ref{eq:3}, \ref{eq:4}, and \ref{eq:5}.
+
+\begin{alignat}{3}
+  \notag
+  \frac{1}{2}\Biggl[&&E_x\frac{s_{i+1,j}^n-2s_{i,j}^n+s_{i-1,j}^n}{\Delta h^2}+
+  E_y\frac{s_{i,j+1}^n-2s_{i,j}^n+s_{i,j-1}^n}{\Delta h^2}+\\
+  \notag
+  &&U_x\frac{s_{i+1,j}^n-s_{i-1,j}^n}{2\Delta h}+
+  U_y\frac{s_{i,j+1}^n-s_{i,j-1}^n}{2\Delta h}-Ks_{i,j}^n+\\
+  \notag
+  &&E_x\frac{s_{i+1,j}^{n-1}-2s_{i,j}^{n-1}+s_{i-1,j}^{n-1}}{\Delta h^2}+
+  E_y\frac{s_{i,j+1}^{n-1}-2s_{i,j}^{n-1}+s_{i,j-1}^{n-1}}{\Delta h^2}+\\
+  \label{eqn:6}
+  &&U_x\frac{s_{i+1,j}^{n-1}-s_{i-1,j}^{n-1}}{2\Delta h}+
+  U_y\frac{s_{i,j+1}^{n-1}-s_{i,j-1}^{n-1}}{2\Delta h}-Ks_{i,j}^{n-1}&&\Biggr]&=\frac{s_{i,j}^n-s_{i,j}^{n-1}}{\Delta t}
+\end{alignat}
+
+This equation uses a backward time different on the right hand side and the average of the central difference scheme on the right hand side.  This scheme has a truncation error of $\mathcal{O}(\Delta t^2)+\mathcal{O}(\Delta h^2)$
+
+Simplifying:
+
+$$A^ns_{i-1,j}^n+
+  B^ns_{i,j-1}^n+
+  C^ns_{i,j}^n+
+  D^ns_{i,j+1}^n+
+  E^ns_{i+1,j}^n+-\frac{2}{\Delta t}s^n_{i,j} = F-\frac{2}{\Delta t}s^{n-1}_{i,j}$$
+
+\noindent where
+
+\begin{align}
+  A^m &=\frac{E^m_x}{\Delta h^2}-\frac{U^m_x}{2\Delta h}\\
+  B^m &=\frac{E^m_y}{\Delta h^2}-\frac{U^m_y}{2\Delta h}\\
+  C^m &=-\frac{2E^m_x}{\Delta h^2}-\frac{2E^m_y}{\Delta h^2}-K^m\\
+  D^m &=\frac{E^m_y}{\Delta h^2}+\frac{U^m_y}{2\Delta h}\\
+  E^m &=\frac{E^m_x}{\Delta h^2}+\frac{U^m_x}{2\Delta h}\\
+  F &=-\left[A^{n-1}s_{i-1,j}^{n-1}+B^{n-1}s_{i,j-1}^{n-1}+C^{n-1}s_{i,j}^{n-1}+D^{n-1}s_{i,j+1}^{n-1}+E^{n-1}s_{i+1,j}^{n-1}\right]
+\end{align}
+
+\noindent multiplying through by $2\Delta h^2 \Delta t$ removes any division operators
+
+$$\bar{A}^ns_{i-1,j}^n+
+  \bar{B}^ns_{i,j-1}^n+
+  \bar{C}^ns_{i,j}^n+
+  \bar{D}^ns_{i,j+1}^n+
+  \bar{E}^ns_{i+1,j}^n+-4h^2s^n_{i,j} = \bar{F}-4h^2s^{n-1}_{i,j}$$
+
+\noindent
+
+\begin{align}
+  \bar{A}^m &=\Delta t\left(2E^m_x-U^m_x\Delta h\right)\\
+  \bar{B}^m &=\Delta t\left(2E^m_y-U^m_y\Delta h\right)\\
+  \bar{C}^m &=-2\Delta t\;(2E^m_x+2E^m_y+K^m\Delta h^2)\\
+  \bar{D}^m &=\Delta t\left(2E^m_y+U^m_y\Delta h\right)\\
+  \bar{E}^m &=\Delta t\left(2E^m_x+U^m_x\Delta h\right)\\
+  \bar{F} &=-\left[\bar{A}^{n-1}s_{i-1,j}^{n-1}+\bar{B}^{n-1}s_{i,j-1}^{n-1}+\bar{C}^{n-1}s_{i,j}^{n-1}+\bar{D}^{n-1}s_{i,j+1}^{n-1}+\bar{E}^{n-1}s_{i+1,j}^{n-1}\right]
+\end{align}
+
+\end{document}
