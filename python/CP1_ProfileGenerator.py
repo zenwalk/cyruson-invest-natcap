@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Profile Generator)
 # Authors: Greg Guannel, Gregg Verutes
-# 11/21/11
+# 11/22/11
 
 # import libraries
 import numpy as num
@@ -147,6 +147,7 @@ LandPoint_WW3=interws+"LandPoint_WW3.shp"
 BathyProfile=html_txt+"BathyProfile_"+subwsStr+".txt"
 CreatedProfile=html_txt+"CreatedProfile_"+subwsStr+".txt"
 ProfileCutGIS=html_txt+"ProfileCutGIS_"+ subwsStr+".txt"
+HabitatLocation=html_txt+"HabitatLocation_"+ subwsStr+".txt"
 Profile_HTML=html_txt+"Profile_"+subwsStr+".html"
 Wind_Plot=html_txt+"Wind_Plot.png"
 Fetch_Plot=html_txt+"Fetch_Plot.png"
@@ -229,39 +230,6 @@ def compareProjections(LandPoint,LandPoly):
         gp.AddError("Projection Error: "+LandPoint+" is in a different projection from the LandPoly data.  The two inputs must be the same projection to calculate depth profile.")
         raise Exception
 
-def PTCreate(PTType,midx,midy,TransectDist): # function to create point transects
-    if PTType==1:
-        y1=midy+TransectDist
-        y2=midy-TransectDist
-        x1=midx
-        x2=midx
-    elif PTType==2:
-        y1=midy
-        y2=midy 
-        x1=midx+TransectDist
-        x2=midx-TransectDist
-    elif PTType==3:
-        y1=NegRecip*(TransectDist)+midy
-        y2=NegRecip*(-TransectDist)+midy
-        x1=midx+TransectDist
-        x2=midx-TransectDist
-    elif PTType==4:
-        y1=midy+TransectDist
-        y2=midy-TransectDist
-        x1=(TransectDist/NegRecip)+midx
-        x2=(-TransectDist/NegRecip)+midx
-    elif PTType==5:
-        y1=midy+TransectDist
-        y2=midy-TransectDist
-        x1=(TransectDist/NegRecip)+midx
-        x2=(-TransectDist/NegRecip)+midx
-    elif PTType==6:
-        y1=NegRecip*(TransectDist)+midy
-        y2=NegRecip*(-TransectDist)+midy
-        x1=midx+TransectDist
-        x2=midx-TransectDist
-    return x1,y1,x2,y2
-
 def Indexed(x,value): # locates index of point in vector x that has closest value as variable value
     mylist=abs(x-value)    
     if isinstance(x,num.ndarray):
@@ -331,9 +299,9 @@ def WindWave(U,F,d):
 # VARIOUS CHECKS BEFORE WE RUN TOOL###############################################################
 # variables (hard-coded)
 SampInterval=1
-TransectDist=1.0
+TransectDist=0
 BearingsNum=16
-RadLineDist=40000
+RadLineDist=50000
 
 # check that correct inputs were provided based on 'ProfileQuestion'
 if ProfileQuestion=="(1) Yes":
@@ -911,21 +879,13 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
     endx=float(endList[0])
     endy=float(endList[1])
 
-    # diagnose the type of perpendicular transect to create (PerpTransType)
-    PerpTransType=0
+    # diagnose the type of perpendicular transect to create (PTType)
+    PTType=0
     if starty==endy or startx==endx:
         if starty==endy:
-            y1=midy+TransectDist
-            y2=midy-TransectDist
-            x1=midx
-            x2=midx
-            PerpTransType=1
+            PTType=1
         if startx==endx:
-            y1=midy
-            y2=midy 
-            x1=midx+TransectDist
-            x2=midx-TransectDist
-            PerpTransType=2
+            PTType=2
     else:
         # get the slope of the line
         m=((starty-endy)/(startx-endx))
@@ -935,35 +895,57 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
         if m > 0:
             # increase x-values,find y
             if m >= 1:
-                y1=NegRecip*(TransectDist)+midy
-                y2=NegRecip*(-TransectDist)+midy
-                x1=midx+TransectDist
-                x2=midx-TransectDist
-                PerpTransType=3
+                PTType=3
             # increase y-values,find x
             if m < 1:
-                y1=midy+TransectDist
-                y2=midy-TransectDist
-                x1=(TransectDist/NegRecip)+midx
-                x2=(-TransectDist/NegRecip)+midx
-                PerpTransType=4
+                PTType=4
         if m < 0:
             # add to x,find y-values
             if m >= -1:
             # add to y,find x-values
-                y1=midy+TransectDist
-                y2=midy-TransectDist
-                x1=(TransectDist/NegRecip)+midx
-                x2=(-TransectDist/NegRecip)+midx
-                PerpTransType=5
+                PTType=5
             if m < -1:
-                y1=NegRecip*(TransectDist)+midy
-                y2=NegRecip*(-TransectDist)+midy
-                x1=midx+TransectDist
-                x2=midx-TransectDist
-                PerpTransType=6
-    del cur
-    del row
+                PTType=6
+    del cur, row
+
+    # use the correct perpendicular transect formula based on coastline slope (m)
+    x1List = []; x2List = []; y1List = []; y2List = []
+    if PTType==1:
+        for i in range(0,(RadLineDist/2.0)):
+            y1List.append(midy+i+1)
+            y2List.append(midy-i+1)
+            x1List.append(midx)
+            x2List.append(midx)
+    elif PTType==2:
+        for i in range(0,(RadLineDist/2.0)):
+            y1List.append(midy)
+            y2List.append(midy) 
+            x1List.append(midx+i+1)
+            x2List.append(midx-i+1)
+    elif PTType==3:
+        for i in range(0,(RadLineDist/2.0)):
+            y1List.append(NegRecip*(i+1)+midy)
+            y2List.append(NegRecip*(-i+1)+midy)
+            x1List.append(midx+i+1)
+            x2List.append(midx-i+1)
+    elif PTType==4:
+        for i in range(0,(RadLineDist/2.0)):
+            y1List.append(midy+i+1)
+            y2List.append(midy-i+1)
+            x1List.append((i+1/NegRecip)+midx)
+            x2List.append((-i+1/NegRecip)+midx)
+    elif PTType==5:
+        for i in range(0,(RadLineDist/2.0)):
+            y1List.append(midy+i+1)
+            y2List.append(midy-i+1)
+            x1List.append((i+1/NegRecip)+midx)
+            x2List.append((-i+1/NegRecip)+midx)
+    elif PTType==6:
+        for i in range(0,(RadLineDist/2.0)):        
+            y1List.append(NegRecip*(i+1)+midy)
+            y2List.append(NegRecip*(-i+1)+midy)
+            x1List.append(midx+i+1)
+            x2List.append(midx-i+1)
 
     # grab projection spatial reference from 'LandPoint'
     dataDesc=gp.describe(LandPoint)
@@ -971,28 +953,26 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
     gp.CreateFeatureClass_management(interws,"PT1.shp","POINT","#","#","#",spatialRef)
     gp.CreateFeatureClass_management(interws,"PT2.shp","POINT","#","#","#",spatialRef)
 
-    # create two point transects,each point is 1 meter away from the previous    
+    # create two point transects, each point is 1 meter away from the previous    
     cur1=gp.InsertCursor(PT1)
     cur2=gp.InsertCursor(PT2)
-    while TransectDist <= RadLineDist/2.0:
-        # call 'PTCreate' function to use the correct perpendicular transect formula based on coastline slope (m)
-        x1,y1,x2,y2=PTCreate(PerpTransType,midx,midy,TransectDist)
+    while TransectDist < (RadLineDist/2.0):
         row1=cur1.NewRow()
         pnt=gp.CreateObject("POINT")
-        pnt.x=x1
-        pnt.y=y1
+        pnt.x=x1List[TransectDist]
+        pnt.y=y1List[TransectDist]
         row1.shape=pnt
         cur1.InsertRow(row1)
         row2=cur2.NewRow()
         pnt=gp.CreateObject("POINT")
-        pnt.x=x2
-        pnt.y=y2
+        pnt.x=x2List[TransectDist]
+        pnt.y=y2List[TransectDist]
         row2.shape=pnt
         cur2.InsertRow(row2)
-        TransectDist=TransectDist+1
+        TransectDist+=1
     del cur1,row1
     del cur2,row2
-    
+
     # extract depth values from 'BathyGrid' to point transects
     gp.ExtractValuesToPoints_sa(PT1,BathyGrid,PT1_Z,"INTERPOLATE")
     gp.ExtractValuesToPoints_sa(PT2,BathyGrid,PT2_Z,"INTERPOLATE")
@@ -1122,7 +1102,6 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
     TempY=num.array(yd)
     TempX=num.array(Dx)
 
-
     # remove portions offshore that are shallower than average depth abv deepest point
     LocDeep=Indexed(yd,min(yd)) #Locate deepest point
     davg=mean(yd);davg=average([davg,min(yd)])
@@ -1131,8 +1110,7 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
     if len(loc)>1:    loc=loc[0];loc=out[loc[0]] #First point to keep.  
     else:    loc=LocDeep+1
 
-
-    if loc<LocDeep: #If point is offshore of deepest point
+    if loc<LocDeep: # if point is offshore of deepest point
         out=num.arange(0,loc,1)
         yd=num.delete(yd,out,None)
         xd=num.delete(Dx,out,None);xd=xd-xd[0]
@@ -1140,7 +1118,6 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
         TempX[out]=-1 
     TempY=TempY[::-1] # reverse list
     
-
     # insert 'TempY' and 'TempX' in shapefile output
     Profile_Pts=AddField(Profile_Pts,"SM_BATHY_X","DOUBLE","","")
     Profile_Pts=AddField(Profile_Pts,"SM_BATHY_Y","DOUBLE","","")
@@ -1187,27 +1164,51 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
             raise Exception
 
         gp.workspace=gp.GetParameterAsText(0) # reset workspace
+        gp.Extent=Profile_Pts_Merge # revise extent
         
-        # find where each habitat layer intersects the profile
-        # add habitat abbreviation fields
+        # rasterize the layers and generate zone of influence
+        IntersectExpr=''
         AbbrevList=['MG','MR','SG','DN','CR']
-        for i in range(0,len(AbbrevList)):
-            Profile_Pts_Merge=AddField(Profile_Pts_Merge,AbbrevList[i],"SHORT","0","0")
-
-        # mark "1" where habitat is present
-        gp.MakeFeatureLayer_management(Profile_Pts_Merge, Profile_Pts_Lyr, "", interws, "")
+        ExcludeList=["FID","Shape","Id","PT_ID","DEPTH"]
         for i in range(0,len(HabLyrList)):
-            selectPP = gp.SelectLayerByLocation_management(Profile_Pts_Lyr, "INTERSECT", HabDirectory+"\\"+HabLyrList[i], "", "NEW_SELECTION")
-            cur = gp.UpdateCursor(selectPP)
-            row = cur.Next()
-            while row:
-                row.SetValue(HabAbbrevList[i], 1)
-                cur.UpdateRow(row)
-                row = cur.Next()
-            del cur,row        
-        gp.SelectLayerByAttribute_management(Profile_Pts_Lyr, "CLEAR_SELECTION", "")        
-        gp.FeatureClassToFeatureClass_conversion(Profile_Pts_Lyr, maps, "Profile_Pts_Hab.shp", "")
-        
+            HabVector=HabDirectory+"\\"+HabLyrList[i]
+            HabVector=AddField(HabVector,"ID","SHORT","0","0")
+            gp.CalculateField_management(HabVector,"ID",1,"VB")
+            gp.FeatureToRaster_conversion(HabVector,"ID",interws+HabAbbrevList[i],"10")
+            gp.BuildRasterAttributeTable_management(interws+HabAbbrevList[i], "Overwrite")                   
+            if gp.GetCount(interws+HabAbbrevList[i]) > 0:
+                pass
+                gp.Reclassify_sa(interws+HabAbbrevList[i],"VALUE","1 1;NODATA 0",interws+HabAbbrevList[i]+"_rc","DATA")
+                gp.ExtractValuesToPoints_sa(Profile_Pts_Merge,interws+HabAbbrevList[i]+"_rc",interws+HabAbbrevList[i]+".shp","NONE")
+                gp.AddField_management(interws+HabAbbrevList[i]+".shp",HabAbbrevList[i],"SHORT","0","0","","","NON_NULLABLE","NON_REQUIRED","")
+                gp.CalculateField_management(interws+HabAbbrevList[i]+".shp",HabAbbrevList[i],"[RASTERVALU]","VB")
+                gp.DeleteField_management(interws+HabAbbrevList[i]+".shp","RASTERVALU")
+                if i==0:
+                    IntersectExpr=IntersectExpr+interws+HabAbbrevList[i]+".shp "+str(i+1)
+                else:
+                    IntersectExpr=IntersectExpr+"; "+interws+HabAbbrevList[i]+".shp "+str(i+1)
+        # intersect the various habitat profile point plots
+        gp.Intersect_analysis(IntersectExpr,Profile_Pts_Hab,"NO_FID","","INPUT")
+
+        # delete extra fields
+        DeleteFieldList=[]
+        HabFieldList=[]
+        fieldList=gp.ListFields(Profile_Pts_Hab,"*","All")
+        field=fieldList.Next()
+        while field <> None:
+            if field.Name not in AbbrevList+ExcludeList:
+                DeleteFieldList.append(field.Name)
+            if field.Name in AbbrevList:
+                HabFieldList.append(field.Name)
+            field=fieldList.Next()
+        del fieldList,field
+        gp.DeleteField_management(Profile_Pts_Hab,DeleteFieldList)
+
+        # add all habitat abbreviation fields, even if not part of inputs
+        for k in range(0,len(AbbrevList)):
+            if AbbrevList[k] not in HabFieldList:
+                Profile_Pts_Hab=AddField(Profile_Pts_Hab,AbbrevList[k],"SHORT","0","0")
+
         # read 'Profile_Pts_Hab' to array 'ProfileHabArray'
         ProfileHabLength = gp.GetCount_management(Profile_Pts_Hab)
         ProfileHabList = np.zeros(ProfileHabLength*7, dtype=np.float64)
@@ -1228,12 +1229,103 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
         ProfileHabArray = ProfileHabArray[ProfileHabArray[:,0].argsort()] # sort the array by 'PT_ID'
 
         ## TO BE MODIFIED BY GG ##        
-        TextData=open(outputws+"Test.txt","w")
+        TextData=open(HabitatLocation,"w")
         for i in range(0,ProfileHabLength):
             for j in range(0,7):
                 TextData.write(str(ProfileHabArray[i][j])+" ")
             TextData.write("\n")
-        TextData.close()        
+        TextData.close() 
+        
+        temp=transpose(ProfileHabArray)
+        TempX=temp[0]
+        TempY=temp[1]
+        MG=temp[2];MR=temp[3];SG=temp[4];DN=temp[5];CR=temp[6]
+        
+        temp=num.nonzero(MG);temp=temp[0]
+        la=num.nonzero(diff(temp)<>1);la=la[0]       
+        if len(la)>0:
+            begMGx=num.arange(0,len(la)+1,1)*0;finMGx=num.array(begMGx)
+            begMGy=num.array(begMGx);finMGy=num.array(begMGx)
+            temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None);
+            temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
+            for kk in range(len(temp1)/2):
+                begMGx[kk]=TempX[temp1[2*kk]];begMGy[kk]=TempY[temp1[2*kk]]
+                finMGx[kk]=TempX[temp1[2*kk+1]];finMGy[kk]=TempY[temp1[2*kk+1]]
+        elif len(temp)>0:
+            begMGx=[TempX[temp[0]]];begMGy=[TempY[temp[0]]]
+            finMGx=[TempX[temp[-1]]];finMGy=[TempY[temp[-1]]];
+        else:
+            begMGx=[];finMGx=[];begMGy=[];finMGy=[];
+        begMGx=num.array(begMGx);finMGx=num.array(finMGx)
+
+        temp=num.nonzero(SG);temp=temp[0]
+        la=num.nonzero(diff(temp)<>1);la=la[0]       
+        if len(la)>0:
+            begSGx=num.arange(0,len(la)+1,1)*0;finSGx=num.array(begSGx)
+            begSGy=num.array(begSGx);finSGy=num.array(begSGx)
+            temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None);
+            temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
+            for kk in range(len(temp1)/2):
+                begSGx[kk]=TempX[temp1[2*kk]];begSGy[kk]=TempY[temp1[2*kk]]
+                finSGx[kk]=TempX[temp1[2*kk+1]];finSGy[kk]=TempY[temp1[2*kk+1]]
+        elif len(temp)>0:
+            begSGx=[TempX[temp[0]]];begSGy=[TempY[temp[0]]]
+            finSGx=[TempX[temp[-1]]];finSGy=[TempY[temp[-1]]];
+        else:
+            begSGx=[];finSGx=[];begSGy=[];finSGy=[];
+        begSGx=num.array(begSGx);finSGx=num.array(finSGx)
+
+        temp=num.nonzero(MR);temp=temp[0]
+        la=num.nonzero(diff(temp)<>1);la=la[0]       
+        if len(la)>0:
+            begMRx=num.arange(0,len(la)+1,1)*0;finMRx=num.array(begMRx)
+            begMRy=num.array(begMRx);finMRy=num.array(begMRx)
+            temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None);
+            temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
+            for kk in range(len(temp1)/2):
+                begMRx[kk]=TempX[temp1[2*kk]];begMRy[kk]=TempY[temp1[2*kk]]
+                finMRx[kk]=TempX[temp1[2*kk+1]];finMRy[kk]=TempY[temp1[2*kk+1]]
+        elif len(temp)>0:
+            begMRx=[TempX[temp[0]]];begMRy=[TempY[temp[0]]]
+            finMRx=[TempX[temp[-1]]];finMRy=[TempY[temp[-1]]];
+        else:
+            begMRx=[];finMRx=[];begMRy=[];finMRy=[];
+        begMRx=num.array(begMRx);finMRx=num.array(finMRx)
+
+        temp=num.nonzero(CR);temp=temp[0]
+        la=num.nonzero(diff(temp)<>1);la=la[0]       
+        if len(la)>0:
+            begCRx=num.arange(0,len(la)+1,1)*0;finCRx=num.array(begCRx)
+            begCRy=num.array(begCRx);finCRy=num.array(begCRx)
+            temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None);
+            temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
+            for kk in range(len(temp1)/2):
+                begCRx[kk]=TempX[temp1[2*kk]];begCRy[kk]=TempY[temp1[2*kk]]
+                finCRx[kk]=TempX[temp1[2*kk+1]];finCRy[kk]=TempY[temp1[2*kk+1]]
+        elif len(temp)>0:
+            begCRx=[TempX[temp[0]]];begCRy=[TempY[temp[0]]]
+            finCRx=[TempX[temp[-1]]];finCRy=[TempY[temp[-1]]];
+        else:
+            begCRx=[];finCRx=[];begCRy=[];finCRy=[];
+        begCRx=num.array(begCRx);finCRx=num.array(finCRx)
+
+        temp=num.nonzero(DN);temp=temp[0]
+        la=num.nonzero(diff(temp)<>1);la=la[0]       
+        if len(la)>0:
+            begDNx=num.arange(0,len(la)+1,1)*0;finDNx=num.array(begDNx)
+            begDNy=num.array(begDNx);finDNy=num.array(begDNx)
+            temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None);
+            temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
+            for kk in range(len(temp1)/2):
+                begDNx[kk]=TempX[temp1[2*kk]];begDNy[kk]=TempY[temp1[2*kk]]
+                finDNx[kk]=TempX[temp1[2*kk+1]];finDNy[kk]=TempY[temp1[2*kk+1]]
+        elif len(temp)>0:
+            begDNx=[TempX[temp[0]]];begDNy=[TempY[temp[0]]]
+            finDNx=[TempX[temp[-1]]];finDNy=[TempY[temp[-1]]];
+        else:
+            begDNx=[];finDNx=[];begDNy=[];finDNy=[];
+        begDNx=num.array(begDNx);finDNx=num.array(finDNx)
+
         ##########################
         
 # upload user's profile
@@ -1455,7 +1547,7 @@ gp.AddMessage("...plotting profile and creating outputs\n")
 yd=yd[::-1]    
 DeepLoc=argmin(abs(yd-(-3)));
 
-Fig3=1;Fig2=1
+Fig3=1;Fig2=1;Fig6=0
 # plot and save
 if BackHelp==1:
     if ProfileQuestion=="(1) Yes":
@@ -1474,7 +1566,7 @@ if BackHelp==1:
         ylabel('Elevation [m]',weight='bold')
         xlabel('Cross-Shore Distance [m]',weight='bold')
         savefig(html_txt+"ProfilePlot3.png",dpi=(640/8))
-
+                
     elif ProfileQuestion=="(2) No,but I will upload a cross-shore profile":
         figure(2)
         keep=num.nonzero(yd <= 0);keep=keep[0]
@@ -1516,7 +1608,7 @@ if BackHelp==1:
     title('Foreshore and Backshore',size='large',weight='bold')
     savefig(html_txt+"ProfilePlot2.png",dpi=(640/8))
     
-elif BackHelp==2:
+elif BackHelp==2 or BackHelp==3:
     figure(2)
     plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
     legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),'upper right')
@@ -1533,7 +1625,7 @@ elif BackHelp==2:
     savefig(html_txt+"ProfilePlot2.png",dpi=(640/8))
     Fig3=0
 
-elif BackHelp==3:
+elif BackHelp==4:
     if ProfileQuestion=="(1) Yes":
         Dorig=num.array(Dorig);Xorig=num.array(Xorig)
         figure(2)
@@ -1584,6 +1676,53 @@ elif BackHelp==3:
         title('Created Profile',size='large',weight='bold')
         savefig(html_txt+"ProfilePlot1.png",dpi=(640/8))
         Fig2=0;  Fig3=0
+
+
+if ProfileQuestion=="(1) Yes":
+    def pst(a):
+        if sum(a)<>0: b=1
+        else:    b=0
+        return b
+    
+    try:    temp=pst(begMGx)+pst(begMRx)+pst(begCRx)+pst(begDNx)+pst(begSGx);temp=sum(temp)
+    except:    temp=0
+        
+    if temp<>0:
+        figure(6);j=1
+        if pst(begMGx)<>0:
+            subplot(temp,1,j); temp1=TempY+nan
+            la=num.nonzero(MG);temp1[la]=TempY[la]
+            plot(TempX,TempY,TempX,temp1,'xg');grid();
+            ylabel('Mangrove Field');j=j+1
+            
+        if pst(begDNx)<>0:
+            subplot(temp,1,j);temp1=TempY+nan
+            la=num.nonzero(DN);temp1[la]=TempY[la]
+            plot(TempX,TempY,TempX,temp1,'xg');grid();
+            ylabel('Sand Dunes');j=j+1
+
+        if pst(begMRx)<>0:
+            subplot(temp,1,j);temp1=TempY+nan
+            la=num.nonzero(MR);temp1[la]=TempY[la]
+            plot(TempX,TempY,TempX,temp1,'xg');grid();
+            ylabel('Marsh');j=j+1
+
+        if pst(begSGx)<>0:
+            subplot(temp,1,j);temp1=TempY+nan
+            la=num.nonzero(SG);temp1[la]=TempY[la]
+            plot(TempX,TempY,TempX,temp1,'xg');grid();
+            ylabel('Seagrass Bed');j=j+1
+               
+
+        if pst(begCRx)<>0:
+            subplot(temp,1,j);temp1=TempY+nan
+            la=num.nonzero(CR);temp1[la]=TempY[la]
+            plot(TempX,TempY,TempX,temp1,'xg');grid();
+            ylabel('Coral Reef');j=j+1
+        xlabel('Cross-Shore Distance [m]',weight='bold')
+        savefig(html_txt+"ProfilePlot6.png",dpi=(640/8))
+        Fig6=1
+               
 
 # fetch and wind rose plots
 if FetchQuestion=='(1) Yes':
@@ -1857,6 +1996,23 @@ elif BackHelp==4:
         htmlfile.write("</td><td>")
         htmlfile.write("<img src=\"ProfilePlot2.png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\">")
     htmlfile.write("</td><td></td></tr></table><br>\n")
+    
+if Fig6:
+    htmlfile.write("<tr><td>")
+    htmlfile.write("<img src=\"ProfilePlot6.png\" alt=\"Location of Natural Habitats\" width=\"640\" height=\"480\">")
+    htmlfile.write("<tr><td>")
+    
+    if pst(begMGx)<>0:
+        htmlfile.write("You have a mangrove field that starts at X="+str(begMGx)+"m, and ends at X=" +str(finMGx)+ "m <br>\n")
+    if pst(begDNx)<>0:
+        htmlfile.write("You have a dune field that starts at X="+str(begDNx)+"m, and ends at X=" +str(finDNx)+ "m <br>\n")
+    if pst(begSGx)<>0:
+        htmlfile.write("You have a seagrass bed that starts at X="+str(begSGx)+"m, and ends at X=" +str(finSGx)+ "m <br>\n")
+    if pst(begCRx)<>0:
+        htmlfile.write("You have a coral reef that starts at X="+str(begCRx)+"m, and ends at X=" +str(finCRx) +"m <br>\n")
+    if pst(begMRx)<>0:
+        htmlfile.write("You have a marsh that starts at X="+str(begMRx)+"m, and ends at X=" +str(finMRx) + "m <br>\n")
+
 # close HTML
 htmlfile.close()
 
