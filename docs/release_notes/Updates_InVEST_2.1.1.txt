@@ -1,0 +1,10 @@
+Oct 3, 2011
+
+Changes in InVEST 2.1.1
+
+General:
+
+This is a minor release which fixes the following defects: 
+
+-A truncation error was fixed on nutrient retention and sedimentation model that involved division by the number of cells in a watershed.  Now correctly calculates floating point division.
+-Minor typos were fixed across the user's guide. 
