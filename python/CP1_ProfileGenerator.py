@@ -225,6 +225,39 @@ def grabProjection(data):
     strSR=str(gp.OutputCoordinateSystem)
     return strSR
 
+def PTCreate(PTType,midx,midy,TransectDist): # function to create point transects
+    if PTType==1:
+        y1=midy+TransectDist
+        y2=midy-TransectDist
+        x1=midx
+        x2=midx
+    elif PTType==2:
+        y1=midy
+        y2=midy 
+        x1=midx+TransectDist
+        x2=midx-TransectDist
+    elif PTType==3:
+        y1=NegRecip*(TransectDist)+midy
+        y2=NegRecip*(-TransectDist)+midy
+        x1=midx+TransectDist
+        x2=midx-TransectDist
+    elif PTType==4:
+        y1=midy+TransectDist
+        y2=midy-TransectDist
+        x1=(TransectDist/NegRecip)+midx
+        x2=(-TransectDist/NegRecip)+midx
+    elif PTType==5:
+        y1=midy+TransectDist
+        y2=midy-TransectDist
+        x1=(TransectDist/NegRecip)+midx
+        x2=(-TransectDist/NegRecip)+midx
+    elif PTType==6:
+        y1=NegRecip*(TransectDist)+midy
+        y2=NegRecip*(-TransectDist)+midy
+        x1=midx+TransectDist
+        x2=midx-TransectDist
+    return x1,y1,x2,y2
+
 def compareProjections(LandPoint,LandPoly):
     if gp.describe(LandPoint).SpatialReference.name <> gp.describe(LandPoly).SpatialReference.name:
         gp.AddError("Projection Error: "+LandPoint+" is in a different projection from the LandPoly data.  The two inputs must be the same projection to calculate depth profile.")
@@ -879,13 +912,21 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
     endx=float(endList[0])
     endy=float(endList[1])
 
-    # diagnose the type of perpendicular transect to create (PTType)
-    PTType=0
+    # diagnose the type of perpendicular transect to create (PerpTransType)
+    PerpTransType=0
     if starty==endy or startx==endx:
         if starty==endy:
-            PTType=1
+            y1=midy+TransectDist
+            y2=midy-TransectDist
+            x1=midx
+            x2=midx
+            PerpTransType=1
         if startx==endx:
-            PTType=2
+            y1=midy
+            y2=midy 
+            x1=midx+TransectDist
+            x2=midx-TransectDist
+            PerpTransType=2
     else:
         # get the slope of the line
         m=((starty-endy)/(startx-endx))
@@ -895,57 +936,35 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
         if m > 0:
             # increase x-values,find y
             if m >= 1:
-                PTType=3
+                y1=NegRecip*(TransectDist)+midy
+                y2=NegRecip*(-TransectDist)+midy
+                x1=midx+TransectDist
+                x2=midx-TransectDist
+                PerpTransType=3
             # increase y-values,find x
             if m < 1:
-                PTType=4
+                y1=midy+TransectDist
+                y2=midy-TransectDist
+                x1=(TransectDist/NegRecip)+midx
+                x2=(-TransectDist/NegRecip)+midx
+                PerpTransType=4
         if m < 0:
             # add to x,find y-values
             if m >= -1:
             # add to y,find x-values
-                PTType=5
+                y1=midy+TransectDist
+                y2=midy-TransectDist
+                x1=(TransectDist/NegRecip)+midx
+                x2=(-TransectDist/NegRecip)+midx
+                PerpTransType=5
             if m < -1:
-                PTType=6
-    del cur, row
-
-    # use the correct perpendicular transect formula based on coastline slope (m)
-    x1List = []; x2List = []; y1List = []; y2List = []
-    if PTType==1:
-        for i in range(0,(RadLineDist/2.0)):
-            y1List.append(midy+i+1)
-            y2List.append(midy-i+1)
-            x1List.append(midx)
-            x2List.append(midx)
-    elif PTType==2:
-        for i in range(0,(RadLineDist/2.0)):
-            y1List.append(midy)
-            y2List.append(midy) 
-            x1List.append(midx+i+1)
-            x2List.append(midx-i+1)
-    elif PTType==3:
-        for i in range(0,(RadLineDist/2.0)):
-            y1List.append(NegRecip*(i+1)+midy)
-            y2List.append(NegRecip*(-i+1)+midy)
-            x1List.append(midx+i+1)
-            x2List.append(midx-i+1)
-    elif PTType==4:
-        for i in range(0,(RadLineDist/2.0)):
-            y1List.append(midy+i+1)
-            y2List.append(midy-i+1)
-            x1List.append((i+1/NegRecip)+midx)
-            x2List.append((-i+1/NegRecip)+midx)
-    elif PTType==5:
-        for i in range(0,(RadLineDist/2.0)):
-            y1List.append(midy+i+1)
-            y2List.append(midy-i+1)
-            x1List.append((i+1/NegRecip)+midx)
-            x2List.append((-i+1/NegRecip)+midx)
-    elif PTType==6:
-        for i in range(0,(RadLineDist/2.0)):        
-            y1List.append(NegRecip*(i+1)+midy)
-            y2List.append(NegRecip*(-i+1)+midy)
-            x1List.append(midx+i+1)
-            x2List.append(midx-i+1)
+                y1=NegRecip*(TransectDist)+midy
+                y2=NegRecip*(-TransectDist)+midy
+                x1=midx+TransectDist
+                x2=midx-TransectDist
+                PerpTransType=6
+    del cur
+    del row
 
     # grab projection spatial reference from 'LandPoint'
     dataDesc=gp.describe(LandPoint)
@@ -953,23 +972,25 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
     gp.CreateFeatureClass_management(interws,"PT1.shp","POINT","#","#","#",spatialRef)
     gp.CreateFeatureClass_management(interws,"PT2.shp","POINT","#","#","#",spatialRef)
 
-    # create two point transects, each point is 1 meter away from the previous    
+    # create two point transects,each point is 1 meter away from the previous    
     cur1=gp.InsertCursor(PT1)
     cur2=gp.InsertCursor(PT2)
-    while TransectDist < (RadLineDist/2.0):
+    while TransectDist <= RadLineDist/2.0:
+        # call 'PTCreate' function to use the correct perpendicular transect formula based on coastline slope (m)
+        x1,y1,x2,y2=PTCreate(PerpTransType,midx,midy,TransectDist)
         row1=cur1.NewRow()
         pnt=gp.CreateObject("POINT")
-        pnt.x=x1List[TransectDist]
-        pnt.y=y1List[TransectDist]
+        pnt.x=x1
+        pnt.y=y1
         row1.shape=pnt
         cur1.InsertRow(row1)
         row2=cur2.NewRow()
         pnt=gp.CreateObject("POINT")
-        pnt.x=x2List[TransectDist]
-        pnt.y=y2List[TransectDist]
+        pnt.x=x2
+        pnt.y=y2
         row2.shape=pnt
         cur2.InsertRow(row2)
-        TransectDist+=1
+        TransectDist=TransectDist+1
     del cur1,row1
     del cur2,row2
 

@@ -58,7 +58,7 @@ except:
     gp.AddError(msgSciPyNo)
     
 try:
-    if CP_Tier0 == "true" or CP_Tier1 == "true" or FinfishAquaculture  == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
+    if CP_Tier1 == "true" or FinfishAquaculture  == "true" or HabitatRiskAssessment  == "true" or OverlapAnalysis == "true" or WaveEnergy  == "true":
         import win32com.client
         gp.AddMessage(msgWin32ComYes) 
 except:
