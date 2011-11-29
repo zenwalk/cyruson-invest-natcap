@@ -1,7 +1,7 @@
-# Marine InVEST: Visual Impact from Objects (Aesthetic Quality)
+# Marine InVEST: Aesthetic Quality (Viewshed Analysis)
 # Authors: Gregg Verutes, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 10/05/11
+# 11/28/11
 
 # import modules
 import sys, string, os, datetime, shlex
