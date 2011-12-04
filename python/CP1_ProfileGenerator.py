@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Profile Generator)
 # Authors: Greg Guannel, Gregg Verutes
-# 12/01/11
+# 12/02/11
 
 # import libraries
 import numpy as num
@@ -45,20 +45,20 @@ try:
     parameters.append("Land Point: "+LandPoint)
     LandPoly=gp.GetParameterAsText(3)
     parameters.append("Land Polygon: "+LandPoly)
-    InputTable=gp.GetParameterAsText(4)
-    parameters.append("Profile Generator Excel Table: "+InputTable)
-    ProfileQuestion=gp.GetParameterAsText(5)
+    ProfileQuestion=gp.GetParameterAsText(4)
     parameters.append("Do you have a nearshore bathymetry GIS layer?: "+ProfileQuestion)
-    BathyGrid=gp.GetParameterAsText(6)
+    BathyGrid=gp.GetParameterAsText(5)
     parameters.append("IF 1: Bathymetric Grid (DEM): "+BathyGrid)
-    HabDirectory=gp.GetParameterAsText(7)
+    HabDirectory=gp.GetParameterAsText(6)
     parameters.append("IF 1: Habitat Data Directory: "+HabDirectory)
-    BufferDist=gp.GetParameterAsText(8)
+    BufferDist=gp.GetParameterAsText(7)
     parameters.append("IF 1: Land Point Buffer Distance: "+BufferDist)
-    CSProfile=gp.GetParameterAsText(9)
+    CSProfile=gp.GetParameterAsText(8)
     parameters.append("IF 2: Upload Your Cross-Shore Profile: "+CSProfile)
-    SmoothParameter=float(gp.GetParameterAsText(10))
+    SmoothParameter=float(gp.GetParameterAsText(9))
     parameters.append("Smoothing Percentage (Value of '0' means no smoothing): "+str(SmoothParameter))
+    InputTable=gp.GetParameterAsText(10)
+    parameters.append("Profile Generator Excel Table: "+InputTable)
     WW3_Pts=gp.GetParameterAsText(11)
     parameters.append("Wave Watch 3 Model Data: "+WW3_Pts)
     FetchQuestion=gp.GetParameterAsText(12)
@@ -260,7 +260,7 @@ def Indexed(x,value): # locates index of point in vector x that has closest valu
     ind=ind[0]
     return ind
 
-def SlopeModif(X,Y,SlopeMod,OffMod,ShoreMod): # replaces/adds linear portion to profile
+def SlopeModif3(X,Y,SlopeMod,OffMod,ShoreMod): # replaces/adds linear portion to profile
     if SlopeMod <> 0:
         m=1.0/SlopeMod # slope
     else:
@@ -278,7 +278,53 @@ def SlopeModif(X,Y,SlopeMod,OffMod,ShoreMod): # replaces/adds linear portion to 
         dist=ShoreMod-OffMod
         temp_x=num.arange(0,int(dist),1) # length of the segment modified/added
         out=num.arange(Indexed(temp_x,dist)+1,len(temp_x),1) # remove points that are beyond shoreward limit 
-        temp_y=m*temp_x+Y[of];temp_y=num.delete(temp_y,out,None) # new profile
+        temp_y=m*temp_x+Y[of];
+        temp_y=num.delete(temp_y,out,None);temp_x=num.delete(temp_x,out,None) # new profile
+        Y=num.append(Y[0:of-1],temp_y,None); # append depth vector
+        X=num.append(X[0:of-1],temp_x+X[of],None) # append X vector
+
+        # resample on vector with dx=1
+        F=interp1d(X,Y);X=num.arange(X[0],X[-1],1)
+        Y=F(X);X=X-X[0]
+
+        # remove NaNs        
+        temp=numpy.isnan(Y).any()
+        if str(temp)=="True":
+            keep=X*0+(-1)
+            for xx in range(len(Y)):
+                if str(numpy.isnan(Y[xx]))=="False":
+                    keep[xx]=xx
+            keep=num.nonzero(keep > 0);keep=keep[0]
+            Y=Y[keep];X=X[keep]
+    return X,Y
+
+def SlopeModif(X,Y,SlopeMod,Offx,Shorex): # replaces/adds linear portion to profile
+    OffMod=X[-1]-Offx;ShoreMod=X[-1]-Shorex 
+    
+    if SlopeMod <> 0:
+        m=1.0/SlopeMod # slope
+    else:
+        m=0.0
+        
+    Xend=X[-1] # last point in profile
+    if ShoreMod < Xend: # if modified portion in within profile
+        of=Indexed(X,OffMod) # locate offshore point
+        sho=Indexed(X,ShoreMod) # locate shoreward point
+            
+        # modify the slope between offshore and shoreward points
+        Y[of:sho]=m*X[of:sho]+Y[of]-m*X[of]
+    else:
+        of=Indexed(X,OffMod) # locate offshore point
+        dist=ShoreMod-OffMod
+        temp_x=num.arange(0,10000,1) # length of the segment modified/added
+        temp_y=m*temp_x+Y[of];
+        if Y[of]<0: #If first point is seaward of shoreline
+            loc=Indexed(temp_y,0)
+            out=num.arange(Indexed(temp_x,loc+abs(Shorex))+1,len(temp_x),1) # remove points that are beyond shoreward limit 
+        else:
+            out=num.arange(Indexed(temp_x,dist)+1,len(temp_x),1) # remove points that are beyond shoreward limit 
+
+        temp_y=num.delete(temp_y,out,None);temp_x=num.delete(temp_x,out,None) # new profile
         Y=num.append(Y[0:of-1],temp_y,None); # append depth vector
         X=num.append(X[0:of-1],temp_x+X[of],None) # append X vector
 
@@ -1449,13 +1495,17 @@ xd2=[xd[ii] for ii in range(len(xd))]
 SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
 yd2=SignalSmooth.smooth(yd,SmoothValue,'flat')
 
+#Make sure that deepest point is at X=0
+if yd[-1]<0:    yd=yd[::-1];
+if yd[0]>yd[-1]:    yd=yd[::-1];    
+
 
 # profile modification
 gp.AddMessage("...customizing depth profile")
 if BackHelp==1: # create backshore profile for beach systems 
     # smooth the signal
     SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
-    yd=SignalSmooth.smooth(yd,SmoothValue,'flat');yd=yd[::-1]      
+    yd=SignalSmooth.smooth(yd,SmoothValue,'flat');
     
     x=num.arange(0.0,10001.0,1.0) # long axis
     BermCrest=BermCrest+MSL; #yd is referenced to MLLW; Need to reference all to MSL
@@ -1516,25 +1566,14 @@ elif BackHelp==2: # modify profile for mangroves/marshes
     
     # modify existing profile
     for oo in range(len(SlopeM)):
-        SlopeMod1=SlopeM[oo]
-        OffMod1=Xmod[-1]-OffX[oo];ShoreMod1=Xmod[-1]-ShoreX[oo] 
-
-        if ShoreMod1-OffMod1<>0:
-            Xmod,Ymod=SlopeModif(Xmod,Ymod,SlopeMod1,OffMod1,ShoreMod1)
+        if OffX[oo]-ShoreX[oo]<>0:
+            Xmod,Ymod=SlopeModif(Xmod,Ymod,SlopeM[oo],OffX[oo],ShoreX[oo])
     
     # resample on vector with dx=1
     F=interp1d(Xmod,Ymod);Xmod=num.arange(Xmod[0],Xmod[0]+len(Xmod),1)
-    Ymod=F(Xmod)
-
-    # smooth the signal
-    SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
-    yd=SignalSmooth.smooth(Ymod,SmoothValue,'flat');yd=yd[::-1];
-    loc=Indexed(yd,0.0);xd=Xmod-Xmod[loc]
-    
+    Ymod=F(Xmod);yd=Ymod;xd=Xmod
+  
 elif BackHelp==3: # modify profile with straight lines 
-    yd=yd[::-1]
-    SlopeMod=num.array([600,0,-1,0])
-    
     Xmod=[xd[i] for i in range(lx)];Xmod=num.array(Xmod)
     Ymod=[yd[i] for i in range(lx)];Ymod=num.array(Ymod)
     loc=num.nonzero(SlopeMod < 0);loc=loc[0]
@@ -1558,30 +1597,28 @@ elif BackHelp==3: # modify profile with straight lines
 
      # modify existing profile
     for oo in range(len(SlopeMod)):
-        SlopeMod1=SlopeMod[oo]
         OffMod1=Xmod[-1]-OffMod[oo];ShoreMod1=Xmod[-1]-ShoreMod[oo]
 
         if ShoreMod1 < OffMod1:
             gp.AddError("In Modification 1,XInshore should be larger than XOffshore.")
             raise Exception
         if ShoreMod1-OffMod1<>0:
-            Xmod,Ymod=SlopeModif(Xmod,Ymod,SlopeMod1,OffMod1,ShoreMod1)
+            SlopeMod1=SlopeMod[oo]
+            Xmod,Ymod=SlopeModif3(Xmod,Ymod,SlopeMod1,OffMod1,ShoreMod1)
     
     # resample on vector with dx=1
     F=interp1d(Xmod,Ymod);Xmod=num.arange(Xmod[0],Xmod[0]+len(Xmod),1)
-    Ymod=F(Xmod)
+    Ymod=F(Xmod);yd=Ymod;xd=Xmod
 
-    # smooth the signal
-    SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
-    yd=SignalSmooth.smooth(Ymod,SmoothValue,'flat');yd=yd[::-1];
-    loc=Indexed(yd,0.0);xd=Xmod-Xmod[loc]
-
-else:
-    # smooth the signal
+#Flip profile so that shoreline point is at X=0
+if BackHelp<>1:# smooth the signal
     SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
     yd=SignalSmooth.smooth(yd,SmoothValue,'flat');
+if yd[-1]>0:    yd=yd[::-1];
+if yd[0]<yd[-1]:    yd=yd[::-1];  
+loc=Indexed(yd,0.0);xd=xd-xd[loc] #Have X=0 at the shoreline
 
-# plot
+# Plot Outputs#################################################################################################
 gp.AddMessage("...plotting profile and creating outputs\n")
 # depth limits for plotting
 DeepLoc=argmin(abs(yd-(-3)));
@@ -2074,6 +2111,7 @@ htmlfile.write("</td><td>")
 htmlfile.write("<img src=\"Fetch_Plot.png\" width=\"347\" height=\"260\" alt=\"Fetch Rose: No Fetch Calculation Selected\"></td><td>")
 htmlfile.write("<img src=\"Wind_Plot.png\" width=\"347\" height=\"260\" alt=\"Wind Rose: No Wave Watch III Info Provided\"></td></tr></table>")
 
+temp=0;
 if WW3_Pts or FetchQuestion=='(1) Yes':
     htmlfile.write("<HR><H2><u>Wind and Wave Information</u></H2>")
     
@@ -2135,35 +2173,36 @@ if WW3_Pts or FetchQuestion=='(1) Yes':
         htmlfile.write("<li> The most powerful wave generated by the top 25% wind speed is: Ho="+str(round(WiWav25[loc],2))+"m, with a period of To="+str(round(max(WiPer25),2))+"s<p><br>")
 else:
     htmlfile.write("<li> We cannot provide you with wave information at your site since you didn't include Wave Watch III in the analysis.<p>")
+    temp=1
 
-    if WW3_Pts:
-        htmlfile.write("<b>Wave Height Data from Wave Watch III </b></br>")
-        htmlfile.write("<i>From WaveWatchIII data, we estimated various <br>wave height/period values that you could use as input into the wave model</i>")
-        htmlfile.write("<table border=\"1\" width=\"600\" cellpadding=\"6\" cellspacing=\"0\">")
-        htmlfile.write("<tr align=\"center\"></td><th colspan=\"1\"></th><td>Wave Height (m)</td><td>Wave Period (m)</td></tr><tr align=\"center\">")
-        htmlfile.write("<td><b>Maximum Wave</b></td>")
-        htmlfile.write("<td>"+str(WavMax[0])+"</td>")
-        htmlfile.write("<td>"+str(WavMax[1])+"</td>")
-        htmlfile.write("</tr><tr align=\"center\">")
-        htmlfile.write("<td><b>Top 10% Wave</b></td>")
-        htmlfile.write("<td>"+str(Wav10[0])+"</td>")
-        htmlfile.write("<td>"+str(Wav10[1])+"</td>")
-        htmlfile.write("</tr><tr align=\"center\">")
-        htmlfile.write("<td><b>Top 20% Wave</b></td>")
-        htmlfile.write("<td>"+str(Wav25[0])+"</td>")
-        htmlfile.write("<td>"+str(Wav25[1])+"</td>")
-        htmlfile.write("</tr><tr align=\"center\">")
-        htmlfile.write("<td><b>10 Year Wave</b></td>")
-        htmlfile.write("<td>"+str(Wav10yr)+"</td>")
-        htmlfile.write("<td>-</td>")
-        htmlfile.write("</tr>")
-        if Tm<>-1:
-            htmlfile.write("<tr align=\"center\"><td><b>Most Frequent</b></td>")
-            htmlfile.write("<td>"+str(Hm)+"</td>")
-            htmlfile.write("<td>"+str(Tm)+"</td>")
-        htmlfile.write("</table>")
-    else:
-        htmlfile.write("We cannot provide you with wave information at your site since you didn't include Wave Watch III in the analysis.<br>")
+if WW3_Pts:
+    htmlfile.write("<b>Wave Height Data from Wave Watch III </b></br>")
+    htmlfile.write("<i>From WaveWatchIII data, we estimated various <br>wave height/period values that you could use as input into the wave model</i>")
+    htmlfile.write("<table border=\"1\" width=\"600\" cellpadding=\"6\" cellspacing=\"0\">")
+    htmlfile.write("<tr align=\"center\"></td><th colspan=\"1\"></th><td>Wave Height (m)</td><td>Wave Period (m)</td></tr><tr align=\"center\">")
+    htmlfile.write("<td><b>Maximum Wave</b></td>")
+    htmlfile.write("<td>"+str(WavMax[0])+"</td>")
+    htmlfile.write("<td>"+str(WavMax[1])+"</td>")
+    htmlfile.write("</tr><tr align=\"center\">")
+    htmlfile.write("<td><b>Top 10% Wave</b></td>")
+    htmlfile.write("<td>"+str(Wav10[0])+"</td>")
+    htmlfile.write("<td>"+str(Wav10[1])+"</td>")
+    htmlfile.write("</tr><tr align=\"center\">")
+    htmlfile.write("<td><b>Top 20% Wave</b></td>")
+    htmlfile.write("<td>"+str(Wav25[0])+"</td>")
+    htmlfile.write("<td>"+str(Wav25[1])+"</td>")
+    htmlfile.write("</tr><tr align=\"center\">")
+    htmlfile.write("<td><b>10 Year Wave</b></td>")
+    htmlfile.write("<td>"+str(Wav10yr)+"</td>")
+    htmlfile.write("<td>-</td>")
+    htmlfile.write("</tr>")
+    if Tm<>-1:
+        htmlfile.write("<tr align=\"center\"><td><b>Most Frequent</b></td>")
+        htmlfile.write("<td>"+str(Hm)+"</td>")
+        htmlfile.write("<td>"+str(Tm)+"</td>")
+    htmlfile.write("</table>")
+elif temp==0:
+    htmlfile.write("We cannot provide you with wave information at your site since you didn't include Wave Watch III in the analysis.<br>")
 
 htmlfile.close() # close HTML
 
