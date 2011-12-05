@@ -276,15 +276,15 @@ try:
                 CritWeights.append(int(rawList[i][0]))
 
         # adjust inter-criteria weights
-        CritWeights = [0.5 if i == 0 else i for i in CritWeights]; CritWeights = [1.5 if i == 2 else i for i in CritWeights]
-        ExpCritWeights = []
-        ExpIndex = [1,2,0,3]
-        for i in range(0,4)
-            ExpCritWeights.append(CritWeights[ExpIndex[i]])
-        ConsCritWeights = []
-        ConsIndex = [7,8,9,10,4,5,6]            
-        for i in range(0,7)
-            ConsCritWeights.append(CritWeights[ConsIndex[i]])
+##        CritWeights = [0.5 if i == 0 else i for i in CritWeights]; CritWeights = [1.5 if i == 2 else i for i in CritWeights]
+##        ExpCritWeights = []
+##        ExpIndex = [1,2,0,3]
+##        for i in range(0,4):
+##            ExpCritWeights.append(CritWeights[ExpIndex[i]])
+##        ConsCritWeights = []
+##        ConsIndex = [7,8,9,10,4,5,6]            
+##        for i in range(0,7):
+##            ConsCritWeights.append(CritWeights[ConsIndex[i]])
 
         # populate buffer distance list
         StressBuffDistList = []
