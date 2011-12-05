@@ -68,7 +68,7 @@ try:
         Stress_Directory = gp.GetParameterAsText(3)
         parameters.append("Stressor Data Directory: "+ Stress_Directory)
         HabStressRate_Table = gp.GetParameterAsText(4)
-        parameters.append("Stressor Data Directory: "+ HabStressRate_Table)
+        parameters.append("Habitat-Stressor Ratings CSV Table: "+ HabStressRate_Table)
         PlotBoolean = gp.GetParameterAsText(5)
         parameters.append("Create HTML output with risk plots: "+ PlotBoolean)
         RiskBoolean = gp.GetParameterAsText(6)
