@@ -550,20 +550,21 @@ try:
                 ExpQualityArray[rowCount][3] = int(HabStressVar[rowCount][7]) # DQ of overlap time
                 ExpQualityArray2[rowCount][3] = int(HabStressVar[rowCount][7])+1 # DQ of overlap time
                 rowCount += 1
-
-        ## FIX RECOVERY SCORING ##
-        
+ 
         # hard-code the spatial overlap rank breaks
-        UB_1 = 10
-        UB_2 = 30
+        UB_1 = 10.0
+        UB_2 = 30.0
 
-        # delete non-recovery specific columns from consequence array and redo calcs (except one for sums/avgs)
+        # adjust all no score "0" to "1" for QualityArrays
+        ExpQualityArray = np.where(ExpQualityArray == 0.0, 1.0,  ExpQualityArray)
+        ExpQualityArray[:,-1] = 0.0
         ConsQualityArray = np.where(ConsQualityArray == 0.0, 1.0,  ConsQualityArray)
         ConsQualityArray[:,-1] = 0.0
+        
         ConsNumArray = np.where(ConsQualityArray == 0.0, 0.0,  ConsequenceArray/ConsQualityArray)
         ConsDenomArray = np.where(ConsNumArray == 0.0, 0.0,  1.0/ConsQualityArray)
-
-        # create RecoveryArrays from [4-6] of ConsequenceArrays
+        
+        # delete non-recovery specific columns from consequence array and redo calcs (except one for sums/avgs)
         RecoveryArray = np.delete(ConsequenceArray, [4,5,6], axis=1)
         RecovQualityArray = np.delete(ConsQualityArray, [4,5,6], axis=1)
         RecovNumArray = np.delete(ConsNumArray, [4,5,6], axis=1)
@@ -578,6 +579,15 @@ try:
                 RecoveryArray[i][4] = 0.0
             else:
                 RecoveryArray[i][4] = RecovNumArray[i][4]/RecovDenomArray[i][4]
+            
+            # average data quality arrays
+            RecovQualitySum = np.sum(RecovQualityArray, axis=1)[i]
+            RecovQualityCountList = list(RecovQualityArray[i])
+            RecovQualityZeroCount = RecovQualityCountList.count(0)
+            if RecovQualityZeroCount == 3:
+                RecovQualityArray[i][4] = 0.0
+            else:
+                RecovQualityArray[i][4] = (RecovQualitySum / (3.0 - RecovQualityZeroCount))
 
         ExpNumArray = np.where(ExpQualityArray == 0.0, 0.0,  ExposureArray/ExpQualityArray)
         ExpDenomArray = np.where(ExpNumArray == 0.0, 0.0,  1.0/ExpQualityArray)
@@ -590,7 +600,7 @@ try:
                 ConsequenceArray[i][7] = 0.0
             else:
                 ConsequenceArray[i][7] = ConsNumArray[i][7]/ConsDenomArray[i][7]
-
+   
     except:
         gp.AddError(msgGetHabStressRatings)
         raise Exception
@@ -602,11 +612,11 @@ try:
     try:
         # add fields for risk calculations
         for i in range(0,StressCount):
-            GS_HQ_area = AddField(GS_HQ_area, "OLP_RNK_S"+str(i+1), "SHORT", "", "")  ###
+            GS_HQ_area = AddField(GS_HQ_area, "OLP_RNK_S"+str(i+1), "SHORT", "", "")
         for j in range(0,len(OverlapList)):
-            GS_HQ_area = AddField(GS_HQ_area, "RISK_"+OverlapList[j], "DOUBLE", "8", "2") ###
+            GS_HQ_area = AddField(GS_HQ_area, "RISK_"+OverlapList[j], "DOUBLE", "8", "2")
         for k in range(0,HabCount):
-            GS_HQ_area = AddField(GS_HQ_area, "CUMRISK_H"+str(k+1), "DOUBLE", "", "")  ###            
+            GS_HQ_area = AddField(GS_HQ_area, "CUMRISK_H"+str(k+1), "DOUBLE", "", "")            
         GS_HQ_area = AddField(GS_HQ_area, "RECOV_HAB", "DOUBLE", "", "")
         GS_HQ_area = AddField(GS_HQ_area, "ECOS_RISK", "DOUBLE", "", "")
 
