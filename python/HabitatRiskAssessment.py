@@ -1,9 +1,9 @@
 # Marine InVEST: Habitat Risk Assessment Model
-# Authors: Gregg Verutes, Joey Bernhardt, Katie Arkema, Jeremy Davies 
-# 11/21/11
+# Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
+# 12/07/11
 
 # import modules
-import sys, string, os, datetime, shlex
+import sys, string, os, datetime, shlex, csv
 import arcgisscripting
 from math import *
 
@@ -68,7 +68,7 @@ try:
         Stress_Directory = gp.GetParameterAsText(3)
         parameters.append("Stressor Data Directory: "+ Stress_Directory)
         HabStressRate_Table = gp.GetParameterAsText(4)
-        parameters.append("Stressor Data Directory: "+ HabStressRate_Table)
+        parameters.append("Habitat-Stressor Ratings CSV Table: "+ HabStressRate_Table)
         PlotBoolean = gp.GetParameterAsText(5)
         parameters.append("Create HTML output with risk plots: "+ PlotBoolean)
         RiskBoolean = gp.GetParameterAsText(6)
@@ -249,29 +249,48 @@ try:
     ###### CK CONSISTENCY WITH HAB/STRESS LAYERS #######
     ####################################################
     try:
-        xlApp = Dispatch("Excel.Application")
-        xlApp.Visible=0
-        xlApp.DisplayAlerts=0
-        xlApp.Workbooks.Open(HabStressRate_Table)
-        cell = xlApp.Worksheets("(1)")
-        HabInputCount = int(cell.Range("g11").Value)
-        StressInputCount = int(cell.Range("b13").Value)
 
-        gp.AddMessage("... Habitat Count = "+str(HabInputCount))
-        gp.AddMessage("... Stressor Count = "+str(StressInputCount))
+        # get data from CSV
+        rawList = []
+        csvReader = csv.reader(open(HabStressRate_Table, 'rb'), delimiter=',', quotechar='|');
+        for row in csvReader:
+            rawList.append(row)
 
-        # create buffer list
+        # get habitat and stressor counts
+        HabInputCount = int(rawList[14][0])
+        StressInputCount = int(rawList[21][0])
+
+        # put values in temporary lists
+        HabVar = []
+        StressVar = []
+        HabStressVar = []
+        CritWeights = []
+        for i in range(15,len(rawList)):
+            if i > 15 and i < 15 + HabCount+1:
+                HabVar.append(rawList[i][2:])
+            elif i > 15 + HabInputCount+3 and i < 15 + HabInputCount+3 + StressInputCount+1:
+                StressVar.append(rawList[i][2:])
+            elif i > 15 + HabInputCount+3 + StressInputCount+3 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+1:
+                HabStressVar.append(rawList[i][4:])
+            elif i > 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+2 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+12:
+                CritWeights.append(int(rawList[i][0]))
+
+        # adjust inter-criteria weights
+##        CritWeights = [0.5 if i == 0 else i for i in CritWeights]
+##        CritWeights = [1.5 if i == 2 else i for i in CritWeights]
+##        ExpCritWeights = []
+##        ExpIndex = [1,2,0,3]
+##        for i in range(0,4):
+##            ExpCritWeights.append(CritWeights[ExpIndex[i]])
+##        ConsCritWeights = []
+##        ConsIndex = [7,8,9,10,4,5,6]            
+##        for i in range(0,7):
+##            ConsCritWeights.append(CritWeights[ConsIndex[i]])
+
+        # populate buffer distance list
         StressBuffDistList = []
-        counter = 2
-        while counter < StressInputCount+2:
-            if cell.Range("e"+str(counter)).Value not in [None, '']:
-                StressBuffDistList.append(cell.Range("e"+str(counter)).Value)
-            else:
-                StressBuffDistList.append(0)
-            counter += 1
-            
-        xlApp.ActiveWorkbook.Close(SaveChanges=0)
-        xlApp.Quit()
+        for i in range(0,StressInputCount):
+            StressBuffDistList.append(float(StressVar[i][5]))
 
         if HabInputCount <> HabCount:
             gp.AddError("There is an inconsistency between the number of habitat layers in the specified directory and the input spreadsheet.")
@@ -470,6 +489,7 @@ try:
     ##########################################################
     try:
         gp.AddMessage("\nObtaining ratings for risk scoring and plotting...")
+
         # determine total number of permutations for habitat and stressor layers
         TotalHSCombo = int(HabCount*StressCount)
         ExposureList = np.zeros(TotalHSCombo*5, dtype=np.float64)
@@ -477,7 +497,8 @@ try:
         ExpQualityList = np.zeros(TotalHSCombo*5, dtype=np.float64)
         ExpQualityArray = np.reshape(ExpQualityList, (TotalHSCombo,5)) # 1-3 range
         ExpQualityList2 = np.zeros(TotalHSCombo*5, dtype=np.float64)
-        ExpQualityArray2 = np.reshape(ExpQualityList2, (TotalHSCombo,5)) # 1-4 range
+        ExpQualityArray2 = np.reshape(ExpQualityList2, (TotalHSCombo,5)) # 1-3 range
+
         ConsequenceList = np.zeros(TotalHSCombo*8, dtype=np.float64)
         ConsequenceArray = np.reshape(ConsequenceList, (TotalHSCombo,8))
         ConsQualityList = np.zeros(TotalHSCombo*8, dtype=np.float64)
@@ -485,71 +506,64 @@ try:
         ConsQualityList2 = np.zeros(TotalHSCombo*8, dtype=np.float64)
         ConsQualityArray2 = np.reshape(ConsQualityList2, (TotalHSCombo,8)) # 1-3 range
 
-        x2App = Dispatch("Excel.Application")
-        x2App.Visible=0
-        x2App.DisplayAlerts=0
-        x2App.Workbooks.Open(HabStressRate_Table)
-        cell = x2App.Worksheets("Calc (exp)")
         rowCount = 0
-        for i in range(3,3+(HabCount*10),10):
+        for i in range(0,HabCount):
             for j in range(0,StressCount):
-                # index 2 and 3 are blank for now (2 = spatial overlap; 4 = weighted average (Exp) or sum (DQ))
-                ExposureArray[rowCount][0] = cell.Range("q"+str(i+j)).Value # intensity 
-                ExposureArray[rowCount][1] = cell.Range("r"+str(i+j)).Value # management
-                ExpQualityArray[rowCount][0] = cell.Range("s"+str(i+j)).Value # DQ of intensity 
-                ExpQualityArray[rowCount][1] = cell.Range("t"+str(i+j)).Value # DQ of management
-                StressDataQual = cell.Range("u"+str(i+j)).Value # DQ of spatial overlap for stressor
-                HabDataQual = cell.Range("v"+str(i+j)).Value # DQ of spatial overlap for habitat
+                HabDataQual = float(HabVar[i][0]) # DQ of spatial overlap for habitat
+                StressDataQual = float(StressVar[j][0]) # DQ of spatial overlap for stressor
+                HabDataQual2 = float(HabVar[i][0])+1 # DQ of spatial overlap for habitat
+                StressDataQual2 = float(StressVar[j][0])+1 # DQ of spatial overlap for stressor
+
+                # ConsequenceArray: index 7 is blank for now (7 = weighted average (Exp) or sum (DQ))                 
+                ConsequenceArray[rowCount][0] = int(HabVar[i][1]) # natural mortality rate
+                ConsQualityArray[rowCount][0] = int(HabVar[i][2]) # DQ of natural mortality rate
+                ConsQualityArray2[rowCount][0] = int(HabVar[i][2])+1 # DQ of natural mortality rate
+                ConsequenceArray[rowCount][1] = int(HabVar[i][3]) # recruitment pattern
+                ConsQualityArray[rowCount][1] = int(HabVar[i][4]) # DQ of recruitment pattern
+                ConsQualityArray2[rowCount][1] = int(HabVar[i][4])+1 # DQ of recruitment pattern
+                ConsequenceArray[rowCount][2] = int(HabVar[i][5]) # connectivity
+                ConsQualityArray[rowCount][2] = int(HabVar[i][6]) # DQ of connectivity
+                ConsQualityArray2[rowCount][2] = int(HabVar[i][6])+1 # DQ of connectivity
+                ConsequenceArray[rowCount][3] = int(HabVar[i][7]) # age at maturity or recovery time
+                ConsQualityArray[rowCount][3] = int(HabVar[i][8]) # DQ of age at maturity or recovery time
+                ConsQualityArray2[rowCount][3] = int(HabVar[i][8])+1 # DQ of age at maturity or recovery time
+                ConsequenceArray[rowCount][4] = int(HabStressVar[rowCount][0]) # change in area
+                ConsQualityArray[rowCount][4] = int(HabStressVar[rowCount][1]) # DQ of change in area
+                ConsQualityArray2[rowCount][4] = int(HabStressVar[rowCount][1])+1 # DQ of change in area
+                ConsequenceArray[rowCount][5] = int(HabStressVar[rowCount][2]) # change in structure
+                ConsQualityArray[rowCount][5] = int(HabStressVar[rowCount][3]) # DQ of change in structure
+                ConsQualityArray2[rowCount][5] = int(HabStressVar[rowCount][3])+1 # DQ of change in structure
+                ConsequenceArray[rowCount][6] = int(HabStressVar[rowCount][4]) # frequency of natural disturbance
+                ConsQualityArray[rowCount][6] = int(HabStressVar[rowCount][5]) # DQ of frequency of natural disturbance
+                ConsQualityArray2[rowCount][6] = int(HabStressVar[rowCount][5])+1 # DQ of frequency of natural disturbance
+                
+                # ExposureArray: index 2 and 4 are blank for now (2 = spatial overlap rank; 4 = weighted average (Exp) or sum (DQ))               
+                ExposureArray[rowCount][0] = int(StressVar[j][1]) # intensity
+                ExpQualityArray[rowCount][0] = int(StressVar[j][2]) # DQ of intensity
+                ExpQualityArray2[rowCount][0] = int(StressVar[j][2])+1 # DQ of intensity                
+                ExposureArray[rowCount][1] = int(StressVar[j][3]) # management
+                ExpQualityArray[rowCount][1] = int(StressVar[j][4]) # DQ of management
+                ExpQualityArray2[rowCount][1] = int(StressVar[j][4])+1 # DQ of management
                 ExpQualityArray[rowCount][2] = ((StressDataQual+HabDataQual)/2.0)# DQ average of spatial overlap
-                ExpQualityArray2[rowCount][0] = cell.Range("i"+str(i+j)).Value # DQ of intensity 
-                ExpQualityArray2[rowCount][1] = cell.Range("j"+str(i+j)).Value # DQ of management
-                StressDataQual2 = cell.Range("e"+str(i+j)).Value # DQ of spatial overlap for stressor
-                HabDataQual2 = cell.Range("f"+str(i+j)).Value # DQ of spatial overlap for habitat
                 ExpQualityArray2[rowCount][2] = ((StressDataQual2+HabDataQual2)/2.0)# DQ average of spatial overlap
-                rowCount += 1
-            
-        cell2 = x2App.Worksheets("Calc (con)")
-        rowCount = 0
-        for i in range(3,3+(HabCount*10),10):
-            for j in range(0,StressCount):
-                # index 7 is blank (7 = weighted average (Cons) or sum (DQ))
-                ConsequenceArray[rowCount][0] = cell2.Range("x"+str(i+j)).Value # natural mortality rate
-                ConsequenceArray[rowCount][1] = cell2.Range("y"+str(i+j)).Value # recruitment pattern
-                ConsequenceArray[rowCount][2] = cell2.Range("z"+str(i+j)).Value # connectivity
-                ConsequenceArray[rowCount][3] = cell2.Range("aa"+str(i+j)).Value # age at maturity or recovery time
-                ConsequenceArray[rowCount][4] = cell2.Range("ab"+str(i+j)).Value # change in area
-                ConsequenceArray[rowCount][5] = cell2.Range("ac"+str(i+j)).Value # change in structure
-                ConsequenceArray[rowCount][6] = cell2.Range("ad"+str(i+j)).Value # frequency of natural disturbance
-                ExposureArray[rowCount][3] = cell2.Range("ae"+str(i+j)).Value # overlap time
-                ConsQualityArray[rowCount][0] = cell2.Range("af"+str(i+j)).Value # DQ of natural mortality rate
-                ConsQualityArray[rowCount][1] = cell2.Range("ag"+str(i+j)).Value # DQ of recruitment pattern
-                ConsQualityArray[rowCount][2] = cell2.Range("ah"+str(i+j)).Value # DQ of connectivity
-                ConsQualityArray[rowCount][3] = cell2.Range("ai"+str(i+j)).Value # DQ of age at maturity or recovery time
-                ConsQualityArray[rowCount][4] = cell2.Range("aj"+str(i+j)).Value # DQ of change in area
-                ConsQualityArray[rowCount][5] = cell2.Range("ak"+str(i+j)).Value # DQ of change in structure
-                ConsQualityArray[rowCount][6] = cell2.Range("al"+str(i+j)).Value # DQ of frequency of natural disturbance
-                ExpQualityArray[rowCount][3] = cell2.Range("am"+str(i+j)).Value # DQ of overlap time
-                ConsQualityArray2[rowCount][0] = cell2.Range("m"+str(i+j)).Value # DQ of natural mortality rate
-                ConsQualityArray2[rowCount][1] = cell2.Range("n"+str(i+j)).Value # DQ of recruitment pattern
-                ConsQualityArray2[rowCount][2] = cell2.Range("o"+str(i+j)).Value # DQ of connectivity
-                ConsQualityArray2[rowCount][3] = cell2.Range("p"+str(i+j)).Value # DQ of age at maturity or recovery time
-                ConsQualityArray2[rowCount][4] = cell2.Range("q"+str(i+j)).Value # DQ of change in area
-                ConsQualityArray2[rowCount][5] = cell2.Range("r"+str(i+j)).Value # DQ of change in structure
-                ConsQualityArray2[rowCount][6] = cell2.Range("s"+str(i+j)).Value # DQ of frequency of natural disturbance
-                ExpQualityArray2[rowCount][3] = cell2.Range("t"+str(i+j)).Value # DQ of overlap time
+                ExposureArray[rowCount][3] = int(HabStressVar[rowCount][6]) # overlap time
+                ExpQualityArray[rowCount][3] = int(HabStressVar[rowCount][7]) # DQ of overlap time
+                ExpQualityArray2[rowCount][3] = int(HabStressVar[rowCount][7])+1 # DQ of overlap time
                 rowCount += 1
 
-        # grab ranges for spatial overlap ratings
-        cell3 = x2App.Worksheets("Rating legends")
-        UB_1 = cell3.Range("d43").Value
-        UB_2 = cell3.Range("d44").Value 
-            
-        x2App.ActiveWorkbook.Close(SaveChanges=0)
-        x2App.Quit()
+        ## FIX RECOVERY SCORING ##
+        
+        # hard-code the spatial overlap rank breaks
+        UB_1 = 10
+        UB_2 = 30
 
         # delete non-recovery specific columns from consequence array and redo calcs (except one for sums/avgs)
+        ConsQualityArray = np.where(ConsQualityArray == 0.0, 1.0,  ConsQualityArray)
+        ConsQualityArray[:,-1] = 0.0
         ConsNumArray = np.where(ConsQualityArray == 0.0, 0.0,  ConsequenceArray/ConsQualityArray)
         ConsDenomArray = np.where(ConsNumArray == 0.0, 0.0,  1.0/ConsQualityArray)
+
+        # create RecoveryArrays from [4-6] of ConsequenceArrays
         RecoveryArray = np.delete(ConsequenceArray, [4,5,6], axis=1)
         RecovQualityArray = np.delete(ConsQualityArray, [4,5,6], axis=1)
         RecovNumArray = np.delete(ConsNumArray, [4,5,6], axis=1)
@@ -564,15 +578,6 @@ try:
                 RecoveryArray[i][4] = 0.0
             else:
                 RecoveryArray[i][4] = RecovNumArray[i][4]/RecovDenomArray[i][4]
-            
-            # Average Data Quality Arrays
-            RecovQualitySum = np.sum(RecovQualityArray, axis=1)[i]
-            RecovQualityCountList = list(RecovQualityArray[i])
-            RecovQualityZeroCount = RecovQualityCountList.count(0)
-            if RecovQualityZeroCount == 3:
-                RecovQualityArray[i][4] = 0.0
-            else:
-                RecovQualityArray[i][4] = (RecovQualitySum / (3.0 - RecovQualityZeroCount))
 
         ExpNumArray = np.where(ExpQualityArray == 0.0, 0.0,  ExposureArray/ExpQualityArray)
         ExpDenomArray = np.where(ExpNumArray == 0.0, 0.0,  1.0/ExpQualityArray)
@@ -723,6 +728,7 @@ try:
 
             ConsQualitySum2 = np.sum(ConsQualityArray2, axis=1)[i]
             ConsQualityArray2[i][7] = ConsQualitySum2/7.0
+
     except:
         gp.AddError(msgPlotArrays)
         raise Exception
@@ -775,8 +781,16 @@ try:
             CumDataQualityList = np.zeros(HabCount, dtype=np.float64)
 
             for i in range(0,TotalHSCombo):
-                ExposureList.append(ExposureArray[i][3])
-                ConsequenceList.append(ConsequenceArray[i][7])
+                if ExposureArray[i][3] == 0:
+                    ExposureList.append(ExposureArray[i][3]+1)
+                else:
+                    ExposureList.append(ExposureArray[i][3])
+
+                if ConsequenceArray[i][7] == 0:
+                    ConsequenceList.append(ConsequenceArray[i][7]+1)
+                else:
+                    ConsequenceList.append(ConsequenceArray[i][7])
+
                 DataQualityList.append(np.ceil((ExpQualityArray2[i][4]+ConsQualityArray2[i][7])/2.0))          
 
             # create risk plots
@@ -1146,7 +1160,6 @@ try:
             del row
             del cur
             
-    
     # create parameter file
     parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
     parafile = open(outputws+"parameters_"+now.strftime("%Y-%m-%d-%H-%M")+".txt","w") 
