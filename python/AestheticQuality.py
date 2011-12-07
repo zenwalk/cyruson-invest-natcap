@@ -323,7 +323,7 @@ try:
     
     try:
         if visualPolys:
-            gp.AddMessage("\nCalculating overlap between viewshed output and visual polygons...\n")
+            gp.AddMessage("\nCalculating overlap between viewshed output and visual polygons...")
             gp.RasterToPolygon_conversion(vshed_rc1, vshed_2poly, "NO_SIMPLIFY", "VALUE")
             gp.Select_analysis(visualPolys, vp_prj, "") # copy 'visualPolys' into outputws
             

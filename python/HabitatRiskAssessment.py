@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
-# 12/01/11
+# 12/07/11
 
 # import modules
 import sys, string, os, datetime, shlex, csv
@@ -276,7 +276,8 @@ try:
                 CritWeights.append(int(rawList[i][0]))
 
         # adjust inter-criteria weights
-##        CritWeights = [0.5 if i == 0 else i for i in CritWeights]; CritWeights = [1.5 if i == 2 else i for i in CritWeights]
+##        CritWeights = [0.5 if i == 0 else i for i in CritWeights]
+##        CritWeights = [1.5 if i == 2 else i for i in CritWeights]
 ##        ExpCritWeights = []
 ##        ExpIndex = [1,2,0,3]
 ##        for i in range(0,4):
@@ -557,6 +558,8 @@ try:
         UB_2 = 30
 
         # delete non-recovery specific columns from consequence array and redo calcs (except one for sums/avgs)
+        ConsQualityArray = np.where(ConsQualityArray == 0.0, 1.0,  ConsQualityArray)
+        ConsQualityArray[:,-1] = 0.0
         ConsNumArray = np.where(ConsQualityArray == 0.0, 0.0,  ConsequenceArray/ConsQualityArray)
         ConsDenomArray = np.where(ConsNumArray == 0.0, 0.0,  1.0/ConsQualityArray)
 
