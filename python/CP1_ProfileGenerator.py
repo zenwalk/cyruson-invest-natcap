@@ -76,6 +76,7 @@ subwsStr=subwsStr[0:10]
 # intermediate and output directories
 interws=gp.GetParameterAsText(0)+os.sep+"scratch"+os.sep
 outputws=gp.GetParameterAsText(0)+os.sep+"_ProfileGenerator_Outputs"+os.sep
+gp.scratchworkspace=interws
 subws=outputws+subwsStr+os.sep
 maps=subws+"maps"+os.sep
 html_txt=subws+"html_txt"+os.sep
@@ -478,7 +479,9 @@ if WW3_Pts:
     gp.FeatureToRaster_conversion(SeaPoly,"SEA",seapoly_rst,"250")
     gp.Expand_sa(seapoly_rst,seapoly_e,"1","1")
     # allocate 'WW3_Pts' throughout cost surface
-    gp.CostAllocation_sa(WW3_Pts_prj,seapoly_e,costa_ww3,"","","FID","","")
+    WW3_Pts_prj=AddField(WW3_Pts_prj,"PT_ID","LONG","","")
+    gp.CalculateField_management(WW3_Pts_prj,"PT_ID","!FID! + 1","PYTHON")
+    gp.CostAllocation_sa(WW3_Pts_prj,seapoly_e,costa_ww3,"","","PT_ID","","")
     # determine which point is closest to 'LandPoint'
     gp.ExtractValuesToPoints_sa(LandPoint,costa_ww3,LandPoint_WW3,"NONE")
     cur=gp.UpdateCursor(LandPoint_WW3)
@@ -489,7 +492,7 @@ if WW3_Pts:
 
     # populate list with data from closest WW3 point
     WW3_ValuesList=[]
-    SrchCondition="FID="+str(WW3_FID)
+    SrchCondition="PT_ID="+str(WW3_FID)
     cur=gp.SearchCursor(WW3_Pts_prj,SrchCondition,"","")
     row=cur.Next()
     WW3_ValuesList.append(row.GetValue("LAT")) # 0
@@ -1036,10 +1039,10 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
     # extract depth values from 'BathyGrid' to point transects
     gp.ExtractValuesToPoints_sa(PT1,BathyGrid,PT1_Z,"INTERPOLATE")
     gp.ExtractValuesToPoints_sa(PT2,BathyGrid,PT2_Z,"INTERPOLATE")
-    PT1_Z=AddField(PT1_Z,"PT_ID","LONG","","")        
-    gp.CalculateField_management(PT1_Z,"PT_ID","[FID]+1","VB")
-    PT2_Z=AddField(PT2_Z,"PT_ID","LONG","","")        
-    gp.CalculateField_management(PT2_Z,"PT_ID","[FID]+1","VB")    
+    PT1_Z=AddField(PT1_Z,"PT_ID","LONG","","")
+    gp.CalculateField_management(PT1_Z,"PT_ID","!FID! + 1","PYTHON")
+    PT2_Z=AddField(PT2_Z,"PT_ID","LONG","","")
+    gp.CalculateField_management(PT2_Z,"PT_ID","!FID! + 1","PYTHON")      
 
     # create depth lists of two point transects
     Dmeas1=[]
@@ -1123,7 +1126,7 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
             PT2_Z=AddField(PT2_Z,"DEPTH","DOUBLE","","")
             gp.CalculateField_management(PT2_Z,"DEPTH","[RASTERVALU]","VB")
             gp.DeleteField_management(PT2_Z,"RASTERVALU")
-            gp.CalculateField_management(PT2_Z,"PT_ID","[PT_ID]*-1","VB")
+            gp.CalculateField_management(PT2_Z,"PT_ID","!PT_ID! * -1","PYTHON")
             gp.Select_analysis(PT2_Z,Backshore_Pts,"\"PT_ID\" < 0 AND \"PT_ID\" > -2001")
             
     else:
@@ -1137,7 +1140,7 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
             PT1_Z=AddField(PT1_Z,"DEPTH","DOUBLE","","")
             gp.CalculateField_management(PT1_Z,"DEPTH","[RASTERVALU]","VB")
             gp.DeleteField_management(PT1_Z,"RASTERVALU")
-            gp.CalculateField_management(PT1_Z,"PT_ID","[PT_ID]*-1","VB")
+            gp.CalculateField_management(PT1_Z,"PT_ID","!PT_ID! * -1","PYTHON")
             gp.Select_analysis(PT1_Z,Backshore_Pts,"\"PT_ID\" < 0 AND \"PT_ID\" > -2001")
 
     # add and calculate field for "DEPTH"
@@ -1147,7 +1150,7 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
 
     # merge 'Profile_Pts' with 'Land Point' and backshore profile up to 2km
     if HabDirectory:
-        MergeExpr=Profile_Pts+";"+PT_Z_Near+";"+LandPoint+";"+Backshore_Pts
+        MergeExpr=Profile_Pts+"; "+PT_Z_Near+"; "+LandPoint+"; "+Backshore_Pts
         gp.Merge_management(MergeExpr,Profile_Pts_Merge,"")
 
     # smooth profile and create x axis
@@ -1229,10 +1232,10 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
         ExcludeList=["FID","Shape","Id","PT_ID","DEPTH"]
         for i in range(0,len(HabLyrList)):
             HabVector=HabDirectory+"\\"+HabLyrList[i]
-            HabVector=AddField(HabVector,"ID","SHORT","0","0")
-            gp.CalculateField_management(HabVector,"ID",1,"VB")
-            gp.FeatureToRaster_conversion(HabVector,"ID",interws+HabAbbrevList[i],"10")
-            gp.BuildRasterAttributeTable_management(interws+HabAbbrevList[i], "Overwrite")                   
+            HabVector=AddField(HabVector,"VID","SHORT","","")
+            gp.CalculateField_management(HabVector,"VID",5,"PYTHON")
+            gp.FeatureToRaster_conversion(HabVector,"VID",interws+HabAbbrevList[i],"10")
+            gp.BuildRasterAttributeTable_management(interws+HabAbbrevList[i],"OVERWRITE")                                   
             if gp.GetCount(interws+HabAbbrevList[i]) > 0:
                 pass
                 gp.Reclassify_sa(interws+HabAbbrevList[i],"VALUE","1 1;NODATA 0",interws+HabAbbrevList[i]+"_rc","DATA")
@@ -1259,7 +1262,12 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
                 HabFieldList.append(field.Name)
             field=fieldList.Next()
         del fieldList,field
-        gp.DeleteField_management(Profile_Pts_Hab,DeleteFieldList)
+
+        DelExpr=''
+        for i in range(0,len(DeleteFieldList)):
+            DelExpr=DelExpr+DeleteFieldList[i]+";"
+        DelExpr=DelExpr[:-1]
+        gp.DeleteField_management(Profile_Pts_Hab,DelExpr)
 
         # add all habitat abbreviation fields, even if not part of inputs
         for k in range(0,len(AbbrevList)):
