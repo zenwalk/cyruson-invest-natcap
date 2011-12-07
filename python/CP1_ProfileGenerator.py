@@ -46,7 +46,7 @@ try:
     LandPoly=gp.GetParameterAsText(3)
     parameters.append("Land Polygon: "+LandPoly)
     ProfileQuestion=gp.GetParameterAsText(4)
-    parameters.append("Do you have a nearshore bathymetry GIS layer?: "+ProfileQuestion)
+    parameters.append("Do you want us to cut a cross-shore transect in GIS?: "+ProfileQuestion)
     BathyGrid=gp.GetParameterAsText(5)
     parameters.append("IF 1: Bathymetric Grid (DEM): "+BathyGrid)
     HabDirectory=gp.GetParameterAsText(6)
@@ -60,7 +60,7 @@ try:
     InputTable=gp.GetParameterAsText(10)
     parameters.append("Profile Generator Excel Table: "+InputTable)
     WW3_Pts=gp.GetParameterAsText(11)
-    parameters.append("Wave Watch 3 Model Data: "+WW3_Pts)
+    parameters.append("Wave Watch III Model Data: "+WW3_Pts)
     FetchQuestion=gp.GetParameterAsText(12)
     parameters.append("Do you wish to calculate fetch for LandPoint?: "+FetchQuestion)
 
@@ -377,11 +377,8 @@ if ProfileQuestion=="(1) Yes":
     if not BathyGrid:
         gp.AddError("A bathymetry grid input is required to create a point transect.")
         raise Exception
-    if not HabDirectory:
-        gp.AddError("A habitat data directory input is required to create a point transect.")
-        raise Exception
 
-elif ProfileQuestion=="(2) No,but I will upload a cross-shore profile":
+elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
     if not CSProfile:
         gp.AddError("A cross-shore profile input is required.")
         raise Exception
@@ -1412,7 +1409,7 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
         begOTx=num.array(begOTx);finOTx=num.array(finOTx)
         
 # upload user's profile
-elif ProfileQuestion=="(2) No,but I will upload a cross-shore profile":
+elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
     gp.AddMessage("\nRetrieving your profile...")
     # read in user's cross-shore profile
     TextData=open(CSProfile,"r") 
@@ -1481,7 +1478,7 @@ elif ProfileQuestion=="(2) No,but I will upload a cross-shore profile":
     del cur,row
       
 # equilibrium beach profile,in case we don't have nearshore bathy
-elif ProfileQuestion=="(3) No,please create a theoretical profile for me":
+elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
     if Diam < 0.1:
         gp.AddError("\nCannot create an equilibrium profile for cohesive/fine sediments (size smaller than 0.1mm)")
         raise Exception
@@ -1651,7 +1648,7 @@ if BackHelp==1:
         xlabel('Cross-Shore Distance [m]',weight='bold')
         savefig(html_txt+"ProfilePlot3.png",dpi=(640/8))
                 
-    elif ProfileQuestion=="(2) No,but I will upload a cross-shore profile":
+    elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
         figure(2)
         keep=num.nonzero(yd <= 0);keep=keep[0]
         temp1=xd[keep];temp2=yd[keep]
@@ -1669,7 +1666,7 @@ if BackHelp==1:
         title('Created Profile',size='large',weight='bold')
         savefig(html_txt+"ProfilePlot1.png",dpi=(640/8))
 
-    elif ProfileQuestion=="(3) No,please create a theoretical profile for me":
+    elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
         figure(2)
         plot(xd,yd,xd,yd*0,'k',linewidth=2);grid()
         ylabel('Depth [m]',weight='bold')
@@ -1735,7 +1732,7 @@ elif BackHelp==4:
         savefig(html_txt+"ProfilePlot2.png",dpi=(640/8));Fig2=1
         Fig3=0 
         
-    elif ProfileQuestion=="(2) No,but I will upload a cross-shore profile":
+    elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
         figure(2)
         plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
         legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),'upper right')
@@ -1751,7 +1748,7 @@ elif BackHelp==4:
         savefig(html_txt+"ProfilePlot2.png",dpi=(640/8))
         Fig3=0
 
-    elif ProfileQuestion=="(3) No,please create a theoretical profile for me":
+    elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
         figure(3)
         plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
         legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),'upper right')
