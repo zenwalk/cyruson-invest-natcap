@@ -765,9 +765,9 @@ h=F(X);lx=len(X) #Resample to dx
 gp.AddMessage("\nPreparing inputs...")
 
 #Compute offshore wave height
-if WaveErosionQuestion=="(1) Yes, I have these values":
+if WaveErosionQuestion=="(1) Yes, I have these values.":
     H0=Ho;T=To;
-elif WaveErosionQuestion=="(2) No, I need to compute these values from wind speed and fetch distance values": 
+elif WaveErosionQuestion=="(2) No, I need to compute these values from wind speed and fetch distance values.": 
     Us=Us;Ft=Ft;depth=depth
     H0,T=WindWave(Us,Ft,depth) # Compute wave from wind speed
 gp.AddMessage("Input conditions are: Ho=" +str(H0) +"m and To=" +str(T) +"s")
