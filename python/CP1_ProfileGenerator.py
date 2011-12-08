@@ -860,10 +860,8 @@ try:
                 else: # else,beach is wave dominated,we read Short and Hesp
                     Type=Hb/(ws*Tm)
                     if Type < 3:  DuneCrest=5
-                    elif Type < 4:    DuneCrest=10
                     elif Type < 5:    DuneCrest=12
-                    elif Type < 6:    DuneCrest=20
-                    else:   DuneCrest=23 
+                    else:   DuneCrest=20 
             else:
                 Tm=-1
                 DuneCrest=2;BermLength=50 # beach has no dune and infinitely long berm
@@ -1118,10 +1116,10 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
             # add near and backshore to profile for habitat extraction
             gp.Select_analysis(PT1_Z,PT_Z_Near,"\"PT_ID\" <= "+str(DepthStart1-1))
             PT_Z_Near=AddField(PT_Z_Near,"DEPTH","DOUBLE","","")
-            gp.CalculateField_management(PT_Z_Near,"DEPTH","[RASTERVALU]","VB")
+            gp.CalculateField_management(PT_Z_Near,"DEPTH","!RASTERVALU!","PYTHON")
             gp.DeleteField_management(PT_Z_Near,"RASTERVALU")
             PT2_Z=AddField(PT2_Z,"DEPTH","DOUBLE","","")
-            gp.CalculateField_management(PT2_Z,"DEPTH","[RASTERVALU]","VB")
+            gp.CalculateField_management(PT2_Z,"DEPTH","!RASTERVALU!","PYTHON")
             gp.DeleteField_management(PT2_Z,"RASTERVALU")
             gp.CalculateField_management(PT2_Z,"PT_ID","!PT_ID! * -1","PYTHON")
             gp.Select_analysis(PT2_Z,Backshore_Pts,"\"PT_ID\" < 0 AND \"PT_ID\" > -2001")
@@ -1132,17 +1130,17 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
             # add near and backshore to profile for habitat extraction
             gp.Select_analysis(PT2_Z,PT_Z_Near,"\"PT_ID\" <= "+str(DepthStart2-1))
             PT_Z_Near=AddField(PT_Z_Near,"DEPTH","DOUBLE","","")
-            gp.CalculateField_management(PT_Z_Near,"DEPTH","[RASTERVALU]","VB")
+            gp.CalculateField_management(PT_Z_Near,"DEPTH","!RASTERVALU!","PYTHON")
             gp.DeleteField_management(PT_Z_Near,"RASTERVALU")
             PT1_Z=AddField(PT1_Z,"DEPTH","DOUBLE","","")
-            gp.CalculateField_management(PT1_Z,"DEPTH","[RASTERVALU]","VB")
+            gp.CalculateField_management(PT1_Z,"DEPTH","!RASTERVALU!","PYTHON")
             gp.DeleteField_management(PT1_Z,"RASTERVALU")
             gp.CalculateField_management(PT1_Z,"PT_ID","!PT_ID! * -1","PYTHON")
             gp.Select_analysis(PT1_Z,Backshore_Pts,"\"PT_ID\" < 0 AND \"PT_ID\" > -2001")
 
     # add and calculate field for "DEPTH"
     Profile_Pts=AddField(Profile_Pts,"DEPTH","DOUBLE","","")
-    gp.CalculateField_management(Profile_Pts,"DEPTH","[RASTERVALU]","VB")
+    gp.CalculateField_management(Profile_Pts,"DEPTH","!RASTERVALU!","PYTHON")
     gp.DeleteField_management(Profile_Pts,"RASTERVALU")
 
     # merge 'Profile_Pts' with 'Land Point' and backshore profile up to 2km
@@ -1230,7 +1228,7 @@ if ProfileQuestion=="(1) Yes": # model extracts value from GIS layers
         for i in range(0,len(HabLyrList)):
             HabVector=HabDirectory+"\\"+HabLyrList[i]
             HabVector=AddField(HabVector,"VID","SHORT","","")
-            gp.CalculateField_management(HabVector,"VID",5,"PYTHON")
+            gp.CalculateField_management(HabVector,"VID",1,"PYTHON")
             gp.FeatureToRaster_conversion(HabVector,"VID",interws+HabAbbrevList[i],"10")
             gp.BuildRasterAttributeTable_management(interws+HabAbbrevList[i],"OVERWRITE")                                   
             if gp.GetCount(interws+HabAbbrevList[i]) > 0:
@@ -1502,8 +1500,18 @@ yd2=SignalSmooth.smooth(yd,SmoothValue,'flat')
 
 #Make sure that deepest point is at X=0
 if yd[-1]<0:    yd=yd[::-1];
-if yd[0]>yd[-1]:    yd=yd[::-1];    
+if yd[0]>yd[-1]:    yd=yd[::-1];  
 
+#Estimate scale factor
+if ProfileQuestion=="(1) Yes":
+    temp=argmin(abs(-yd2-25)); #Assume 25 is closure depth
+    temp1=-yd2[0:temp];temp1=temp1-temp1[0]
+    temp2=xd2[0:temp];temp2=temp2-temp2[0]; #Profile used to estimate sed. scale factor
+    fitfunc=lambda p, ix: p[0]*(ix)**(2.0/3) # Target function
+    errfunc=lambda p, ix, iy: fitfunc(p, ix) - iy # Distance to the target function
+    p0=[0.1] # Initial guess for the parameters
+    p1, success=optimize.leastsq(errfunc, p0[:], args=(temp2,temp1))
+    Afit=abs(p1[0]) #Sediment scale factor
 
 # profile modification
 gp.AddMessage("...customizing depth profile")
@@ -1911,6 +1919,13 @@ if Diam > 1.1:
     htmlfile.write("<i>Your beach has coarse sand/gravel. It won't be eroded during a storm</i><p>")
 elif Diam >= 0.1:
     htmlfile.write("<i>You have a sandy system.  It can be eroded during a storm</i><p>")
+    if ProfileQuestion=="(1) Yes":
+        htmlfile.write("<i>Based on the profile we cut for you, we estimated that the sediment scale factor Afit is " +str(Afit) +"m^(1/3).  Based on the sediment size you entered, we computed a sediment scale factor of A" +str(A) +"m^(1/3).</i><p>")
+        if Afit>A:
+            htmlfile.write("<i>This value of Afit is greater than the one we computed for you based on the sediment size you entered, and corresponds to a larger sediment size than the one you entered.  Please use this information lightly as our estimate can be biased by the quality of your bathymetry and the time it was measured. </i><p>")
+        else:
+            htmlfile.write("<i>This value of Afit is smaller than the one we computed for you based on the sediment size you entered, and corresponds to a smaller sediment size than the one you entered.  Please use this information lightly as our estimate can be biased by the quality of your bathymetry and the time it was measured. </i><p>")
+    
 else:
     htmlfile.write("<i>Your systems has a lots of fines/consolidated sediments. It is not an erodible beach</i><p>")
 htmlfile.write("The tidal range is: "+TR+"m (high tide value)<br>")
