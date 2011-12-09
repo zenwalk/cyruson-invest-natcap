@@ -1,7 +1,7 @@
 # Marine InVEST: Wave Energy Model
-# Authors: CK Kim, Gregg Verutes, Apollo Xi, Mike Papenfus
+# Authors: Gregg Verutes, CK Kim, Apollo Xi, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 09/09/11
+# 02/16/11
 
 # import modules
 import sys, string, os, datetime
@@ -36,7 +36,6 @@ except:
 
 try:
     from scipy.interpolate import interp2d
-    from scipy import stats
 except:
     gp.AddError(msgSciPyNo)
     raise Exception
@@ -60,7 +59,7 @@ try:
         WaveDataFolder = gp.GetParameterAsText(1)
         parameters.append("Path to Folder with Wave Base Data: "+ WaveDataFolder)
         AnalysisArea = gp.GetParameterAsText(2)
-        parameters.append("Wave Base Data"+ AnalysisArea)
+        parameters.append("Analysis Area"+ AnalysisArea)
         AOI = gp.GetParameterAsText(3)
         parameters.append("Area of Interest (AOI): "+ AOI)
         MachinePerform = gp.GetParameterAsText(4)
@@ -68,17 +67,18 @@ try:
         MachineParameter = gp.GetParameterAsText(5)
         parameters.append("Machine Parameters Table: "+ MachineParameter)
         DEM = gp.GetParameterAsText(6)
-        parameters.append("Digital Elevation Model (DEM): "+ DEM)
+        parameters.append("Global Digital Elevation Model (DEM): "+ DEM)
         EconBoolean = gp.GetParameterAsText(7)
         parameters.append("Compute Economic Valuation? "+ EconBoolean)
-        EconParameter = gp.GetParameterAsText(8)
-        parameters.append("Machine Economic Parameters Table: "+ EconParameter)
-        LandGridSheet = gp.GetParameterAsText(9)
+        LandGridSheet = gp.GetParameterAsText(8)
         parameters.append("Landing and Grid Points: "+ LandGridSheet)
+        EconParameter = gp.GetParameterAsText(9)
+        parameters.append("Machine Economic Parameters Table: "+ EconParameter)
         NumUnits = gp.GetParameterAsText(10)
-        parameters.append("Number of Machine Units: "+ str(NumUnits))
-        if NumUnits:
-            NumUnits = int(gp.GetParameterAsText(10))
+        parameters.append("Number of Machine Units: "+ NumUnits)
+        projection = gp.GetParameterAsText(11)
+        parameters.append("Projection: "+ projection)
+    
     except:
         raise Exception, msgArguments + gp.GetMessages(2)
 
@@ -95,6 +95,10 @@ try:
             gp.DeleteField_management(FileName, FieldName)
         gp.AddField_management(FileName, FieldName, Type, Precision, Scale, "", "", "NON_NULLABLE", "NON_REQUIRED", "")
         return FileName
+
+    def checkGeometry(thedata, Type, Message):
+        if gp.Describe(thedata).ShapeType <> Type:
+            raise Exception, "\nInvalid input: "+thedata+"\n"+Message+" must be of geometry type "+Type+"."
 
     def checkDatum(thedata):
         desc = gp.describe(thedata)
@@ -122,36 +126,23 @@ try:
         if spatreflc.LinearUnitName <> 'Meter':
             gp.AddError("This model assumes that "+thedata+" is projected in meters for area calculations.  You may get erroneous results.")
 
-    def grabProjection(data):
-        dataDesc = gp.describe(data)
-        sr = dataDesc.SpatialReference
-        gp.OutputCoordinateSystem = sr
-        strSR = str(gp.OutputCoordinateSystem)
-        return strSR
-
-    # percentiles list (25, 50, 75, 90)
-    def getPercentiles(list):
-        PctList = []
-        PctList.append(stats.scoreatpercentile(list, 25))
-        PctList.append(stats.scoreatpercentile(list, 50))
-        PctList.append(stats.scoreatpercentile(list, 75))
-        PctList.append(stats.scoreatpercentile(list, 90))
-        return PctList
-
-    # checks of AOI and DEM
+    # check geometry of AOI
     if AOI:
-        checkDatum(AOI)
-        projection = grabProjection(AOI)
-    checkDatum(DEM)
+        checkGeometry(AOI, "Polygon", "Area of Interest (AOI)")
+
+    # check the datum of projection
+    if projection:
+        checkDatum(projection)
 
     # do not run econ analysis if an AOI is not specified
     if AOI == "" and EconBoolean == "true":
         EconBoolean = "false"
-        gp.AddWarning("\nCannot conduct economic valuation without specifying an AOI.")
+        projection == ""
+        gp.AddWarning("\nCannot conduct economic valuation without specifying an AOI and projection.")
     
     # if conducting economic valuation, check that all econ data exists
     if EconBoolean == "true":
-        inputs = [LandGridSheet, EconParameter, AOI]
+        inputs = [LandGridSheet, EconParameter, projection, AOI]
         for x in inputs:
             if not gp.Exists(x):
                 gp.AddError("\nOne or more of the required economic valuation input parameters was not defined.")
@@ -175,8 +166,8 @@ try:
         outputws = gp.workspace + os.sep + "Output" + os.sep
         interws = gp.workspace + os.sep + "intermediate" + os.sep
         
-        g = 9.81 # meter / second square
-        d = 1028 # water density: kilogram / cubic meter
+        g = 9.81    # meter / second square
+        d = 1028    # water density: kilogram / cubic meter
         alfa = 0.86 # wave period parameter
 
         # local analysis
@@ -188,7 +179,6 @@ try:
         WaveDataECLyr = interws + "WaveDataEC.lyr"
         AOILyr = interws + "AOILyr.lyr"
         PointsAOICount = interws + "PointsAOICount.shp"
-        DEM_prj = interws + "DEM_prj"
         WaveDataWC = WaveDataFolder + os.sep + "NAmerica_WestCoast_4m.shp"
         WaveDataEC = WaveDataFolder + os.sep + "NAmerica_EastCoast_4m.shp"
         WCNA_barrier = WaveDataFolder + os.sep + "WCNA_barrier.shp"
@@ -197,7 +187,7 @@ try:
         ECNA_extract = WaveDataFolder + os.sep + "ECNA_extract.shp"
         WaveData_clip = interws + "WaveData_clip.shp"
         WaveData_clipZ = interws + "WaveData_clipZ.shp"
-        WaveData_prj = interws + "WEM_InputOutput_Pts.shp"
+        WaveData_prj = interws + "WaveData_prj.shp"
 
         # global analysis       
         GlobalBox_EastHemi = WaveDataFolder + os.sep + "GlobalBox_EastHemi.shp"
@@ -206,10 +196,8 @@ try:
         WaveDataWHLyr = interws + "WaveDataWHLyr.lyr"
         WaveDataEH = WaveDataFolder + os.sep + "Global_EastHemi_30m.shp"
         WaveDataWH = WaveDataFolder + os.sep + "Global_WestHemi_30m.shp"
-        WH_barrier = WaveDataFolder + os.sep + "WH_barrier.shp"
-        WH_extract = WaveDataFolder + os.sep + "WH_extract.shp"
-        EH_barrier = WaveDataFolder + os.sep + "EH_barrier.shp"
-        EH_extract = WaveDataFolder + os.sep + "EH_extract.shp"
+        Global_barrier = WaveDataFolder + os.sep + "Global_barrier.shp"
+        Global_extract = WaveDataFolder + os.sep + "Global_extract.shp"
         WaveData_clipEH = interws + "WaveData_clipEH.shp"
         WaveData_clipWH = interws + "WaveData_clipWH.shp"
         WaveData_clipZ_EH = interws + "WaveData_clipZ_EH.shp"
@@ -229,11 +217,8 @@ try:
 
         # variables for output        
         outputWP = outputws + "wp_kw"
-        outputWP_rc = outputws + "wp_rc"
         outputCWE = outputws + "capwe_mwh"
-        outputCWE_rc = outputws + "capwe_rc"
         outputNPV = outputws + "npv_usd"
-        outputNPV_rc = outputws + "npv_rc"
         GridPt_prj = outputws + "GridPt_prj.shp"
         LandPts_prj = outputws + "LandPts_prj.shp"
     
@@ -241,271 +226,69 @@ try:
         gp.AddError("Error configuring local variables: " + gp.GetMessages())
         raise Exception
 
-##############################################################################################################################
+    # set extent to max of inputs
+    gp.Extent = "MAXOF"
 
-    ######################################################
-    ############# WAVE POWER AND CWE FUNCTIONS ###########
-    ######################################################
-    
-    # func1 calculates the wave numbers
-    def func1(sigma, h):
-        kestimated = (sigma**2)/(g*(sqrt(tanh((sigma**2)*h/g))))
-        kprevious = 0.0000001
-        count = 0
-        while (abs(kestimated-kprevious) > 0.000005) and (count < 1000):
-            count += 1
-            kh = kestimated*h
-            kcalculated = (sigma**2)/(tanh(kh)*g)
-            kprevious = kestimated
-            kestimated = kcalculated
-        k = kcalculated
-        return k
+    gp.AddMessage ("\nPreparing input data..." )
+    # create a text file and write point coordinates to it
+    if EconBoolean == "true":
+        land = open(LandPtsTxt,'a')
+        grid = open(GridPtTxt,'a')
+        thestring = "Point\n"
+        land.writelines(thestring)
+        grid.writelines(thestring)
+        counter = 2
 
-    # func2 calculates wave group velocity
-    def func2(k2, h2):
-        if 2*k2*h2 <= 300:
-            cg = 0.5*(1+2*k2*h2/sinh(2*k2*h2))*sqrt(g*tanh(k2*h2)/k2)
-        else:
-            cg = 0.5*sqrt(g*tanh(k2*h2)/k2)
-        return cg
+        xlApp = Dispatch("Excel.Application")
+        xlApp.Visible = 0
+        xlApp.DisplayAlerts=0
+        xlBook1 = xlApp.Workbooks.Open(LandGridSheet[:-(1+len(LandGridSheet.split("\\")[-1]))])
+        WECpath = LandGridSheet.split("\\")
+        WECsheet = WECpath[-1]
+        xlSheet = xlBook1.Worksheets(WECsheet[:-1])
 
-    # func3 calculates wave energy in kilowatts
-    def func3(hs, c):
-        p = (d*g/16)*(hs**2)*c/1000
-        return p
-    
-    # calculate WE_kWM
-    def WPcalc(WaveData_clipZ):
-        cur = gp.UpdateCursor(WaveData_clipZ, "", "", "HSAVG_M; TPAVG_S; DEPTH_M; WE_kWM")
-        row = cur.Next()
-        while row:
-            if row.DEPTH_M > -9999 and row.DEPTH_M < 0:
-                tem = 2.0*pi/(row.TPAVG_S*float(alfa))
-                kest = func1(tem, abs(row.DEPTH_M))   # function 1
-                cest = func2(kest, abs(row.DEPTH_M))  # function 2
-                pest = func3(row.HSAVG_M, cest)      # function 3
-                row.SetValue("WE_kWM", pest)
-            else:
-                row.SetValue("WE_kWM", 0)
-            cur.UpdateRow(row)
-            row = cur.Next()
-        del cur, row
-        return WaveData_clipZ
+        row = 1
+        col = 1
+        bottom = row
+        while xlSheet.Cells(bottom+1, col).Value not in [None, '']:
+            bottom += 1
 
-    # calculate captured wave energy    
-    def CWEcalc(WaveData_clipZ, SeastateTxt, index_Tp, index_Hs, x_array, y_array, z_array, PointCount):
-        count = 0
-        # run through wave data and populate array with point index values: I, J
-        PtStrList = []
-        PtTxtList = []
-        FIDList = []
-        CapWEList = [0]*PointCount
-        cur = gp.UpdateCursor(WaveData_clipZ, "", "", "I; J")
-        row = cur.Next()
-        while row:
-            valueI = int(row.GetValue("I"))
-            valueJ = int(row.GetValue("J"))
-            PtStrList.append("I = " +str(row.GetValue("I"))+" AND J = "+str(row.GetValue("J")))
-            PtTxtString = 'I,'
-            if valueI < 10:
-                PtTxtString = PtTxtString + "  "+str(valueI)
-            elif valueI >= 10 and valueI < 100:
-                PtTxtString = PtTxtString + " "+str(valueI)
-            else:
-                PtTxtString = PtTxtString + str(valueI)
-            PtTxtString = PtTxtString + ',J,'   
-            if valueJ < 10:
-                PtTxtString = PtTxtString + "  "+str(valueJ)
-            elif valueJ >= 10 and valueJ < 100:
-                PtTxtString = PtTxtString + " "+str(valueJ)
-            else:
-                PtTxtString = PtTxtString + str(valueJ)
-            PtTxtList.append(PtTxtString+"\n")
-            FIDList.append(int(row.GetValue("FID")))
-            cur.UpdateRow(row)
-            row = cur.Next()
-        del cur    
-        del row
-
-        # reads in seastate data from WW3
-        SSTables = open(SeastateTxt,"r")
-        # read in x and y lists only once
-        listID = SSTables.readline()
-        arrayX = SSTables.readline()
-        arrayX = [float(s) for s in arrayX.split(",")] 
-        arrayY = SSTables.readline()
-        arrayY = [float(s) for s in arrayY.split(",")]
-        del listID
-        SSTables.close()
-
-        counter = 25
-        for line in open(SeastateTxt,"r"):
-            if line in PtTxtList:
-                indexed = PtTxtList.index(line)
-                counter = 0
-                arrayZ = []
-            if counter > 2 and counter < 24:
-                temp_line = line.split(",")
-                arrayZ.append(temp_line)
-                
-           # increase counter by 1
-            counter += 1
+        while counter <= bottom:
+            x = xlSheet.Cells(counter,2).Value
+            y = xlSheet.Cells(counter,3).Value
+            Pttype = str(xlSheet.Cells(counter,4).Value)
+            name = xlSheet.Cells(counter,5).Value
+            PttypeU = Pttype.upper()
+            if PttypeU == "LAND":
+                landstring = str(counter-1)+" "+ str(y)+" "+str(x)+"\n"
+                land.writelines(landstring)
+            if PttypeU == "GRID":
+                gridstring = str(counter-1)+" "+ str(y)+" "+str(x)+"\n"
+                grid.writelines(gridstring)
+            counter = counter + 1
             
-            if counter == 24:
-                arrayZ = np.array(arrayZ, dtype='f')
+        thestring = "END"
+        land.writelines(thestring)
+        grid.writelines(thestring)
+        land.close()
+        grid.close()
 
-                # set parameter max limits for each seastate table
-                for row in range(0,21):
-                    for col in range(0,21):
-                        if col >= index_Tp:
-                            arrayZ[row][col] = 0.0
-                        if row >= index_Hs:
-                            arrayZ[row][col] = 0.0
+        # Process: Create Features From Text File...
+        gp.CreateFeaturesFromTextFile_samples(LandPtsTxt, ".", LandPts_WGS84, "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];IsHighPrecision")
+        gp.CreateFeaturesFromTextFile_samples(GridPtTxt, ".", GridPt_WGS84, "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];IsHighPrecision")
 
-                # divide Z data by 5 to get yearly average
-                arrayZ = np.divide(arrayZ, 5.0)
-
-                # interpolation and calculate cap wave energy
-                ip = interp2d(x_array, y_array, z_array, kind = 'cubic', copy = True, bounds_error = False, fill_value = 0.0)
-                z_Range_intp = ip(arrayX, arrayY)
-                z_Array_Intp = np.array(z_Range_intp)
-                capwave_Array = arrayZ*z_Array_Intp
-                capwave_Array = np.where(capwave_Array < 0, 0, capwave_Array)
-
-                # assign CWE value to 'CapWEList' 
-                CapWEList[indexed] = (capwave_Array.sum()/1000)
-                counter = 25              
-
-                # benchmark
-                count += 1
-                if int(PointCount*0.25) == count:
-                    gp.AddMessage("...25% completed")
-                elif int(PointCount*0.50) == count:
-                    gp.AddMessage("...50% completed")
-                elif int(PointCount*0.75) == count:
-                    gp.AddMessage("...75% completed")
-
-        # sort lists by FID
-        WEPtsZip = zip(FIDList, CapWEList, PtStrList, PtTxtList)
-        WEPtsZip.sort()
-        FIDList, CapWEList, PtStrList, PtTxtList = zip(*WEPtsZip)
-
-        cur = gp.UpdateCursor(WaveData_clipZ)
-        row = cur.Next()
-        m = 0
-        while row:
-            row.SetValue("CAPWE_MWHY", CapWEList[m])
-            cur.UpdateRow(row)
-            row = cur.next()
-            m += 1
-        del cur, row
-        del arrayZ
-        return WaveData_clipZ
-
-##############################################################################################################################
-
-    ##############################################
-    ################ PREPARE DATA ################
-    ##############################################
-
-    # set extent to AOI and projection to that of AOI
-    if AOI:
-        gp.Extent = AOI
-        gp.OutputCoordinateSystem = projection
-    else:
-        gp.Extent = "MAXOF"
-
-    # clip the wave data to drawing boundary or global hemispheres, grab depth values for each point, add fields
-    try:
-        gp.AddMessage ("\nPreparing input data..." )
-        if AnalysisArea == "West Coast of North America and Hawaii":
-            if AOI:
-                gp.MakeFeatureLayer_management(WaveDataWC, WaveDataWCLyr, "", "", "")
-                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
-                PointsSelectWC = gp.SelectLayerByLocation_management(WaveDataWCLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
-                gp.FeatureClassToFeatureClass_conversion(PointsSelectWC, interws, "PointsAOICount.shp", "")
-                if gp.GetCount_management(PointsAOICount) == 0:
-                    gp.AddError(msgNoFeatures)
-                    raise Exception
-                else:
-                    gp.Clip_analysis(WaveDataWC, AOI, WaveData_clip)
-            else:
-                gp.Clip_analysis(WaveDataWC, WCNA_extract, WaveData_clip)
-            SeastateTxt = WaveDataFolder + os.sep + "NAmerica_WestCoast_4m.txt"   
-
-        if AnalysisArea == "East Coast of North America and Puerto Rico":
-            if AOI:
-                gp.MakeFeatureLayer_management(WaveDataEC, WaveDataECLyr, "", "", "")
-                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
-                PointsSelectEC = gp.SelectLayerByLocation_management(WaveDataECLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
-                gp.FeatureClassToFeatureClass_conversion(PointsSelectEC, interws, "PointsAOICount.shp", "")
-                if gp.GetCount_management(PointsAOICount) == 0:
-                    gp.AddError(msgNoFeatures)
-                    raise Exception
-                else:
-                    gp.Clip_analysis(WaveDataEC, AOI, WaveData_clip)
-            else:
-                gp.Clip_analysis(WaveDataEC, ECNA_extract, WaveData_clip)
-            SeastateTxt = WaveDataFolder + os.sep + "NAmerica_EastCoast_4m.txt"
-
-        if AnalysisArea == "Global (Eastern Hemisphere)":
-            if AOI:
-                gp.MakeFeatureLayer_management(WaveDataEH, WaveDataEHLyr, "", "", "")
-                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
-                PointsSelectEH = gp.SelectLayerByLocation_management(WaveDataEHLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
-                gp.FeatureClassToFeatureClass_conversion(PointsSelectEH, interws, "PointsAOICount.shp", "")
-                if gp.GetCount_management(PointsAOICount) == 0:
-                    gp.AddError(msgNoFeatures)
-                    raise Exception
-                else:
-                    gp.Clip_analysis(WaveDataEH, AOI, WaveData_clip)
-            else:
-                gp.Clip_analysis(WaveDataEH, GlobalBox_EastHemi, WaveData_clip)
-            SeastateTxt = WaveDataFolder + os.sep + "Global_EastHemi_30m.txt"
-
-        if AnalysisArea == "Global (Western Hemisphere)":
-            if AOI:
-                gp.MakeFeatureLayer_management(WaveDataWH, WaveDataWHLyr, "", "", "")
-                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
-                PointsSelectWH = gp.SelectLayerByLocation_management(WaveDataWHLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
-                gp.FeatureClassToFeatureClass_conversion(PointsSelectWH, interws, "PointsAOICount.shp", "")
-                if gp.GetCount_management(PointsAOICount) == 0:
-                    gp.AddError(msgNoFeatures)
-                    raise Exception
-                else:
-                    gp.Clip_analysis(WaveDataWH, AOI, WaveData_clip)
-            else:
-                gp.Clip_analysis(WaveDataWH, GlobalBox_WestHemi, WaveData_clip)
-            SeastateTxt = WaveDataFolder + os.sep + "Global_WestHemi_30m.txt"
-    except:
-        raise Exception, msgClipWaveData
-
-
-    try:
-        # get number of points in clipped wave data
-        PointCount = gp.GetCount_management(WaveData_clip)
-        # project DEM, if not projected
-        if AOI:
-            gp.CopyRaster_management(DEM, DEM_prj, "", "", "", "", "")
-            # add depth values to points
-            gp.ExtractValuesToPoints_sa(WaveData_clip, DEM_prj, WaveData_clipZ, "INTERPOLATE")
+        # check that GridPt has only one point and LandPts have more one or more points
+        if gp.GetCount_management(GridPt_WGS84) <> 1:
+            gp.AddError("Model takes only one grid point location as input.")
+            raise Exception
         else:
-            gp.ExtractValuesToPoints_sa(WaveData_clip, DEM, WaveData_clipZ, "INTERPOLATE") 
-        # add depth field
-        WaveData_clipZ = AddField(WaveData_clipZ, "DEPTH_M", "DOUBLE", "0", "0")
-        gp.CalculateField_management(WaveData_clipZ, "DEPTH_M", "[RASTERVALU]", "VB")
-        gp.DeleteField_management(WaveData_clipZ, "RASTERVALU")
-        # add WE fields
-        WaveData_clipZ = AddField(WaveData_clipZ, "WE_kWM", "DOUBLE", "8", "2")  
-        WaveData_clipZ = AddField(WaveData_clipZ, "CAPWE_MWHY", "DOUBLE", "8", "2")
-            
-    except:
-        raise Exception, msgCalcDepth
+            gp.Project_management(GridPt_WGS84, GridPt_prj, projection, "")
 
-
-    #################################################################################
-    ################ READ IN PERFORMANCE AND PARAMETER INFO #########################
-    #################################################################################
+        if gp.GetCount_management(LandPts_WGS84) < 1:
+            gp.AddError("Model must have at least one landing point location as input.")
+            raise Exception
+        else:
+            gp.Project_management(LandPts_WGS84, LandPts_prj, projection, "")
 
     try:
         # read in machine performance array
@@ -575,6 +358,255 @@ try:
     except:
         raise Exception, msgMachineTables
 
+##############################################################################################################################
+
+    # clip the wave data to drawing boundary or global hemispheres, grab depth values for each point, add fields
+    try:
+        if AnalysisArea == "West Coast of North America and Hawaii":
+            if AOI:
+                gp.MakeFeatureLayer_management(WaveDataWC, WaveDataWCLyr, "", "", "")
+                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
+                PointsSelectWC = gp.SelectLayerByLocation_management(WaveDataWCLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
+                gp.FeatureClassToFeatureClass_conversion(PointsSelectWC, interws, "PointsAOICount.shp", "")
+                if gp.GetCount_management(PointsAOICount) == 0:
+                    gp.AddError(msgNoFeatures)
+                    raise Exception
+                else:
+                    gp.Clip_analysis(WaveDataWC, AOI, WaveData_clip)
+            if not AOI:
+                gp.Clip_analysis(WaveDataWC, WCNA_extract, WaveData_clip)
+            SeastateTxt = WaveDataFolder + os.sep + "NAmerica_WestCoast_4m.txt"   
+
+        if AnalysisArea == "East Coast of North America and Puerto Rico":
+            if AOI:
+                gp.MakeFeatureLayer_management(WaveDataEC, WaveDataECLyr, "", "", "")
+                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
+                PointsSelectEC = gp.SelectLayerByLocation_management(WaveDataECLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
+                gp.FeatureClassToFeatureClass_conversion(PointsSelectEC, interws, "PointsAOICount.shp", "")
+                if gp.GetCount_management(PointsAOICount) == 0:
+                    gp.AddError(msgNoFeatures)
+                    raise Exception
+                else:
+                    gp.Clip_analysis(WaveDataEC, AOI, WaveData_clip)
+            if not AOI:
+                gp.Clip_analysis(WaveDataEC, ECNA_extract, WaveData_clip)
+            SeastateTxt = WaveDataFolder + os.sep + "NAmerica_EastCoast_4m.txt"
+
+        if AnalysisArea == "Global (Eastern Hemisphere)":
+            if AOI:
+                gp.MakeFeatureLayer_management(WaveDataEH, WaveDataEHLyr, "", "", "")
+                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
+                PointsSelectEH = gp.SelectLayerByLocation_management(WaveDataEHLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
+                gp.FeatureClassToFeatureClass_conversion(PointsSelectEH, interws, "PointsAOICount.shp", "")
+                if gp.GetCount_management(PointsAOICount) == 0:
+                    gp.AddError(msgNoFeatures)
+                    raise Exception
+                else:
+                    gp.Clip_analysis(WaveDataEH, AOI, WaveData_clip)
+            if not AOI:
+                gp.Clip_analysis(WaveDataEH, GlobalBox_EastHemi, WaveData_clip)
+            SeastateTxt = WaveDataFolder + os.sep + "Global_EastHemi_30m.txt"
+
+        if AnalysisArea == "Global (Western Hemisphere)":
+            if AOI:
+                gp.MakeFeatureLayer_management(WaveDataWH, WaveDataWHLyr, "", "", "")
+                gp.MakeFeatureLayer_management(AOI, AOILyr, "", "", "")
+                PointsSelectWH = gp.SelectLayerByLocation_management(WaveDataWHLyr, "INTERSECT", AOILyr, "", "NEW_SELECTION")
+                gp.FeatureClassToFeatureClass_conversion(PointsSelectWH, interws, "PointsAOICount.shp", "")
+                if gp.GetCount_management(PointsAOICount) == 0:
+                    gp.AddError(msgNoFeatures)
+                    raise Exception
+                else:
+                    gp.Clip_analysis(WaveDataWH, AOI, WaveData_clip)
+            if not AOI:
+                gp.Clip_analysis(WaveDataWH, GlobalBox_WestHemi, WaveData_clip)
+            SeastateTxt = WaveDataFolder + os.sep + "Global_WestHemi_30m.txt"
+    except:
+        raise Exception, msgClipWaveData
+
+
+    try:
+        # get number of points in clipped wave data
+        PointCount = gp.GetCount_management(WaveData_clip)
+        # add depth values to points
+        gp.ExtractValuesToPoints_sa(WaveData_clip, DEM, WaveData_clipZ, "INTERPOLATE")
+        # add depth field
+        WaveData_clipZ = AddField(WaveData_clipZ, "DEPTH_M", "DOUBLE", "0", "0")
+        gp.CalculateField_management(WaveData_clipZ, "DEPTH_M", "[RASTERVALU]", "VB")
+        gp.DeleteField_management(WaveData_clipZ, "RASTERVALU")
+        # add WE fields
+        WaveData_clipZ = AddField(WaveData_clipZ, "WE_kWM", "DOUBLE", "8", "2")  
+        WaveData_clipZ = AddField(WaveData_clipZ, "CAPWE_MWHY", "DOUBLE", "8", "2")
+            
+    except:
+        raise Exception, msgCalcDepth
+
+##############################################################################################################################
+
+    ##############################################
+    ############# WAVE POWER FUNCTIONS ###########
+    ##############################################
+    
+    # func1 calculates the wave numbers
+    def func1(sigma, h):
+        kestimated = (sigma**2)/(g*(sqrt(tanh((sigma**2)*h/g))))
+        kprevious = 0.0000001
+        count = 0
+        while (abs(kestimated-kprevious) > 0.000005) and (count < 1000):
+            count += 1
+            kh = kestimated*h
+            kcalculated = (sigma**2)/(tanh(kh)*g)
+            kprevious = kestimated
+            kestimated = kcalculated
+        k = kcalculated
+        return k
+
+    # func2 calculates wave group velocity
+    def func2(k2, h2):
+        if 2*k2*h2 <= 300:
+            cg = 0.5*(1+2*k2*h2/sinh(2*k2*h2))*sqrt(g*tanh(k2*h2)/k2)
+        else:
+            cg = 0.5*sqrt(g*tanh(k2*h2)/k2)
+        return cg
+
+    # func3 calculates wave energy in kilowatts
+    def func3(hs, c):
+        p = (d*g/16)*(hs**2)*c/1000
+        return p
+    
+    # calculate WE_kWM
+    def WPcalc(WaveData_clipZ):
+        cur = gp.UpdateCursor(WaveData_clipZ, "", "", "HSAVG_M; TPAVG_S; DEPTH_M; WE_kWM")
+        row = cur.Next()
+        while row:
+            if row.DEPTH_M > -9999 and row.DEPTH_M < 0:
+                tem = 2.0*pi/(row.TPAVG_S*float(alfa))
+                kest = func1(tem, abs(row.DEPTH_M))   # function 1
+                cest = func2(kest, abs(row.DEPTH_M))  # function 2
+                pest = func3(row.HSAVG_M, cest)      # function 3
+                row.SetValue("WE_kWM", pest)
+            else:
+                row.SetValue("WE_kWM", 0)
+            cur.UpdateRow(row)
+            row = cur.Next()
+        del cur, row
+        return WaveData_clipZ
+    
+
+    ##############################################
+    ################ CWE FUNCTION ################
+    ##############################################
+    
+    def CWEcalc(WaveData_clipZ, SeastateTxt, index_Tp, index_Hs, x_array, y_array, z_array, PointCount):
+        # run through wave data and populate array with point index values: I, J
+        PointArray = []
+        PointList = []
+        cur = gp.UpdateCursor(WaveData_clipZ, "", "", "I; J") ## change
+        row = cur.Next()
+        while row:
+            PointList.append(int(row.GetValue("I")))
+            PointList.append(int(row.GetValue("J")))
+            PointList.append(0.0)
+            PointArray.append(PointList)
+            PointList = []
+            cur.UpdateRow(row)
+            row = cur.Next()
+        del cur    
+        del row
+
+        # reads in seastate data from WW3
+        SSTables = open(SeastateTxt,"r")
+        CapWEArray = []
+
+        # read in x and y lists only once
+        listID = SSTables.readline()
+        arrayX = SSTables.readline()
+        arrayX = [float(s) for s in arrayX.split(",")] 
+        arrayY = SSTables.readline()
+        arrayY = [float(s) for s in arrayY.split(",")]
+        del listID
+        SSTables.close()
+
+        # reopen WaveData and read entire file
+        SSTables = open(SeastateTxt,"r")
+        text = SSTables.read()
+
+        for Count in range(0,PointCount):
+            # benchmark
+            if int(PointCount*0.25) == Count:
+                gp.AddMessage("...25% completed")
+            if int(PointCount*0.50) == Count:
+                gp.AddMessage("...50% completed")
+            if int(PointCount*0.75) == Count:
+                gp.AddMessage("...75% completed")
+            
+            # find I and J in txt document
+            if PointArray[Count][0] < 10:
+                I="  "+str(int(PointArray[Count][0]))
+            if PointArray[Count][0] >= 10 and PointArray[Count][0] < 100:
+                I=" "+str(int(PointArray[Count][0]))
+            if PointArray[Count][0] >= 100:
+                I=str(int(PointArray[Count][0]))
+            if PointArray[Count][1] < 10:
+                J="  "+str(int(PointArray[Count][1]))
+            if PointArray[Count][1] >= 10 and PointArray[Count][1] < 100:
+                J=" "+str(int(PointArray[Count][1]))
+            if PointArray[Count][1] >= 100:
+                J=str(int(PointArray[Count][1]))
+                
+            # compare I and J values with PointArray values
+            start = "I,"+str(I)+",J,"+str(J)
+            indexS = text.find(start)
+            stringZ = text[indexS+475:indexS+5765]
+
+            # create Z array    
+            linesZ = stringZ.split("\n")
+            arrayZ = []
+            for i in range(0,21):
+                temp_line = linesZ[i].split(",")
+                arrayZ.append(temp_line)
+            arrayZ = np.array(arrayZ, dtype='f')
+
+            # set parameter max limits for each seastate table
+            for row in range(0,21):
+                for col in range(0,21):
+                    if col >= index_Tp:
+                        arrayZ[row][col] = 0.0
+                    if row >= index_Hs:
+                        arrayZ[row][col] = 0.0      
+                        
+            # divide Z data by 5 to get yearly average
+            arrayZ = np.divide(arrayZ, 5.0)
+           
+            # interpolation and calculate cap wave energy
+            ip = interp2d(x_array, y_array, z_array, kind = 'cubic', copy = True, bounds_error = False, fill_value = 0.0)
+            z_Range_intp = ip(arrayX, arrayY)
+            z_Array_Intp = np.array(z_Range_intp)
+            capwave_Array = arrayZ*z_Array_Intp
+            capwave_Array = np.where(capwave_Array < 0, 0, capwave_Array)
+            
+            # assign CWE value to PointArray 
+            PointArray[Count][2] = (capwave_Array.sum()/1000)
+
+            # populate PointArray data into shapefile
+            I = int(PointArray[Count][0])
+            J = int(PointArray[Count][1])
+            CapWESum = PointArray[Count][2]
+
+            SrchCondition = "I = " +str(I)+ " AND J = "+str(J)
+            cur = gp.UpdateCursor(WaveData_clipZ, SrchCondition, "", "I; J; CAPWE_MWHY")
+            row = cur.Next()
+            row.SetValue("CAPWE_MWHY", CapWESum)
+            cur.UpdateRow(row)
+            
+        SSTables.close()    
+        del cur
+        del row
+        del PointArray
+        del arrayZ
+        return WaveData_clipZ    
+
+##############################################################################################################################
 
     ###################################################################
     ##################### WE EXPRESSIONS #############################
@@ -586,13 +618,21 @@ try:
             WaveData_clipZ = CWEcalc(WaveData_clipZ, SeastateTxt, index_Tp, index_Hs, x_array, y_array, z_array, PointCount)
 
             # logic whether to project wave data points
-            if AOI:
+            if AOI and projection:
                 gp.AddMessage("...projecting wave data within AOI")
                 gp.Project_management(WaveData_clipZ, WaveData_prj, projection, "")
                 gp.AddMessage("...generating wave power and captured wave energy outputs\n")
                 gp.Spline_sa(WaveData_prj, "WE_kWM", splineWP)
                 gp.Spline_sa(WaveData_prj, "CAPWE_MWHY", splineCWE)
                 gp.NaturalNeighbor_sa(WaveData_prj, "CAPWE_MWHY", neighbIntp)
+
+            if AOI and not projection:
+                gp.AddMessage("...generating wave power and captured wave energy outputs\n")
+                gp.Spline_sa(WaveData_clipZ, "WE_kWM", splineWP)
+                gp.Spline_sa(WaveData_clipZ, "CAPWE_MWHY", splineCWE)
+                gp.NaturalNeighbor_sa(WaveData_clipZ, "CAPWE_MWHY", neighbIntp)
+
+            if AOI:
                 # output: wave power
                 gp.ExtractByMask_sa(splineWP, neighbIntp, splineWPext)
                 gp.Int_sa(splineWPext, splineWPint)
@@ -602,7 +642,7 @@ try:
                 gp.Int_sa(splineCWEext, splineCWEint)
                 gp.SetNull_sa(splineCWEint, splineCWEint, outputCWE, '"VALUE" < 1')
                 
-            else:
+            if not AOI:
                 gp.AddMessage("...generating wave power and captured wave energy outputs\n")
                 if AnalysisArea == "West Coast of North America and Hawaii":
                     gp.SplineWithBarriers_sa(WaveData_clipZ, "WE_kWM", WCNA_barrier, "0.05", splineWP, "0")
@@ -623,20 +663,30 @@ try:
                     gp.Int_sa(splineCWEext, splineCWEint)
                     gp.SetNull_sa(splineCWEint, splineCWEint, outputCWE, '"VALUE" < 1') 
 
+
         #######################################################################################################
+
 
         if AnalysisArea == "Global (Eastern Hemisphere)" or AnalysisArea == "Global (Western Hemisphere)":
             gp.AddMessage("\nPerforming wave energy calculations...")
             WaveData_clipZ = WPcalc(WaveData_clipZ)
             WaveData_clipZ = CWEcalc(WaveData_clipZ, SeastateTxt, index_Tp, index_Hs, x_array, y_array, z_array, PointCount)
 
-            if AOI:
+            if AOI and projection:
                 gp.AddMessage("...projecting wave data within AOI")
                 gp.Project_management(WaveData_clipZ, WaveData_prj, projection, "")
                 gp.AddMessage("...generating wave power and captured wave energy outputs\n")
                 gp.Spline_sa(WaveData_prj, "WE_kWM", splineWP)
                 gp.Spline_sa(WaveData_prj, "CAPWE_MWHY", splineCWE)
                 gp.NaturalNeighbor_sa(WaveData_prj, "CAPWE_MWHY", neighbIntp)
+
+            if AOI and not projection:
+                gp.AddMessage("...generating wave power and captured wave energy outputs\n")
+                gp.Spline_sa(WaveData_clipZ, "WE_kWM", splineWP)
+                gp.Spline_sa(WaveData_clipZ, "CAPWE_MWHY", splineCWE)
+                gp.NaturalNeighbor_sa(WaveData_clipZ, "CAPWE_MWHY", neighbIntp)
+                
+            if AOI:
                 # output: wave power
                 gp.ExtractByMask_sa(splineWP, neighbIntp, splineWPext)
                 gp.Int_sa(splineWPext, splineWPint)
@@ -646,102 +696,16 @@ try:
                 gp.Int_sa(splineCWEext, splineCWEint)
                 gp.SetNull_sa(splineCWEint, splineCWEint, outputCWE, '"VALUE" < 1')                
                 
-            else:
+            if not AOI:
                 gp.AddMessage("...generating wave power and captured wave energy outputs\n")
-                if AnalysisArea == "Global (Eastern Hemisphere)":
-                    gp.SplineWithBarriers_sa(WaveData_clipZ, "WE_kWM", EH_barrier, "0.05", splineWP, "0")
-                    gp.SplineWithBarriers_sa(WaveData_clipZ, "CAPWE_MWHY", EH_barrier, "0.05", splineCWE, "0")
-                    gp.ExtractByMask_sa(splineWP, EH_extract, splineWPext)
-                else:
-                    gp.SplineWithBarriers_sa(WaveData_clipZ, "WE_kWM", WH_barrier, "0.05", splineWP, "0")
-                    gp.SplineWithBarriers_sa(WaveData_clipZ, "CAPWE_MWHY", WH_barrier, "0.05", splineCWE, "0")
-                    gp.ExtractByMask_sa(splineWP, WH_extract, splineWPext)
+                gp.SplineWithBarriers_sa(WaveData_clipZ, "WE_kWM", Global_barrier, "0.05", splineWP, "0")
+                gp.SplineWithBarriers_sa(WaveData_clipZ, "CAPWE_MWHY", Global_barrier, "0.05", splineCWE, "0")
+                gp.ExtractByMask_sa(splineWP, Global_extract, splineWPext)
                 gp.Int_sa(splineWPext, splineWPint)
-                gp.SetNull_sa(splineWPint, splineWPint, outputWP, '"VALUE" < 1')
-                if AnalysisArea == "Global (Eastern Hemisphere)":
-                    gp.ExtractByMask_sa(splineCWE, EH_extract, splineCWEext)
-                else:
-                    gp.ExtractByMask_sa(splineCWE, WH_extract, splineCWEext)
+                gp.SetNull_sa(splineWPint, splineWPint, outputWP, '"VALUE" < 1')                
+                gp.ExtractByMask_sa(splineCWE, Global_extract, splineCWEext)
                 gp.Int_sa(splineCWEext, splineCWEint)
                 gp.SetNull_sa(splineCWEint, splineCWEint, outputCWE, '"VALUE" < 1')
-
-        # reclass WP & CWE rasters
-        WPList = []
-        cur = gp.UpdateCursor(outputWP)
-        row = cur.Next()
-        while row:
-            CellCount = int(row.GetValue("COUNT"))
-            for i in range(CellCount):
-                WPList.append(row.GetValue("VALUE"))
-            cur.UpdateRow(row)
-            row = cur.next()
-        del row
-        del cur
-
-        CWEList = []
-        cur = gp.UpdateCursor(outputCWE)
-        row = cur.Next()
-        while row:
-            CellCount = int(row.GetValue("COUNT"))
-            for i in range(CellCount):
-                CWEList.append(row.GetValue("VALUE"))
-            cur.UpdateRow(row)
-            row = cur.next()
-        del row
-        del cur            
-        
-        WPPctList = getPercentiles(WPList)
-        CWEPctList = getPercentiles(CWEList)
-        WPExpr = "1 "+str(int(WPPctList[0]))+" 1;"+str(int(WPPctList[0]))+" "+str(int(WPPctList[1]))+" 2;"+str(int(WPPctList[1]))+" "\
-                 +str(int(WPPctList[2]))+" 3;"+str(int(WPPctList[2]))+" "+str(int(WPPctList[3]))+" 4;"+str(int(WPPctList[3]))+" "\
-                 +str(int(max(WPList)))+" 5"
-        CWEExpr = "1 "+str(int(CWEPctList[0]))+" 1;"+str(int(CWEPctList[0]))+" "+str(int(CWEPctList[1]))+" 2;"+str(int(CWEPctList[1]))+" "\
-                 +str(int(CWEPctList[2]))+" 3;"+str(int(CWEPctList[2]))+" "+str(int(CWEPctList[3]))+" 4;"+str(int(CWEPctList[3]))+" "\
-                 +str(int(max(CWEList)))+" 5"
-
-        # reclassify wave power outputs
-        gp.Reclassify_sa(outputWP, "VALUE", WPExpr, outputWP_rc, "DATA")
-        outputWP_rc = AddField(outputWP_rc, "VAL_RANGE", "TEXT", "75", "")
-        cur = gp.UpdateCursor(outputWP_rc)
-        row = cur.Next()
-        while row:
-            WPValue = row.GetValue("VALUE")
-            if WPValue == 1:
-                row.SetValue("VAL_RANGE", "1 - "+str(WPPctList[0])+" kilowatts per square meter (kW/m)")
-            elif WPValue == 2:
-                row.SetValue("VAL_RANGE", str(WPPctList[0])+" - "+str(WPPctList[1])+" kW/m")
-            elif WPValue == 3:
-                row.SetValue("VAL_RANGE", str(WPPctList[1])+" - "+str(WPPctList[2])+" kW/m")
-            elif WPValue == 4:
-                row.SetValue("VAL_RANGE", str(WPPctList[2])+" - "+str(WPPctList[3])+" kW/m")
-            elif WPValue == 5:
-                row.SetValue("VAL_RANGE", "Greater than "+str(WPPctList[3])+" kW/m")
-            cur.UpdateRow(row)
-            row = cur.next()
-        del row
-        del cur
-        
-        # reclassify captured wave energy outputs
-        gp.Reclassify_sa(outputCWE, "VALUE", CWEExpr, outputCWE_rc, "DATA")
-        outputCWE_rc = AddField(outputCWE_rc, "VAL_RANGE", "TEXT", "75", "")
-        cur = gp.UpdateCursor(outputCWE_rc)
-        row = cur.Next()
-        while row:
-            CWEValue = row.GetValue("VALUE")
-            if CWEValue == 1:
-                row.SetValue("VAL_RANGE", "1 - "+str(CWEPctList[0])+" megawatt hours per year (MWh/yr)")
-            elif CWEValue == 2:
-                row.SetValue("VAL_RANGE", str(CWEPctList[0])+" - "+str(CWEPctList[1])+" (MWh/yr)")
-            elif CWEValue == 3:
-                row.SetValue("VAL_RANGE", str(CWEPctList[1])+" - "+str(CWEPctList[2])+" (MWh/yr)")
-            elif CWEValue == 4:
-                row.SetValue("VAL_RANGE", str(CWEPctList[2])+" - "+str(CWEPctList[3])+" (MWh/yr)")
-            elif CWEValue == 5:
-                row.SetValue("VAL_RANGE", "Greater than "+str(CWEPctList[3])+" (MWh/yr)")
-            cur.UpdateRow(row)
-            row = cur.next()
-        del row
-        del cur
     except:
         raise Exception, msgWEcalc
     
@@ -752,60 +716,10 @@ try:
     try:
         if EconBoolean == "true":
             gp.AddMessage("Performing economic valuation..." )
-            # create a text file and write point coordinates to it
-            land = open(LandPtsTxt,'a')
-            grid = open(GridPtTxt,'a')
-            thestring = "Point\n"
-            land.writelines(thestring)
-            grid.writelines(thestring)
-            counter = 2
-
+            # read table
             xlApp = Dispatch("Excel.Application")
             xlApp.Visible = 0
             xlApp.DisplayAlerts=0
-            xlBook1 = xlApp.Workbooks.Open(LandGridSheet[:-(1+len(LandGridSheet.split("\\")[-1]))])
-            WECpath = LandGridSheet.split("\\")
-            WECsheet = WECpath[-1]
-            xlSheet = xlBook1.Worksheets(WECsheet[:-1])
-
-            row = 1
-            col = 2
-            bottom = row
-            while xlSheet.Cells(bottom+1, col).Value not in [None, '']:
-                bottom += 1
-            while counter <= bottom:
-                xl = xlSheet.Cells(counter,2).Value
-                yl = xlSheet.Cells(counter,3).Value
-                xg = xlSheet.Cells(counter,5).Value
-                yg = xlSheet.Cells(counter,6).Value
-                landstring = str(counter-1)+" "+ str(yl)+" "+str(xl)+"\n"
-                land.writelines(landstring)
-                gridstring = str(counter-1)+" "+ str(yg)+" "+str(xg)+"\n"
-                grid.writelines(gridstring)
-                counter = counter + 1
-            thestring = "END"
-            land.writelines(thestring)
-            grid.writelines(thestring)
-            land.close()
-            grid.close()
-
-            # Process: Create Features From Text File...
-            gp.CreateFeaturesFromTextFile_samples(LandPtsTxt, ".", LandPts_WGS84, "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];IsHighPrecision")
-            gp.CreateFeaturesFromTextFile_samples(GridPtTxt, ".", GridPt_WGS84, "GEOGCS['GCS_WGS_1984',DATUM['D_WGS_1984',SPHEROID['WGS_1984',6378137.0,298.257223563]],PRIMEM['Greenwich',0.0],UNIT['Degree',0.0174532925199433]];IsHighPrecision")
-
-            # check that there is at least one grid and one landing point input
-            if gp.GetCount_management(GridPt_WGS84) < 1:
-                gp.AddError("Model takes only one grid point location as input.")
-                raise Exception
-            else:
-                gp.Project_management(GridPt_WGS84, GridPt_prj, projection, "")
-                
-            if gp.GetCount_management(LandPts_WGS84) < 1:
-                gp.AddError("Model must have at least one landing point location as input.")
-                raise Exception
-            else:
-                gp.Project_management(LandPts_WGS84, LandPts_prj, projection, "")
-
             xlBook1 = xlApp.Workbooks.Open(EconParameter[:-(1+len(EconParameter.split("\\")[-1]))])
             econpath = EconParameter.split("\\")
             econsheet = econpath[-1]
@@ -874,7 +788,7 @@ try:
             WaveData_prj = AddField(WaveData_prj, "UNITS", "SHORT", "0", "0")
             WaveData_prj = AddField(WaveData_prj, "CAPWE_ALL", "DOUBLE", "8", "2")
             WaveData_prj = AddField(WaveData_prj, "NPV_25Y", "DOUBLE", "8", "2")
-            gp.CalculateField_management(WaveData_prj, "UNITS", NumUnits, "VB")
+            gp.CalculateField_management(WaveData_prj, "UNITS", int(NumUnits), "VB")
 
             # populate projected wave data
             cur = gp.UpdateCursor(WaveData_prj, "", "", "W2L_MDIST; LAND_ID; L2G_MDIST")
@@ -882,7 +796,7 @@ try:
             j = 0
             while row:
                 row.SetValue("W2L_MDIST", W2L_Dist[j])
-                LANDID = int(W2L_ID[j])
+                LANDID =int(W2L_ID[j])
                 row.SetValue("LAND_ID", LANDID)
                 row.SetValue("L2G_MDIST", L2G_Dist[LANDID])
                 cur.UpdateRow(row)
@@ -928,67 +842,6 @@ try:
             gp.ExtractByMask_sa(splineNPV, neighbIntp2, splineNPVext)
             gp.Int_sa(splineNPVext, outputNPV)
 
-            # reclass NPV raster
-            gp.BuildRasterAttributeTable_management(outputNPV, "Overwrite")
-            outputNPV = AddField(outputNPV, "NPV_BREAKS", "SHORT", "", "")            
-            NPVList = []
-            cur = gp.UpdateCursor(outputNPV)
-            row = cur.Next()
-            while row:
-                CellCount = int(row.GetValue("COUNT"))
-                if row.GetValue("VALUE") > 0:
-                    for i in range(CellCount):
-                        NPVList.append(row.GetValue("VALUE"))
-                cur.UpdateRow(row)
-                row = cur.next()
-            del row
-            del cur
-            
-            NPVPctList = getPercentiles(NPVList)
-            cur = gp.UpdateCursor(outputNPV)
-            row = cur.Next()
-            while row:
-                NPVValue = row.GetValue("VALUE")
-                if NPVValue < 1:
-                    row.SetValue("NPV_BREAKS", 0)
-                elif NPVValue < NPVPctList[0] and NPVValue >= 1:
-                    row.SetValue("NPV_BREAKS", 1)
-                elif NPVValue >= NPVPctList[0] and NPVValue < NPVPctList[1]:
-                    row.SetValue("NPV_BREAKS", 2)
-                elif NPVValue >= NPVPctList[1] and NPVValue <= NPVPctList[2]:
-                    row.SetValue("NPV_BREAKS", 3)
-                elif NPVValue >= NPVPctList[2] and NPVValue <= NPVPctList[3]:
-                    row.SetValue("NPV_BREAKS", 4)
-                elif NPVValue > NPVPctList[3]:
-                    row.SetValue("NPV_BREAKS", 5)
-                cur.UpdateRow(row)
-                row = cur.next()
-            del row
-            del cur
-
-            # reclass NPV output (5 classes)
-            NPVExpr = "1 1;2 2;3 3;4 4;5 5"
-            gp.Reclassify_sa(outputNPV, "NPV_BREAKS", NPVExpr, outputNPV_rc, "NODATA")
-            outputNPV_rc = AddField(outputNPV_rc, "VAL_RANGE", "TEXT", "75", "")
-            cur = gp.UpdateCursor(outputNPV_rc)
-            row = cur.Next()
-            while row:
-                NPVValue = row.GetValue("VALUE")
-                if NPVValue == 1:
-                    row.SetValue("VAL_RANGE", "1 - "+str(NPVPctList[0])+" thousands of US dollars (US$)")
-                elif NPVValue == 2:
-                    row.SetValue("VAL_RANGE", str(NPVPctList[0])+" - "+str(NPVPctList[1])+" thousands of US$")
-                elif NPVValue == 3:
-                    row.SetValue("VAL_RANGE", str(NPVPctList[1])+" - "+str(NPVPctList[2])+" thousands of US$")
-                elif NPVValue == 4:
-                    row.SetValue("VAL_RANGE", str(NPVPctList[2])+" - "+str(NPVPctList[3])+" thousands of US$")
-                elif NPVValue == 5:
-                    row.SetValue("VAL_RANGE", "Greater than "+str(NPVPctList[3])+" thousands of US$")
-                cur.UpdateRow(row)
-                row = cur.next()
-            del row
-            del cur
-            
     except:
         raise Exception, msgValuation
     
@@ -1006,9 +859,9 @@ try:
     # delete superfluous intermediate data
     del1 = [splineWP, splineCWE, neighbIntp, splineWPext, splineCWEext, splineWPint, splineCWEint, splineNPV, neighbIntp2, splineNPVext]  
     del2 = [LandPts_WGS84, GridPt_WGS84, WaveDataWCLyr, WaveDataECLyr, WaveDataEHLyr, WaveDataWHLyr, AOILyr, WaveData_clip, PointsAOICount]
-    del3 = [WaveData_clipZ, DEM_prj]
+    del3 = [WaveData_clipZ]
 
-    if AOI:
+    if AOI and projection:
         deletelist = del1 + del2 + del3
     else:
         deletelist = del1 + del2
