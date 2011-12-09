@@ -1,0 +1,16 @@
+Dec 15, 2011
+
+Changes in InVEST 2.2.0
+
+General:
+
+This is a major release which adds the following additional Marine Models:
+
+* Coastal protection Tier 1
+
+and updates to:
+
+* Marine Habitat Risk assessment
+  * SAY WHAT BUGS WERE FIXED
+* Coastal protection Tier 0 
+  * SAY WHAT BUGS WERE FIXED
