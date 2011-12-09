@@ -245,9 +245,9 @@ try:
         raise Exception
 
 
-    ####################################################            
-    ###### CK CONSISTENCY WITH HAB/STRESS LAYERS #######
-    ####################################################
+    ######################################################           
+    ###### CHECK CONSISTENCY FOR HAB/STRESS INPUTS #######
+    ######################################################
     try:
 
         # get data from CSV
@@ -272,20 +272,29 @@ try:
                 StressVar.append(rawList[i][2:])
             elif i > 15 + HabInputCount+3 + StressInputCount+3 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+1:
                 HabStressVar.append(rawList[i][4:])
-            elif i > 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+2 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+12:
+            elif i > 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+1 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+13:
                 CritWeights.append(float(rawList[i][0]))
 
         # adjust inter-criteria weights
-##        CritWeights = [0.5 if i == 0.0 else i for i in CritWeights]
-##        CritWeights = [1.5 if i == 2.0 else i for i in CritWeights]
-##        ExpCritWeights = []
-##        ExpIndex = [1,2,0,3]
-##        for i in range(0,4):
-##            ExpCritWeights.append(CritWeights[ExpIndex[i]])
-##        ConsCritWeights = []
-##        ConsIndex = [7,8,9,10,4,5,6]            
-##        for i in range(0,7):
-##            ConsCritWeights.append(CritWeights[ConsIndex[i]])
+        for w,i in enumerate(CritWeights):
+            if i==0.0:
+                CritWeights[w]=3.0
+            elif i==1.0:
+                CritWeights[w]=2.0
+            elif i==2.0:
+                CritWeights[w]=1.0
+            
+        ExpCritWeights = []
+        ExpIndex = [1,2,0,3]
+        for i in range(0,4):
+            ExpCritWeights.append(CritWeights[ExpIndex[i]])
+        ExpCritWeights.append(0.0)
+        
+        ConsCritWeights = []
+        ConsIndex = [7,8,9,10,4,5,6]
+        for i in range(0,7):
+            ConsCritWeights.append(CritWeights[ConsIndex[i]])
+        ConsCritWeights.append(0.0)
 
         # populate buffer distance list
         StressBuffDistList = []
@@ -560,18 +569,39 @@ try:
         ExpQualityArray[:,-1] = 0.0
         ConsQualityArray = np.where(ConsQualityArray == 0.0, 1.0,  ConsQualityArray)
         ConsQualityArray[:,-1] = 0.0
-        
-        ConsNumArray = np.where(ConsQualityArray == 0.0, 0.0,  ConsequenceArray/ConsQualityArray)
-        ConsDenomArray = np.where(ConsNumArray == 0.0, 0.0,  1.0/ConsQualityArray)
+
+        # make weights into array with same dimensions as others
+        ExpCritWeights = ExpCritWeights*TotalHSCombo
+        ExpCritWeightsArray = np.reshape(ExpCritWeights, (TotalHSCombo,5))
+        ConsCritWeights = ConsCritWeights*TotalHSCombo
+        ConsCritWeightsArray = np.reshape(ConsCritWeights, (TotalHSCombo,8))
+
+        # apply weighted average formula
+        ExpNumArray = np.where(ExpQualityArray == 0.0, 0.0,  ExposureArray/ExpQualityArray*ExpCritWeightsArray)
+        ExpDenomArray = np.where(ExpNumArray == 0.0, 0.0,  1.0/ExpQualityArray*ExpCritWeightsArray)
+        ConsNumArray = np.where(ConsQualityArray == 0.0, 0.0,  ConsequenceArray/ConsQualityArray*ConsCritWeightsArray)
+        ConsDenomArray = np.where(ConsNumArray == 0.0, 0.0,  1.0/ConsQualityArray*ConsCritWeightsArray)
         
         # delete non-recovery specific columns from consequence array and redo calcs (except one for sums/avgs)
         RecoveryArray = np.delete(ConsequenceArray, [4,5,6], axis=1)
         RecovQualityArray = np.delete(ConsQualityArray, [4,5,6], axis=1)
+        RecovWeightsArray = np.delete(ConsCritWeightsArray, [4,5,6], axis=1)
         RecovNumArray = np.delete(ConsNumArray, [4,5,6], axis=1)
         RecovDenomArray = np.delete(ConsDenomArray, [4,5,6], axis=1)
-        RecovNumArray = np.where(RecovQualityArray == 0.0, 0.0,  RecoveryArray/RecovQualityArray)
-        RecovDenomArray = np.where(RecovNumArray == 0.0, 0.0,  1.0/RecovQualityArray)
+        RecovNumArray = np.where(RecovQualityArray == 0.0, 0.0,  RecoveryArray/RecovQualityArray*RecovWeightsArray)
+        RecovDenomArray = np.where(RecovNumArray == 0.0, 0.0,  1.0/RecovQualityArray*RecovWeightsArray)
 
+        # sum up rows; divide rows and place weighted average value in original 
+        # consequence
+        for i in range(0,TotalHSCombo):  
+            ConsNumArray[i][7] = np.sum(ConsNumArray[i][:-1])
+            ConsDenomArray[i][7] = np.sum(ConsDenomArray[i][:-1])
+            if ConsDenomArray[i][7] == 0.0:
+                ConsequenceArray[i][7] = 0.0
+            else:
+                ConsequenceArray[i][7] = ConsNumArray[i][7]/ConsDenomArray[i][7]
+                
+        # recovery
         for i in range(0,TotalHSCombo):
             RecovNumArray[i][4] = np.sum(RecovNumArray, axis=1)[i]
             RecovDenomArray[i][4] = np.sum(RecovDenomArray, axis=1)[i]
@@ -588,19 +618,7 @@ try:
                 RecovQualityArray[i][4] = 0.0
             else:
                 RecovQualityArray[i][4] = (RecovQualitySum / (3.0 - RecovQualityZeroCount))
-
-        ExpNumArray = np.where(ExpQualityArray == 0.0, 0.0,  ExposureArray/ExpQualityArray)
-        ExpDenomArray = np.where(ExpNumArray == 0.0, 0.0,  1.0/ExpQualityArray)
-
-        # sum up rows; divide rows and place weighted average value in original
-        for i in range(0,TotalHSCombo):  
-            ConsNumArray[i][7] = np.sum(ConsNumArray[i][:-1])
-            ConsDenomArray[i][7] = np.sum(ConsDenomArray[i][:-1])
-            if ConsDenomArray[i][7] == 0.0:
-                ConsequenceArray[i][7] = 0.0
-            else:
-                ConsequenceArray[i][7] = ConsNumArray[i][7]/ConsDenomArray[i][7]
-   
+                
     except:
         gp.AddError(msgGetHabStressRatings)
         raise Exception
@@ -647,12 +665,12 @@ try:
                                 if ExpQualityArray[i+j+offset][2] == 0.0:
                                     ExpNumArray[i+j+offset][2] = 0.0
                                 else:
-                                    ExpNumArray[i+j+offset][2] = ExposureArray[i+j+offset][2]/ExpQualityArray[i+j+offset][2]
+                                    ExpNumArray[i+j+offset][2] = ExposureArray[i+j+offset][2]/(ExpQualityArray[i+j+offset][2]*ExpCritWeightsArray[i+j+offset][2])
                                      
                                 if ExpNumArray[i+j+offset][2] == 0.0:
                                     ExpDenomArray[i+j+offset][2] = 0.0
                                 else: 
-                                    ExpDenomArray[i+j+offset][2] = 1.0/ExpQualityArray[i+j+offset][2]
+                                    ExpDenomArray[i+j+offset][2] = 1.0/(ExpQualityArray[i+j+offset][2]*ExpCritWeightsArray[i+j+offset][2])
                                     
                                 # sum up rows; divide rows and place weighted average value in original
                                 ExpNumArray[i+j+offset][4] = np.sum(ExpNumArray[i+j+offset][:-1])
@@ -1071,7 +1089,7 @@ try:
                             aquaculture exposure score for eelgrass and the destructive fishing exposure score for eelgrass. Cumulative consequence \
                             scores are derived in the same way. Habitats with high cumulative exposure and high cumulative consequence are at the \
                             highest risk from human activities.<p>")
-            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HQM_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
+            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HRA_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
             for i in range(0,len(HabLyrList)):
                 htmlfile.write("<big><u>H"+str(i+1)+"</u>: "+str(HabLyrList[i])+"</big><br>\n")
             htmlfile.write("</td></tr></table>\n")
@@ -1082,7 +1100,7 @@ try:
             htmlfile.write("These figures show the exposure and consequence scores for each stressor and habitat combination in the study region. \
                             Stressors that have high exposure scores and high consequence scores pose the greatest risk to habitats. Reducing risk \
                             through management is likely to be more effective in situations where high risk is driven by high exposure, not high consequence.<p>")
-            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HQM_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
+            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HRA_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
             for j in range(0,len(StressLyrList)):
                 htmlfile.write("<big><u>S"+str(j+1)+"</u>: "+str(StressLyrList[j])+"</big><br>\n")
             htmlfile.write("</td></td></table>\n")
