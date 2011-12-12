@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
-# 12/07/11
+# 12/12/11
 
 # import modules
 import sys, string, os, datetime, shlex, csv
@@ -187,6 +187,7 @@ try:
     ####################################################            
     ####### PREPARE HABITAT AND STRESSOR LAYERS ########
     ####################################################
+    
     try:
         gp.workspace = Hab_Directory
         fcList = gp.ListFeatureClasses("*", "all")
@@ -211,7 +212,6 @@ try:
         HabZip = zip(HabIDList, HabLyrList)
         HabZip.sort()
         HabIDList, HabLyrList = zip(*HabZip)
-
 
         gp.workspace = Stress_Directory
         fcList = gp.ListFeatureClasses("*", "all")
@@ -248,6 +248,7 @@ try:
     ######################################################           
     ###### CHECK CONSISTENCY FOR HAB/STRESS INPUTS #######
     ######################################################
+    
     try:
 
         # get data from CSV
@@ -315,6 +316,7 @@ try:
     ########################################################            
     ###### RASTERIZE AND BUFFER HAB AND STRESS LAYERS ######
     ########################################################
+    
     try:
         gp.workspace = interws
         gp.Extent = GS_rst
@@ -370,6 +372,7 @@ try:
     ############################################# 
     ############ CALCULATE OVERLAP ##############
     #############################################
+    
     try:
         gp.AddMessage("\nCalculating spatial overlap...")
 
@@ -400,7 +403,7 @@ try:
         rasterStressList = [int(s) for s in rasterStressList]
         diffHabList = difference(rasterHabList, potHabList)
         diffStressList = difference(rasterStressList, potStressList)
-
+       
         # combine hab and stress rasters that overlap
         OverlapList = []
         OverlapNoDataList = []
@@ -431,10 +434,11 @@ try:
         for i in range(0,len(OverlapList)):
             GS_HQ = AddField(GS_HQ, OverlapList[i]+"_A", "DOUBLE", "8", "2")
             GS_HQ = AddField(GS_HQ, OverlapList[i]+"_PCT", "DOUBLE", "8", "2")
-
+            
         gp.snapRaster = GS_rst
         gp.cellsize = "MINOF"
-      
+
+        gp.AddMessage("...determining habitat area in each cell")      
         for i in range(0,len(HabLyrList)):
             if HabNoDataList[i] == "no":
                 gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", "hab_"+str(i+1), "zs_H"+str(i+1)+".dbf", "DATA")
@@ -442,12 +446,20 @@ try:
                 gp.CalculateField_management(GS_HQ_lyr, "GS_HQ.H"+str(i+1)+"_A", "[zs_H"+str(i+1)+".AREA]", "VB", "")
                 gp.RemoveJoin_management(GS_HQ_lyr, "zs_H"+str(i+1))
 
+        gp.AddMessage("...determining area of habitat-stressor overlap in each cell") 
         for i in range(0,len(OverlapList)):
             if OverlapNoDataList[i] == "no":
                 gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", OverlapList[i], "zs_"+OverlapList[i]+".dbf", "DATA")
                 gp.AddJoin_management(GS_HQ_lyr, "VALUE", "zs_"+OverlapList[i]+".dbf", "VALUE", "KEEP_COMMON")
                 gp.CalculateField_management(GS_HQ_lyr, "GS_HQ."+OverlapList[i]+"_A", "[zs_"+OverlapList[i]+".AREA]", "VB", "")
                 gp.RemoveJoin_management(GS_HQ_lyr, "zs_"+OverlapList[i])
+                # benchmark
+                if int(len(OverlapList)*0.25) == i+1:
+                    gp.AddMessage("......25% completed")
+                elif int(len(OverlapList)*0.50) == i+1:
+                    gp.AddMessage("......50% completed")
+                elif int(len(OverlapList)*0.75) == i+1:
+                    gp.AddMessage("......75% completed")                
 
         gp.FeatureClassToFeatureClass_conversion(GS_HQ_lyr, gp.workspace, "GS_HQ_area.shp", "")
         GS_HQ_area = AddField(GS_HQ_area, "PREDOM_HAB", "SHORT", "", "")
@@ -493,9 +505,11 @@ try:
     gp.workspace = interws
     gp.DeleteField_management(GS_HQ_area, DelExpr)
 
+
     ##########################################################   
     ############ GRAB RATINGS FROM EXCEL TABLE  ##############
     ##########################################################
+    
     try:
         gp.AddMessage("\nObtaining ratings for risk scoring and plotting...")
 
@@ -625,8 +639,9 @@ try:
 
 
     ###############################################################    
-    ############ OVERLAP RANKING AND RISK SCORING  ##############
+    ############ OVERLAP RANKING AND RISK SCORING  ################
     ###############################################################
+    
     try:
         # add fields for risk calculations
         for i in range(0,StressCount):
@@ -789,6 +804,7 @@ try:
     ##########################################################   
     ############## MATPLOT LIBRARY FUNCTIONS  ################
     ##########################################################
+    
     try:
         if PlotBoolean == "true":
             try:
@@ -826,7 +842,7 @@ try:
             CountY = 0
             plt.figure(1)
             if HabCount < 5:
-                for i in range(0,HabCount): #1,2,3,4 = 2,2
+                for i in range(0,HabCount): # 1,2,3,4 = 2,2
                     if i > 0 and i < 2:
                         CountY = CountY + 1
                     elif i == 2:
@@ -907,7 +923,7 @@ try:
                     plt.grid()
 
             else:
-                for i in range(0,HabCount): #5,6,7,8 = 3,3
+                for i in range(0,HabCount): # 5,6,7,8 = 3,3
                     if i > 0 and i < 3:
                         CountY = CountY + 1
                     elif i == 3:
