@@ -28,7 +28,7 @@ class HRA:
         self.vcmdInt = (self.tk.register(self.OnValidateInt), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
         self.vcmdString = (self.tk.register(self.OnValidateString), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
         
-        #self.tk.option_add("*font","Courier")
+        self.tk.option_add("*font","Arial 10")
         
         self.tk.geometry("640x480+"+str((self.tk.winfo_screenwidth()-640)/2)+"+"+str((self.tk.winfo_screenheight()-480)/2))
         self.page=None
@@ -1597,7 +1597,7 @@ class HRA:
         self.page.pack_forget()
         self.page = Frame(self.tk)
 
-        Label(self.page, text="Specify names for the habitats.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
+        Label(self.page, text="Specify names for the habitats and habitat data quality.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
 
         Label(self.page, text="Id").grid(row=1,column=1,sticky=E)
         Label(self.page, text="Habitat Name").grid(row=1,column=2,sticky=W)
@@ -1636,7 +1636,7 @@ class HRA:
         self.page.pack_forget()
         self.page = Frame(self.tk)
 
-        Label(self.page, text="Specify names for the stressors.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
+        Label(self.page, text="Specify names for the stressors and stressor data quality.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
 
         Label(self.page, text="Id").grid(row=1,column=1,sticky=E)
         Label(self.page, text="Stressor Name").grid(row=1,column=2,sticky=W)
@@ -2268,7 +2268,7 @@ class HRA:
 
     def NoExport(self):
         if tkMessageBox.askyesno("Export", "Discard changes?", default=tkMessageBox.NO, icon=tkMessageBox.WARNING):
-            self.Home()
+            self.tk.destroy()
 
 
     def Export(self):
@@ -2302,3 +2302,4 @@ class HRA:
 
 if __name__ == "__main__":
     HRA()
+
