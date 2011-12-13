@@ -1597,7 +1597,7 @@ class HRA:
         self.page.pack_forget()
         self.page = Frame(self.tk)
 
-        Label(self.page, text="Specify names for the habitats.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
+        Label(self.page, text="Specify names for the habitats and habitat data quality.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
 
         Label(self.page, text="Id").grid(row=1,column=1,sticky=E)
         Label(self.page, text="Habitat Name").grid(row=1,column=2,sticky=W)
@@ -1636,7 +1636,7 @@ class HRA:
         self.page.pack_forget()
         self.page = Frame(self.tk)
 
-        Label(self.page, text="Specify names for the stressors.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
+        Label(self.page, text="Specify names for the stressors and stressor data quality.", wraplength=self.promptWidth, justify=LEFT).grid(row=0, column=0, columnspan=5+int(self.dataClasses.get()))
 
         Label(self.page, text="Id").grid(row=1,column=1,sticky=E)
         Label(self.page, text="Stressor Name").grid(row=1,column=2,sticky=W)
