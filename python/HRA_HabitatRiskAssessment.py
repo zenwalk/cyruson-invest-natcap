@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
-# 12/07/11
+# 12/12/11
 
 # import modules
 import sys, string, os, datetime, shlex, csv
@@ -187,6 +187,7 @@ try:
     ####################################################            
     ####### PREPARE HABITAT AND STRESSOR LAYERS ########
     ####################################################
+    
     try:
         gp.workspace = Hab_Directory
         fcList = gp.ListFeatureClasses("*", "all")
@@ -211,7 +212,6 @@ try:
         HabZip = zip(HabIDList, HabLyrList)
         HabZip.sort()
         HabIDList, HabLyrList = zip(*HabZip)
-
 
         gp.workspace = Stress_Directory
         fcList = gp.ListFeatureClasses("*", "all")
@@ -245,9 +245,10 @@ try:
         raise Exception
 
 
-    ####################################################            
-    ###### CK CONSISTENCY WITH HAB/STRESS LAYERS #######
-    ####################################################
+    ######################################################           
+    ###### CHECK CONSISTENCY FOR HAB/STRESS INPUTS #######
+    ######################################################
+    
     try:
 
         # get data from CSV
@@ -272,20 +273,29 @@ try:
                 StressVar.append(rawList[i][2:])
             elif i > 15 + HabInputCount+3 + StressInputCount+3 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+1:
                 HabStressVar.append(rawList[i][4:])
-            elif i > 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+2 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+12:
-                CritWeights.append(int(rawList[i][0]))
+            elif i > 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+1 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+13:
+                CritWeights.append(float(rawList[i][0]))
 
         # adjust inter-criteria weights
-##        CritWeights = [0.5 if i == 0 else i for i in CritWeights]
-##        CritWeights = [1.5 if i == 2 else i for i in CritWeights]
-##        ExpCritWeights = []
-##        ExpIndex = [1,2,0,3]
-##        for i in range(0,4):
-##            ExpCritWeights.append(CritWeights[ExpIndex[i]])
-##        ConsCritWeights = []
-##        ConsIndex = [7,8,9,10,4,5,6]            
-##        for i in range(0,7):
-##            ConsCritWeights.append(CritWeights[ConsIndex[i]])
+        for w,i in enumerate(CritWeights):
+            if i==0.0:
+                CritWeights[w]=3.0
+            elif i==1.0:
+                CritWeights[w]=2.0
+            elif i==2.0:
+                CritWeights[w]=1.0
+            
+        ExpCritWeights = []
+        ExpIndex = [1,2,0,3]
+        for i in range(0,4):
+            ExpCritWeights.append(CritWeights[ExpIndex[i]])
+        ExpCritWeights.append(0.0)
+        
+        ConsCritWeights = []
+        ConsIndex = [7,8,9,10,4,5,6]
+        for i in range(0,7):
+            ConsCritWeights.append(CritWeights[ConsIndex[i]])
+        ConsCritWeights.append(0.0)
 
         # populate buffer distance list
         StressBuffDistList = []
@@ -306,6 +316,7 @@ try:
     ########################################################            
     ###### RASTERIZE AND BUFFER HAB AND STRESS LAYERS ######
     ########################################################
+    
     try:
         gp.workspace = interws
         gp.Extent = GS_rst
@@ -361,6 +372,7 @@ try:
     ############################################# 
     ############ CALCULATE OVERLAP ##############
     #############################################
+    
     try:
         gp.AddMessage("\nCalculating spatial overlap...")
 
@@ -391,7 +403,7 @@ try:
         rasterStressList = [int(s) for s in rasterStressList]
         diffHabList = difference(rasterHabList, potHabList)
         diffStressList = difference(rasterStressList, potStressList)
-
+       
         # combine hab and stress rasters that overlap
         OverlapList = []
         OverlapNoDataList = []
@@ -422,10 +434,11 @@ try:
         for i in range(0,len(OverlapList)):
             GS_HQ = AddField(GS_HQ, OverlapList[i]+"_A", "DOUBLE", "8", "2")
             GS_HQ = AddField(GS_HQ, OverlapList[i]+"_PCT", "DOUBLE", "8", "2")
-
+            
         gp.snapRaster = GS_rst
         gp.cellsize = "MINOF"
-      
+
+        gp.AddMessage("...determining habitat area in each cell")      
         for i in range(0,len(HabLyrList)):
             if HabNoDataList[i] == "no":
                 gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", "hab_"+str(i+1), "zs_H"+str(i+1)+".dbf", "DATA")
@@ -433,12 +446,20 @@ try:
                 gp.CalculateField_management(GS_HQ_lyr, "GS_HQ.H"+str(i+1)+"_A", "[zs_H"+str(i+1)+".AREA]", "VB", "")
                 gp.RemoveJoin_management(GS_HQ_lyr, "zs_H"+str(i+1))
 
+        gp.AddMessage("...determining area of habitat-stressor overlap in each cell") 
         for i in range(0,len(OverlapList)):
             if OverlapNoDataList[i] == "no":
                 gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", OverlapList[i], "zs_"+OverlapList[i]+".dbf", "DATA")
                 gp.AddJoin_management(GS_HQ_lyr, "VALUE", "zs_"+OverlapList[i]+".dbf", "VALUE", "KEEP_COMMON")
                 gp.CalculateField_management(GS_HQ_lyr, "GS_HQ."+OverlapList[i]+"_A", "[zs_"+OverlapList[i]+".AREA]", "VB", "")
                 gp.RemoveJoin_management(GS_HQ_lyr, "zs_"+OverlapList[i])
+                # benchmark
+                if int(len(OverlapList)*0.25) == i+1:
+                    gp.AddMessage("......25% completed")
+                elif int(len(OverlapList)*0.50) == i+1:
+                    gp.AddMessage("......50% completed")
+                elif int(len(OverlapList)*0.75) == i+1:
+                    gp.AddMessage("......75% completed")                
 
         gp.FeatureClassToFeatureClass_conversion(GS_HQ_lyr, gp.workspace, "GS_HQ_area.shp", "")
         GS_HQ_area = AddField(GS_HQ_area, "PREDOM_HAB", "SHORT", "", "")
@@ -484,9 +505,11 @@ try:
     gp.workspace = interws
     gp.DeleteField_management(GS_HQ_area, DelExpr)
 
+
     ##########################################################   
     ############ GRAB RATINGS FROM EXCEL TABLE  ##############
     ##########################################################
+    
     try:
         gp.AddMessage("\nObtaining ratings for risk scoring and plotting...")
 
@@ -560,18 +583,39 @@ try:
         ExpQualityArray[:,-1] = 0.0
         ConsQualityArray = np.where(ConsQualityArray == 0.0, 1.0,  ConsQualityArray)
         ConsQualityArray[:,-1] = 0.0
-        
-        ConsNumArray = np.where(ConsQualityArray == 0.0, 0.0,  ConsequenceArray/ConsQualityArray)
-        ConsDenomArray = np.where(ConsNumArray == 0.0, 0.0,  1.0/ConsQualityArray)
+
+        # make weights into array with same dimensions as others
+        ExpCritWeights = ExpCritWeights*TotalHSCombo
+        ExpCritWeightsArray = np.reshape(ExpCritWeights, (TotalHSCombo,5))
+        ConsCritWeights = ConsCritWeights*TotalHSCombo
+        ConsCritWeightsArray = np.reshape(ConsCritWeights, (TotalHSCombo,8))
+
+        # apply weighted average formula
+        ExpNumArray = np.where(ExpQualityArray == 0.0, 0.0,  ExposureArray/ExpQualityArray*ExpCritWeightsArray)
+        ExpDenomArray = np.where(ExpNumArray == 0.0, 0.0,  1.0/ExpQualityArray*ExpCritWeightsArray)
+        ConsNumArray = np.where(ConsQualityArray == 0.0, 0.0,  ConsequenceArray/ConsQualityArray*ConsCritWeightsArray)
+        ConsDenomArray = np.where(ConsNumArray == 0.0, 0.0,  1.0/ConsQualityArray*ConsCritWeightsArray)
         
         # delete non-recovery specific columns from consequence array and redo calcs (except one for sums/avgs)
         RecoveryArray = np.delete(ConsequenceArray, [4,5,6], axis=1)
         RecovQualityArray = np.delete(ConsQualityArray, [4,5,6], axis=1)
+        RecovWeightsArray = np.delete(ConsCritWeightsArray, [4,5,6], axis=1)
         RecovNumArray = np.delete(ConsNumArray, [4,5,6], axis=1)
         RecovDenomArray = np.delete(ConsDenomArray, [4,5,6], axis=1)
-        RecovNumArray = np.where(RecovQualityArray == 0.0, 0.0,  RecoveryArray/RecovQualityArray)
-        RecovDenomArray = np.where(RecovNumArray == 0.0, 0.0,  1.0/RecovQualityArray)
+        RecovNumArray = np.where(RecovQualityArray == 0.0, 0.0,  RecoveryArray/RecovQualityArray*RecovWeightsArray)
+        RecovDenomArray = np.where(RecovNumArray == 0.0, 0.0,  1.0/RecovQualityArray*RecovWeightsArray)
 
+        # sum up rows; divide rows and place weighted average value in original 
+        # consequence
+        for i in range(0,TotalHSCombo):  
+            ConsNumArray[i][7] = np.sum(ConsNumArray[i][:-1])
+            ConsDenomArray[i][7] = np.sum(ConsDenomArray[i][:-1])
+            if ConsDenomArray[i][7] == 0.0:
+                ConsequenceArray[i][7] = 0.0
+            else:
+                ConsequenceArray[i][7] = ConsNumArray[i][7]/ConsDenomArray[i][7]
+                
+        # recovery
         for i in range(0,TotalHSCombo):
             RecovNumArray[i][4] = np.sum(RecovNumArray, axis=1)[i]
             RecovDenomArray[i][4] = np.sum(RecovDenomArray, axis=1)[i]
@@ -588,27 +632,16 @@ try:
                 RecovQualityArray[i][4] = 0.0
             else:
                 RecovQualityArray[i][4] = (RecovQualitySum / (3.0 - RecovQualityZeroCount))
-
-        ExpNumArray = np.where(ExpQualityArray == 0.0, 0.0,  ExposureArray/ExpQualityArray)
-        ExpDenomArray = np.where(ExpNumArray == 0.0, 0.0,  1.0/ExpQualityArray)
-
-        # sum up rows; divide rows and place weighted average value in original
-        for i in range(0,TotalHSCombo):  
-            ConsNumArray[i][7] = np.sum(ConsNumArray[i][:-1])
-            ConsDenomArray[i][7] = np.sum(ConsDenomArray[i][:-1])
-            if ConsDenomArray[i][7] == 0.0:
-                ConsequenceArray[i][7] = 0.0
-            else:
-                ConsequenceArray[i][7] = ConsNumArray[i][7]/ConsDenomArray[i][7]
-   
+                
     except:
         gp.AddError(msgGetHabStressRatings)
         raise Exception
 
 
     ###############################################################    
-    ############ OVERLAP RANKING AND RISK SCORING  ##############
+    ############ OVERLAP RANKING AND RISK SCORING  ################
     ###############################################################
+    
     try:
         # add fields for risk calculations
         for i in range(0,StressCount):
@@ -647,12 +680,12 @@ try:
                                 if ExpQualityArray[i+j+offset][2] == 0.0:
                                     ExpNumArray[i+j+offset][2] = 0.0
                                 else:
-                                    ExpNumArray[i+j+offset][2] = ExposureArray[i+j+offset][2]/ExpQualityArray[i+j+offset][2]
+                                    ExpNumArray[i+j+offset][2] = ExposureArray[i+j+offset][2]/(ExpQualityArray[i+j+offset][2]*ExpCritWeightsArray[i+j+offset][2])
                                      
                                 if ExpNumArray[i+j+offset][2] == 0.0:
                                     ExpDenomArray[i+j+offset][2] = 0.0
                                 else: 
-                                    ExpDenomArray[i+j+offset][2] = 1.0/ExpQualityArray[i+j+offset][2]
+                                    ExpDenomArray[i+j+offset][2] = 1.0/(ExpQualityArray[i+j+offset][2]*ExpCritWeightsArray[i+j+offset][2])
                                     
                                 # sum up rows; divide rows and place weighted average value in original
                                 ExpNumArray[i+j+offset][4] = np.sum(ExpNumArray[i+j+offset][:-1])
@@ -771,6 +804,7 @@ try:
     ##########################################################   
     ############## MATPLOT LIBRARY FUNCTIONS  ################
     ##########################################################
+    
     try:
         if PlotBoolean == "true":
             try:
@@ -808,7 +842,7 @@ try:
             CountY = 0
             plt.figure(1)
             if HabCount < 5:
-                for i in range(0,HabCount): #1,2,3,4 = 2,2
+                for i in range(0,HabCount): # 1,2,3,4 = 2,2
                     if i > 0 and i < 2:
                         CountY = CountY + 1
                     elif i == 2:
@@ -829,39 +863,39 @@ try:
                         plt.ylabel('Consequence')
                     
                     plt.title(HabLyrList[i])
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=5, fc='0.15')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=5, fc='#C44539')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=4.75, fc='0.25')
+                    cir = plt.Circle((0,0), radius=4.75, fc='#CF5B46')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4.5, fc='0.25')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4.5, fc='#D66E54')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=4.25, fc='0.35')
+                    cir = plt.Circle((0,0), radius=4.25, fc='#E08865')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4, fc='0.35')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4, fc='#E89D74')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=3.75, fc='0.45')
+                    cir = plt.Circle((0,0), radius=3.75, fc='#F0B686')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3.5, fc='0.45')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3.5, fc='#F5CC98')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=3.25, fc='0.55')
+                    cir = plt.Circle((0,0), radius=3.25, fc='#FAE5AC')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3, fc='0.55')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3, fc='#FFFFBF')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=2.75, fc='0.65')
+                    cir = plt.Circle((0,0), radius=2.75, fc='#EAEBC3')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2.5, fc='0.65')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2.5, fc='#CFD1C5')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=2.25, fc='0.75')
+                    cir = plt.Circle((0,0), radius=2.25, fc='#B9BEC9')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2, fc='0.75')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2, fc='#9FA7C9')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=1.75, fc='0.85')
+                    cir = plt.Circle((0,0), radius=1.75, fc='#8793CC')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1.5, fc='0.85')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1.5, fc='#6D83CF')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=1.25, fc='0.95')
+                    cir = plt.Circle((0,0), radius=1.25, fc='#5372CF')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1, fc='0.95')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1, fc='#305FCF')
                     plt.gca().add_patch(cir)
 
                     for j in range((i*StressCount),(i*StressCount)+StressCount):
@@ -889,7 +923,7 @@ try:
                     plt.grid()
 
             else:
-                for i in range(0,HabCount): #5,6,7,8 = 3,3
+                for i in range(0,HabCount): # 5,6,7,8 = 3,3
                     if i > 0 and i < 3:
                         CountY = CountY + 1
                     elif i == 3:
@@ -916,39 +950,39 @@ try:
                         plt.ylabel('Consequence')
 
                     plt.title(HabLyrList[i])
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=5, fc='0.15')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=5, fc='#C44539')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=4.75, fc='0.25')
+                    cir = plt.Circle((0,0), radius=4.75, fc='#CF5B46')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4.5, fc='0.25')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4.5, fc='#D66E54')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=4.25, fc='0.35')
+                    cir = plt.Circle((0,0), radius=4.25, fc='#E08865')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4, fc='0.35')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=4, fc='#E89D74')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=3.75, fc='0.45')
+                    cir = plt.Circle((0,0), radius=3.75, fc='#F0B686')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3.5, fc='0.45')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3.5, fc='#F5CC98')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=3.25, fc='0.55')
+                    cir = plt.Circle((0,0), radius=3.25, fc='#FAE5AC')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3, fc='0.55')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=3, fc='#FFFFBF')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=2.75, fc='0.65')
+                    cir = plt.Circle((0,0), radius=2.75, fc='#EAEBC3')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2.5, fc='0.65')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2.5, fc='#CFD1C5')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=2.25, fc='0.75')
+                    cir = plt.Circle((0,0), radius=2.25, fc='#B9BEC9')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2, fc='0.75')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=2, fc='#9FA7C9')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=1.75, fc='0.85')
+                    cir = plt.Circle((0,0), radius=1.75, fc='#8793CC')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1.5, fc='0.85')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1.5, fc='#6D83CF')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), radius=1.25, fc='0.95')
+                    cir = plt.Circle((0,0), radius=1.25, fc='#5372CF')
                     plt.gca().add_patch(cir)
-                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1, fc='0.95')
+                    cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=1, fc='#305FCF')
                     plt.gca().add_patch(cir)
 
                     for j in range((i*StressCount),(i*StressCount)+StressCount):
@@ -1001,23 +1035,23 @@ try:
             else:
                 maxListValue = max(CumExposureList)
                 
-            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=(maxListValue+4), fc='0.15')
+            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2)), fc='#C44539')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), radius=(maxListValue+4)*0.9, fc='0.25')
+            cir = plt.Circle((0,0), radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.8, fc='#D66E54')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=(maxListValue+4)*0.8, fc='0.35')
+            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.7, fc='#E89D74')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), radius=(maxListValue+4)*0.7, fc='0.45')
+            cir = plt.Circle((0,0), radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.6, fc='#F5CC98')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=(maxListValue+4)*0.6, fc='0.55')
+            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.5, fc='#FFFFBF')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), radius=(maxListValue+4)*0.5, fc='0.65')
+            cir = plt.Circle((0,0), radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.4, fc='#CFD1C5')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=(maxListValue+4)*0.4, fc='0.75')
+            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.3, fc='#9FA7C9')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), radius=(maxListValue+4)*0.3, fc='0.85')
+            cir = plt.Circle((0,0), radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.2, fc='#6D83CF')
             plt.gca().add_patch(cir)
-            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=(maxListValue+4)*0.2, fc='0.95')
+            cir = plt.Circle((0,0), edgecolor='.25', linestyle ='dashed', radius=np.sqrt(((maxListValue+1)**2)+((maxListValue+1)**2))*0.1, fc='#305FCF')
             plt.gca().add_patch(cir)
             for i in range(0,HabCount):
                 if CumDataQualityList[i] == 1:
@@ -1071,7 +1105,7 @@ try:
                             aquaculture exposure score for eelgrass and the destructive fishing exposure score for eelgrass. Cumulative consequence \
                             scores are derived in the same way. Habitats with high cumulative exposure and high cumulative consequence are at the \
                             highest risk from human activities.<p>")
-            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HQM_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
+            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HRA_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
             for i in range(0,len(HabLyrList)):
                 htmlfile.write("<big><u>H"+str(i+1)+"</u>: "+str(HabLyrList[i])+"</big><br>\n")
             htmlfile.write("</td></tr></table>\n")
@@ -1082,7 +1116,7 @@ try:
             htmlfile.write("These figures show the exposure and consequence scores for each stressor and habitat combination in the study region. \
                             Stressors that have high exposure scores and high consequence scores pose the greatest risk to habitats. Reducing risk \
                             through management is likely to be more effective in situations where high risk is driven by high exposure, not high consequence.<p>")
-            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HQM_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
+            htmlfile.write("<img src=\"file:\\"+os.path.dirname(sys.argv[0])+"\\HRA_plotLegend.png\" width=\"152\" height=\"88\"><p>\n")
             for j in range(0,len(StressLyrList)):
                 htmlfile.write("<big><u>S"+str(j+1)+"</u>: "+str(StressLyrList[j])+"</big><br>\n")
             htmlfile.write("</td></td></table>\n")
