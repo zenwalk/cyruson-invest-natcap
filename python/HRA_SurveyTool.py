@@ -2268,7 +2268,7 @@ class HRA:
 
     def NoExport(self):
         if tkMessageBox.askyesno("Export", "Discard changes?", default=tkMessageBox.NO, icon=tkMessageBox.WARNING):
-            self.Home()
+            self.tk.destroy()
 
 
     def Export(self):
