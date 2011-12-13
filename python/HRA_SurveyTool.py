@@ -28,7 +28,7 @@ class HRA:
         self.vcmdInt = (self.tk.register(self.OnValidateInt), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
         self.vcmdString = (self.tk.register(self.OnValidateString), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
         
-        #self.tk.option_add("*font","Courier")
+        self.tk.option_add("*font","Arial 10")
         
         self.tk.geometry("640x480+"+str((self.tk.winfo_screenwidth()-640)/2)+"+"+str((self.tk.winfo_screenheight()-480)/2))
         self.page=None
@@ -2302,3 +2302,4 @@ class HRA:
 
 if __name__ == "__main__":
     HRA()
+
