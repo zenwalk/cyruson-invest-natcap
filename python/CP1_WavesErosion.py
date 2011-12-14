@@ -72,23 +72,50 @@ parameters.append("Surge Elevation (meters): "+str(S))
 dx=float(gp.GetParameterAsText(12))
 parameters.append("Model Spatial Resolution (dx): "+str(dx))
 
+
+###############################################           
+###### CREATE DIRECTORIES AND VARIABLES #######
+###############################################
+
 # remove spaces and shorten 'subwsStr' if greater than 10 characters
 subwsStr=subwsStr.replace(" ","")
 subwsStr=subwsStr[0:10]
 
 # intermediate and output directories
-outputws=gp.workspace+os.sep+"_WaveModel_Outputs"+os.sep
+outputws=gp.workspace+os.sep+"_WaveModel_Outputs"+os.sep+subwsStr+os.sep
 interws=gp.workspace+os.sep+"scratch"+os.sep
+gp.scratchworkspace=interws
 
 thefolders=["_WaveModel_Outputs"]
 for folder in thefolders:
     if not gp.exists(gp.workspace+folder):
         gp.CreateFolder_management(gp.workspace+os.sep,folder)
 
+thefolders=[subwsStr]
+for folder in thefolders:
+    if not gp.exists(gp.workspace+os.sep+"_WaveModel_Outputs"+os.sep+folder):
+        gp.CreateFolder_management(gp.workspace+os.sep+"_WaveModel_Outputs"+os.sep,folder)
+
 
 #################################################
 ########## VARIOUS FUNCTIONS AND CHECKS #########
 #################################################
+
+# check that all associated inputs are specified for 'WaveErosionQuestion'
+Answer1=[Ho,To]
+Answer2=[Us,Ft,depth]
+if WaveErosionQuestion == "(1) Yes, I have these values":
+    for x1 in Answer1:
+        if x1 == '':
+            gp.AddError("\nOne or more of the required input parameters was not defined.\
+                         \nPlease provide values for either Wave Height and/or Wave Period.")
+            raise Exception
+else:
+    for x2 in Answer2:
+        if x2 == '':
+            gp.AddError("\nOne or more of the required input parameters was not defined.\
+                         \nPlease provide values for either Wind Speed, Fetch Distance, and/or Water Depth.")
+            raise Exception
         
 def gradient(f,z):
     length=len(f)
@@ -151,13 +178,13 @@ def WindWave(U,F,d):
 def WaveModel(X,h,Ho,To,Seagr,Marsh,Mang,Cf):
     global LagKick
     # constants
-    g=9.81;rho=1024.0;B=1.0;Beta=0.05;
-    lx=len(X);dx=abs(X[1]-X[0]);
+    g=9.81;rho=1024.0;B=1.0;Beta=0.05
+    lx=len(X);dx=abs(X[1]-X[0])
     # initialize vegetation vectors,zeros everywhere except where veg present
     VegLoc=X*0.0;
     
     # seagrass
-    veg=Seagr[0];loc=Seagr[1];
+    veg=Seagr[0];loc=Seagr[1]
     hs=veg[0];ds=veg[1];Ns=veg[2] #height,diam,dens.
     alphs=hs/h;o=find(alphs>=1);alphs[o]=1 #relative height
     off=Indexed(X,loc[0]);sho=Indexed(X,loc[1]) # locate loc of seagrass
@@ -173,7 +200,7 @@ def WaveModel(X,h,Ho,To,Seagr,Marsh,Mang,Cf):
         VegLoc[off:sho+1]=2 #2 for location of marshes
 
     # mangroves
-    veg=Mang[0];loc=Mang[1];
+    veg=Mang[0];loc=Mang[1]
     rt=veg[0];tk=veg[1];cn=veg[2] # roots,trunk and canopy info
     hgr=rt[0];dgr=rt[1];Ngr=rt[2]
     hgt=tk[0];dgt=tk[1];Ngt=tk[2]
@@ -390,7 +417,7 @@ def WaveModel(X,h,Ho,To,Seagr,Marsh,Mang,Cf):
 def WaveModelSimple(X,h,Ho,To):
     global LagKick
     # constants
-    g=9.81;rho=1024.0;B=1.0;Beta=0.05;
+    g=9.81;rho=1024.0;B=1.0;Beta=0.05
     lx=len(X);dx=X[1]-X[0];
     
     # initialize vectors for wave model
@@ -604,7 +631,7 @@ def ErosionKD(A,Ho,TWL,B,D,W,m):
         gp.AddMessage("Water level is higher than your backshore elevation. You will probably experience flooding.")
         
     # Erosion model 1
-    hb=(((Ho**2.0)*g*To/(2*pi))/2.0)**(2.0/5.0)/(g**(1.0/5.0)*0.73**(4.0/5.0));
+    hb=(((Ho**2.0)*g*To/(2*pi))/2.0)**(2.0/5.0)/(g**(1.0/5.0)*0.73**(4.0/5.0))
     xb=(hb/A)**1.5;Hb=0.78*hb
     
     Term1=xb-hb/m
@@ -660,7 +687,7 @@ def MudErosion(Uc,Uw,h,To,me,Cm,values):
             while dif>1e-4:
                 zo2=ks/30*(1-num.exp(-us1*ks/(27*nu)))+nu/(9*us1)
                 us2=kap*Uc/(num.log(h[xx]/zo2)-1)
-                dif1=abs(us1-us2);dif2=abs(zo1-zo2);dif=dif1+dif2;
+                dif1=abs(us1-us2);dif2=abs(zo1-zo2);dif=dif1+dif2
                 zo1=zo2;us1=us2;
             Tc[xx]=rho*us1**2 #Shear stress due to current
     else:    Tc=h*0
@@ -701,12 +728,16 @@ cell1=xlApp.Worksheets("WaveModelInput")
 cell3=xlApp.Worksheets("ReefShapeFactor")
 
 #Read general information
-MSL=cell1.Range("f16").Value; #Mean Sea Level
-MHW=cell1.Range("g16").Value; #Mean high water
+MSL=cell1.Range("f16").Value #Mean Sea Level
+MHW=cell1.Range("g16").Value #Mean high water
 
-temp=cell1.Range("h20").Value;
-if temp==1:    sand=1;mud=0;
-elif temp==2:    sand=0;mud=1;
+temp=cell1.Range("h20").Value
+if temp==1:
+    sand=1
+    mud=0
+elif temp==2:
+    sand=0
+    mud=1
 
 #Read Muddy shoreline information
 Cm=cell1.Range("h24").Value #dry density
@@ -714,17 +745,21 @@ me=cell1.Range("i24").Value #Erosion constant
 #Read Beach Information
 d50=cell1.Range("e24").Value # sediment size
 
-temp=cell1.Range("c41:h41").value;temp=temp[0] #All beach information
-Slope=temp[1];
-if Slope<>0:    m=1.0/Slope # foreshore slope=1/Slope# foreshore slope
-else:    m=0
-A=cell1.Range("f55").value; #Sediment scale factor
+temp=cell1.Range("c41:h41").Value
+temp=temp[0] #All beach information
+Slope=temp[1]
+if Slope<>0:
+    m=1.0/Slope # foreshore slope=1/Slope# foreshore slope
+else:
+    m=0
+A=cell1.Range("f55").Value #Sediment scale factor
 
-B1=temp[2];
+B1=temp[2]
 W1=temp[3]
 D1=temp[4]
 Dred=temp[5]
-if sand+mud<>1:    gp.AddMessage("You didn't specify the sediment type in the backshore area.  We won't be able to estimate amount of erosion.")
+if sand+mud<>1:
+    gp.AddMessage("You didn't specify the sediment type in the backshore area.  We won't be able to estimate amount of erosion.")
 
 #Read Oyster Reef Information
 temp=cell1.Range("d49:g49").value;temp=temp[0] #All oyster information
@@ -751,8 +786,10 @@ Nogr=temp1[2] # density of mangrove roots
 Xo1g=temp1[4] # offshore edge of mangrove
 Xo2g=temp1[3] # shoreward edge of mangrove
 MangMngt=temp1[5] #Management action for mangrove
-if MangMngt is None:    MangMngt="None"
-if hogc+dogc+Nogc+hogt+dogt+Nogt+hogr+dogr+Nogr==0:    MangMngt="None"
+if MangMngt is None:
+    MangMngt="None"
+if hogc+dogc+Nogc+hogt+dogt+Nogt+hogr+dogr+Nogr==0:
+    MangMngt="None"
 
 temp1=temp[3]
 hos=temp1[0] # height of seagrass
@@ -761,8 +798,10 @@ Nos=temp1[2] # density of seagrass
 Xo1s=temp1[4] # offshore edge of seagrass
 Xo2s=temp1[3] # shoreward edge of seagrass
 SeagMngt=temp1[5] #Management action for seagrass
-if SeagMngt is None:    SeagMngt="None"
-if hos+dos+Nos==0:    SeagMngt="None"
+if SeagMngt is None:
+    SeagMngt="None"
+if hos+dos+Nos==0:
+    SeagMngt="None"
 
 temp1=temp[4]
 hor=temp1[0] # height of marsh
@@ -771,8 +810,10 @@ Nor=temp1[2] # density of marsh
 Xo1r=temp1[4] # offshore edge of marsh
 Xo2r=temp1[3] # shoreward edge of marsh
 MarshMngt=temp1[5] #Management action for seagrass
-if MarshMngt is None:    MarshMngt="None"
-if hor+dor+Nor==0:    MarshMngt="None"
+if MarshMngt is None:
+    MarshMngt="None"
+if hor+dor+Nor==0:
+    MarshMngt="None"
 
 #Read Coral Information
 temp=cell1.Range("d45:k45").Value;temp=temp[0] #All coral information
@@ -788,8 +829,10 @@ CoralMngt=temp[7]
 TanAlph=cell3.Range("a2:a202").Value;TanAlph=num.array(TanAlph)
 kp=cell3.Range("b2:b202").Value;kp=num.array(kp) # reef shape factor
 kp2=cell3.Range("c2:c202").Value;kp2=num.array(kp2) # reef shape factor
-if CoralMngt is None:    CoralMngt="None"
-if AlphF+AlphR+he+hr+Wr==0:    CoralMngt="None"
+if CoralMngt is None:
+    CoralMngt="None"
+if AlphF+AlphR+he+hr+Wr==0:
+    CoralMngt="None"
 
 xlApp.ActiveWorkbook.Close(SaveChanges=0)
 xlApp.Quit()
@@ -802,8 +845,9 @@ for line in TextData.read().strip("\n").split("\n"):
     X_lst.append(linelist[0])
     h_lst.append(linelist[1])
 TextData.close()
-X=num.array(X_lst);h=num.array(h_lst);
-if h[0]>0 or h[0]>h[-1]:    h=h[::-1] # reverse order if profile starts at shoreline
+X=num.array(X_lst);h=num.array(h_lst)
+if h[0]>0 or h[0]>h[-1]:
+    h=h[::-1] # reverse order if profile starts at shoreline
 
 
 #########################################
@@ -828,21 +872,21 @@ Xo1g=X[-1]-Xo1g;Xo2g=X[-1]-Xo2g # mangrove
 Xr=X[-1]-Xr # oyster
 
 #Adjust Bathy
-Zero=Indexed(h,0);ash=-h; #Locate MWL 
+Zero=Indexed(h,0);ash=-h #Locate MWL 
 h=h-MSL; #Adjust water level so that 0 is at MSL
-X=X-X[0]; 
+X=X-X[0]
 # modify the depth profile appropriately
 if mud==1: # if there's a marsh or a mangrove
     h=h-S #Add surge level
-    keep=find(h<-0.2);
-    h=h[keep];X=X[keep];# only keep values that are below water
+    keep=find(h<-0.2)
+    h=h[keep];X=X[keep] # only keep values that are below water
     dx=X[1]-X[0];m=abs(h[-1]-h[-int(10.0/dx)])/10 # average slope 10m from end of transect
 else: #it's a beach
-    keep=find(h<-0.2);
-    h=h[keep];X=X[keep]; # only keep values that are below water
+    keep=find(h<-0.2)
+    h=h[keep];X=X[keep] # only keep values that are below water
 
 #Resample bathy to dx
-F=interp1d(X,h);X=num.arange(X[0],X[-1]+dx,dx);
+F=interp1d(X,h);X=num.arange(X[0],X[-1]+dx,dx)
 h=F(X);lx=len(X) #Resample to dx
 
 #Make sure vegetation location is correct
@@ -883,7 +927,7 @@ Mang0=[[[0,0,0],[0,0,0],[0,0,0]],[0,0]];Mang=[[[0,0,0],[0,0,0],[0,0,0]],[0,0]]
 Mang1=[[[0,0,0],[0,0,0],[0,0,0]],[0,0]]
 loc=[Xo1g,Xo2g]
 if loc is not None and (hogc+dogc+Nogc+hogt+dogt+Nogt+hogr+dogr+Nogr)<> 0:
-    veg=[[hogr,dogr,Nogr],[hogt,dogt,Nogt],[hogc,dogc,Nogc]];
+    veg=[[hogr,dogr,Nogr],[hogt,dogt,Nogt],[hogc,dogc,Nogc]]
     Mang=[veg,loc] # mangrove characteristics
     
     if MangMngt=="None": #Management action
@@ -962,15 +1006,15 @@ Cf =0.2;Cf1=0.2; #Friction for live and dead coral
 
 temp1=find(X>=Xco);temp2=find(X>Xcn)
 Loco=[ii for ii in range(temp1[0],temp2[0],1)] #location of coral reef in profile
-if len(Loco)>2:   Cf_bed[Loco]=0.2; #Live coral
+if len(Loco)>2:   Cf_bed[Loco]=0.2 #Live coral
 
 if Coral==1:
-    if CoralMngt=="Rmv":        Cf1=.01;#No coral
-    elif CoralMngt=="Dead":        Cf1=.1;#Dead coral
+    if CoralMngt=="Rmv":        Cf1=.01 #No coral
+    elif CoralMngt=="Dead":        Cf1=.1 #Dead coral
     elif CoralMngt=="None":        Cf1=.2 #Live coral
 elif Coral==-1 and len(Loco)>2:
-    if CoralMngt=="Rmv":        Cf1_bed[Loco]=.01;#No coral
-    elif CoralMngt=="Dead":        Cf1_bed[Loco]=.1;#Dead coral
+    if CoralMngt=="Rmv":        Cf1_bed[Loco]=.01 #No coral
+    elif CoralMngt=="Dead":        Cf1_bed[Loco]=.1 #Dead coral
     elif CoralMngt=="None":        Cf1_bed[Loco]=0.2 #Live coral
 
             
@@ -989,10 +1033,11 @@ H_r=[];Xn=[];ho=[];Hsimple1=[];Etasimple1=[]
 
     # Estimate initial wave height if coral reef at beg of transect and no bathy for that reef
 if Xco==0.0 and Xcn==0.0 and Coral==1: # reef top depth
-    H_r,Eta_r=WavesCoral(Ho,AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf,dx);
+    H_r,Eta_r=WavesCoral(Ho,AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf,dx)
     H_r=num.array(H_r);Eta_r=H_r*0+Eta_r #Arrays of H_r and Eta_r
-    Ho1=H_r[-1];ho=h[0]; #Wave height at the end of the reef
-    Xn=num.arange(-Wr,0,dx);    LagKick=1; #For future    
+    Ho1=H_r[-1];ho=h[0] #Wave height at the end of the reef
+    Xn=num.arange(-Wr,0,dx)
+    LagKick=1 #For future    
 
     #Estimate wave height transformation over bathy profile
 if len(h)>2: 
@@ -1004,23 +1049,23 @@ if Xo1s>Xcn and (MgPst+MrPst+SgPst)<>0: #Wave height in lagoon in absence of any
     #Wave height over coral reefs at various locations
 if len(h)>2 and Xco>=0 and Xcn>0 and Coral==1: #Coral Reef in middle of transect
     Ho1=H[Loco[0]] #Wave height at edge of the coral reef
-    H_r,Eta_r=WavesCoral(Ho1,AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf,dx);
+    H_r,Eta_r=WavesCoral(Ho1,AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf,dx)
     H_r=num.array(H_r);Eta_r=H_r*0+Eta_r #Arrays of H_r and Eta_r
-    LagKick=1;ho=(h[Loco[0]]+h[Loco[-1]])/2;
-    Xn=num.arange(0,Wr,dx);
+    LagKick=1;ho=(h[Loco[0]]+h[Loco[-1]])/2
+    Xn=num.arange(0,Wr,dx)
     
-    Hr=num.array(len(Loco)*[1.0 ])*[H[Loco[0]]]#Constant H over reef face/rim
+    Hr=num.array(len(Loco)*[1.0 ])*[H[Loco[0]]] #Constant H over reef face/rim
     Hr[-Wr:len(Hr)]=H_r
-    H1=num.append(num.array(H[0:Loco[0]]),Hr,None); #All wave profile to edge of reef
-    X1=X[0:Loco[-1]+1]; #All X profile to edge of reef
+    H1=num.append(num.array(H[0:Loco[0]]),Hr,None) #All wave profile to edge of reef
+    X1=X[0:Loco[-1]+1] #All X profile to edge of reef
 
     Etar=num.array(len(Loco)*[1.0 ])*[Eta[Loco[0]]] #Constant Eta over reef face/rim
     Etar[-Wr:len(Hr)]=Eta_r #MWL profile over reef
-    Eta1=num.append(num.array(Eta[0:Loco[0]]),Etar,None); #MWL to edge of reef
+    Eta1=num.append(num.array(Eta[0:Loco[0]]),Etar,None) #MWL to edge of reef
 
     Ho1=H_r[-1] #Wave height at the end of the reef
-    temp=X[Loco[-1]:-1]; #Lagoon X
-    Hlag,Etalag,Hs,Etas,DissAtn1,temp2,temp=WaveModel(temp,h[Loco[-1]:-1],Ho1,To,Seagr,Marsh,Mang,Cf_bed[Loco[-1]:-1])#H in lagoon
+    temp=X[Loco[-1]:-1] #Lagoon X
+    Hlag,Etalag,Hs,Etas,DissAtn1,temp2,temp=WaveModel(temp,h[Loco[-1]:-1],Ho1,To,Seagr,Marsh,Mang,Cf_bed[Loco[-1]:-1]) #H in lagoon
     Ubot1[Loco[-1]:-1]=temp2 #Bottom velocity
     
     if Xo1s>Xcn and (MgPst+MrPst+SgPst)<>0: #Wave height in lagoon in case there is vegetation
@@ -1033,8 +1078,9 @@ elif len(h)>2 and Xco==1 and Xcn==1 and Coral==1: #Coral Reef end of transect
     Xn=num.arange(X[-1],X[-1]+Wr,dx)
         
 elif Oyster==1:
-    Xloc=find(X>(Xr));#Location of oyster reef
-    Ho1=H[Xloc[0]]; LagKick=1#Wave height at edge of the reef
+    Xloc=find(X>(Xr)) #Location of oyster reef
+    Ho1=H[Xloc[0]]
+    LagKick=1 #Wave height at edge of the reef
     hi=h[Xloc[0]] #Water depth at reef location
     Kt=BreakwaterKt(Ho1,To,hi,hc,Cw,Bw);Ho1=Kt*Ho1 #Transmitted Wave height
     UbotO1=num.array(Ubot1);Ubot1=num.array(Ubot1)
@@ -1055,14 +1101,14 @@ elif len(h)>2 and Xco>=0 and Xcn>0 and Coral==1: #Reef somewhere in profile
     H1=num.append(num.array(H1),num.array(Hlag),None)
     Eta1=num.append(num.array(Eta1),num.array(Etalag),None)
 elif len(h)>2 and Xco==1 and Xcn==1 and Coral==1: #Reef at the nearshore edge of the profile
-    X1=num.append(X,Xn,None);
+    X1=num.append(X,Xn,None)
     H1=num.append(num.array(H),H_r,None)
     Eta1=num.append(num.array(Eta),Eta_r,None)
 elif Oyster==1:
-    XO1=num.array(X);HO1=num.array(H);EtaO1=num.array(Eta);
-    HsimpleO1=Hsimple1;EtasimpleO1=Etasimple1;
+    XO1=num.array(X);HO1=num.array(H);EtaO1=num.array(Eta)
+    HsimpleO1=Hsimple1;EtasimpleO1=Etasimple1
     if Kt<1:
-        X1=num.array(X);H1=num.append(H[0:Xloc[0]],Hlag);Eta1=num.append(Eta[0:Xloc[0]],Etalag);
+        X1=num.array(X);H1=num.append(H[0:Xloc[0]],Hlag);Eta1=num.append(Eta[0:Xloc[0]],Etalag)
     elif Kt==1:
         X1=XO1;H1=HO1;Eta1=EtaO1
 else:
@@ -1082,29 +1128,30 @@ if SgPst+MrPst+MgPst+Coral<>0: #If management action affects vegetation or coral
         H_r,Eta_r=WavesCoral(Ho2,AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf1,dx)    
         H_r=num.array(H_r);Eta_r=H_r*0+Eta_r #Arrays of H_r and Eta_r
         Ho2=H_r[-1] #Wave height at the end of the reef
-        Xn=num.arange(-Wr,0,dx);    LagKick=1;
+        Xn=num.arange(-Wr,0,dx)
+        LagKick=1
     
         #Estimate wave height transformation over bathy profile
     if len(h)>2 and CoralMngt+MarshMngt+SeagMngt+MangMngt<>"NoneNoneNoneNone": #H over bathy
-        H,Eta,Hs,Etas,DissAtn2,Ubot2,VegLoc2=WaveModel(X,h,Ho2,To,Seagr1,Marsh1,Mang1,Cf1_bed);
+        H,Eta,Hs,Etas,DissAtn2,Ubot2,VegLoc2=WaveModel(X,h,Ho2,To,Seagr1,Marsh1,Mang1,Cf1_bed)
         
     if Xo1s>Xcn and (MgPst+MrPst+SgPst)<>0: #Estimate wave height in lagoon in case there is seagrass
         Hsimple2=Hs;Etasimple2=Etas
         
     if len(h)>2 and Xco>=0 and Xcn>0 and Coral==1: #Coral Reef in middle of transect
         Ho2=H[Loco[0]] #Wave height at edge of the coral reef
-        H_r,Eta_r=WavesCoral(Ho2,AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf1,dx);
+        H_r,Eta_r=WavesCoral(Ho2,AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf1,dx)
         H_r=num.array(H_r);Eta_r=H_r*0+Eta_r #Arrays of H_r and Eta_r
-        Xn=num.arange(0,Wr,dx);LagKick=1;
+        Xn=num.arange(0,Wr,dx);LagKick=1
         
-        Hr=num.array(len(Loco)*[1.0 ])*[H[Loco[0]]]#Constant H over reef face/rim
+        Hr=num.array(len(Loco)*[1.0 ])*[H[Loco[0]]] #Constant H over reef face/rim
         Hr[-Wr:len(Hr)]=H_r
-        H2=num.append(num.array(H[0:Loco[0]]),Hr,None); #All wave profile to edge of reef
-        X2=X[0:Loco[-1]+1]; #All X profile to edge of reef
+        H2=num.append(num.array(H[0:Loco[0]]),Hr,None) #All wave profile to edge of reef
+        X2=X[0:Loco[-1]+1] #All X profile to edge of reef
     
         Etar=num.array(len(Loco)*[1.0 ])*[Eta[Loco[0]]] #Constant Eta over reef face/rim
         Etar[-Wr:len(Hr)]=Eta_r #MWL profile over reef
-        Eta2=num.append(num.array(Eta[0:Loco[0]]),Etar,None); #MWL to edge of reef
+        Eta2=num.append(num.array(Eta[0:Loco[0]]),Etar,None) #MWL to edge of reef
             
         Ho2=H_r[-1] #Wave height at the end of the reef
         temp1=X[Loco[-1]:-1];temp2=h[Loco[-1]:-1]
@@ -1118,7 +1165,7 @@ if SgPst+MrPst+MgPst+Coral<>0: #If management action affects vegetation or coral
         H_r,Eta_r=WavesCoral(H[-1],AlphF ,AlphR,he,hr,Wr,Xco,Xcn,Cf1,dx)
         H_r=num.array(H_r);Eta_r=H_r*0+Eta_r #Arrays of H_r and Eta_r
         Ho2=H_r[0] #Wave height at offshore edge of reef
-        Xn=num.arange(X[-1],X[-1]+Wr,dx);
+        Xn=num.arange(X[-1],X[-1]+Wr,dx)
      
         #Oyster Reef
     elif Oyster==1:
@@ -1136,33 +1183,45 @@ if SgPst+MrPst+MgPst+Coral<>0: #If management action affects vegetation or coral
     
         #Put all wave charact. together
     if Xco==0 and Xcn ==0 and Coral==1: #Reef at offshore edge of the profile
-        X2=num.append(Xn,X,None);
+        X2=num.append(Xn,X,None)
         H2=num.append(H_r,num.array(H),None)
         Eta2=num.append(Eta_r,num.array(Eta),None)
     elif len(h)>2 and Xco==1 and Xcn==1 and Coral==1: #Reef at the nearshore edge of the profile
-        X2=num.append(X,Xn,None);
+        X2=num.append(X,Xn,None)
         H2=num.append(num.array(H),H_r,None)
         Eta2=num.append(num.array(Eta),Eta_r,None)
     elif len(h)>2 and Xco>=0 and Xcn>0 and Coral==1: #Reef somewhere in profile
-        X2=num.append(X2,X[Loco[-1]:-1],None);
+        X2=num.append(X2,X[Loco[-1]:-1],None)
         H2=num.append(num.array(H2),num.array(Hlag),None)
         Eta2=num.append(num.array(Eta2),num.array(Etalag),None)
     elif Oyster==1:
-        XO2=num.array(X);HO2=num.array(H);EtaO2=num.array(Eta);
+        XO2=num.array(X);HO2=num.array(H);EtaO2=num.array(Eta)
         if Kt<1:
-            X2=num.array(X);H2=num.append(H[0:Xloc[0]],Hlag);Eta2=num.append(Eta[0:Xloc[0]],Etalag);
+            X2=num.array(X);H2=num.append(H[0:Xloc[0]],Hlag);Eta2=num.append(Eta[0:Xloc[0]],Etalag)
         elif Kt==1:
             X2=XO2;H2=HO2;Eta2=EtaO2
     else:
         X2=num.array(X);H2=num.array(H);Eta2=num.array(Eta)
 elif SgPst+MrPst+MgPst+Coral+Oyster==0:
-    Hsimple2=num.array(Hsimple1);Etasimple2=num.array(Etasimple1);
-    H2=num.array(H1);X2=num.array(X1);Eta2=num.array(Eta1);
+    Hsimple2=num.array(Hsimple1);Etasimple2=num.array(Etasimple1)
+    H2=num.array(H1);X2=num.array(X1);Eta2=num.array(Eta1)
     Ubot2=num.array(Ubot1)
 elif SgPst+MrPst+MgPst+Coral==0 and Oyster==1:
-    Hsimple2=num.array(HsimpleO1);Etasimple2=num.array(EtasimpleO1);
-    H2=num.array(HO1);X2=num.array(XO1);Eta2=num.array(EtaO1);
+    Hsimple2=num.array(HsimpleO1);Etasimple2=num.array(EtasimpleO1)
+    H2=num.array(HO1);X2=num.array(XO1);Eta2=num.array(EtaO1)
     Ubot2=num.array(UbotO1)
+
+# save .txt outputs
+Hb4=outputws+"WaveHeightBefore_"+subwsStr+".txt"
+file=open(Hb4,"w")
+for i in range(0,len(X)):
+    file.writelines(str(X1[i])+"\t"+str(H1[i])+"\n")
+file.close()
+Haftr=outputws+"WaveHeightAfter_"+subwsStr+".txt"
+file=open(Haftr,"w")
+for i in range(0,len(X)):
+    file.writelines(str(X2[i])+"\t"+str(H2[i])+"\n")
+file.close()
 
         
 ##############################
@@ -1176,7 +1235,7 @@ lx=len(X1)
 AtnH=H1*0
 for xx in range(lx):
     AtnH[xx]=abs(H2[xx]-H1[xx])/H1[xx]*100 # percent attenuation
-Atn=find(AtnH>0.5); #Take Attn> 0.5% to remove any num. diff.
+Atn=find(AtnH>0.5) #Take Attn> 0.5% to remove any num. diff.
 if len(Atn)>0:
     Atn=trapz(AtnH[Atn],X1[Atn],dx)/(X1[Atn[-1]]-X1[Atn[0]])
 else:
@@ -1191,12 +1250,12 @@ file.close()
 
 #indices of vegetation location
 keep=find(VegLoc1<>0)
-VegLoc=VegLoc1+nan;
+VegLoc=VegLoc1+nan
 if len(keep)>1:
     VegLoc[keep]=-h[keep]
 
 # plot
-figure(1);
+figure(1)
 subplot(311);plot(X1[::-1],H1,X2[::-1],H2,linewidth=2);grid()
 ylabel('Wave Height [m]',size='large')
 legend(('Initial Condition','Management Action'),'lower right')
@@ -1248,7 +1307,8 @@ if Beach==1 and sand==1:
     Etap1=Emax1;Hp1=Ho1;Rnp1=Rmax1; 
     if len(Etasimple1)<>0 and (MgPst+MrPst+SgPst)<>0: #If there is vegetation
         coef0=max(Etasimple1[-200:-1])/Emax1;Etap1=max(Eta1[-200:-1])/coef0 #Corr. MWL at shoreline; take last 200m
-        if Etap1<0:        Etap1=0 # if Eta with veg. neg,take as zero
+        if Etap1<0:
+            Etap1=0 # if Eta with veg. neg,take as zero
         Hp1=(Etap1/(0.35*m))**2/Lo # Hprime to estimate runup with veg
         Rnp1=1.1*(Etap1+num.sqrt(Lo*(Hp1*0.563*m**2+0.004*Ho))/2) # runup with vegetation
         
@@ -1259,7 +1319,8 @@ if Beach==1 and sand==1:
     Etap2=Emax2;Hp2=Ho2;Rnp2=Rmax2
     if len(Etasimple2)<>0 and (MgPst+MrPst+SgPst)<>0: #If there is vegetation
         coef0=max(Etasimple2[-200:-1])/Emax2;Etap2=max(Eta2[-200:-1])/coef0 #Corr. MWL at shoreline; take last 200m
-        if Etap2<0:        Etap2=0 # if Eta with veg. neg,take as zero
+        if Etap2<0:
+            Etap2=0 # if Eta with veg. neg,take as zero
         Hp2=(Etap2/(0.35*m))**2/Lo # Hprime to estimate runup with veg
         Rnp2=1.1*(Etap2+num.sqrt(Lo*(Hp2*0.563*m**2+0.004*Ho))/2) # runup with vegetation
         
@@ -1269,31 +1330,40 @@ if Beach==1 and sand==1:
     # Check if foreshore slope adequate - Use worst wave height
     hb=(((max([Ho2,Ho1])**2.0)*g*To/(2*pi))/2.0)**(2.0/5.0)/(g**(1.0/5.0)*0.73**(4.0/5.0));# breaking depth
     xb=(hb/A)**1.5 # surf zone width
-    temp=xb-hb/m;
+    temp=xb-hb/m
     if temp<=0:
         mo=floor(xb/hb)
         gp.AddWarning("Your foreshore slope is too flat or sediment size is too high.\nWe'll increase it to 1/" +str(mo) +" to estimate a minimum erosion value.")
-    else:    mo=m
+    else:
+        mo=m
 
         # Before management action
     R_01,temp1,temp2=ErosionKD(A,Ho1,Rmax1+S,B1,D1,W1,mo)#Erosion of beach 
     if len(Etasimple1)<>0 and Rnp1<>Rmax1: #If there is vegetation
         temp1=R_01*Rnp1/Rmax1 #Scale by runup
         temp2=R_01*DissAtn1 #Scale by dissipation
-        if Hp1<>0:    temp,temp1,temp2=ErosionKD(A,Hp1,Rnp1+S,B1,D1,W1,mo)#Erosion of beach 
-        else:    temp=mean([temp1,temp2])
-    else:     temp1=R_01;temp=R_01;temp2=R_01
+        if Hp1<>0:
+            temp,temp1,temp2=ErosionKD(A,Hp1,Rnp1+S,B1,D1,W1,mo)#Erosion of beach 
+        else:
+            temp=mean([temp1,temp2])
+    else:
+        temp1=R_01;temp=R_01;temp2=R_01
     R1=mean([temp,temp1,temp2])
         
         #After manamgement action
-    if Ho2+S+D2==Ho1+S+D1:    R_02=R_01 #If same forcing, no need to rerun
-    else:    R_02,temp1,temp2=ErosionKD(A,Ho2,Rmax2+S,B1,D2,W1,mo)#Erosion of beach 
+    if Ho2+S+D2==Ho1+S+D1:
+        R_02=R_01 #If same forcing, no need to rerun
+    else:
+        R_02,temp1,temp2=ErosionKD(A,Ho2,Rmax2+S,B1,D2,W1,mo)#Erosion of beach 
     if len(Etasimple2)<>0 and Rnp2<>Rmax2: #If there is vegetation
         temp1=R_02*Rnp2/Rmax2 #Scale by runup
         temp2=R_02*DissAtn2 #Scale by dissipation
-        if Hp2<>0:    temp,temp1,temp2=ErosionKD(A,Hp2,Rnp2+S,B1,D2,W1,mo)#Erosion of beach 
-        else:    temp=mean([temp1,temp2])
-    else:     temp1=R_02;temp=R_02;temp2=R_02
+        if Hp2<>0:
+            temp,temp1,temp2=ErosionKD(A,Hp2,Rnp2+S,B1,D2,W1,mo)#Erosion of beach 
+        else:
+            temp=mean([temp1,temp2])
+    else:
+        temp1=R_02;temp=R_02;temp2=R_02
     R2=mean([temp,temp1,temp2])
         
     #PLOT OUTPUTS
@@ -1302,13 +1372,13 @@ if Beach==1 and sand==1:
         W1=100
     Xp=num.arange(0,1000,1)
     Yp=m*Xp
-    loc=find(Yp>=B1);
+    loc=find(Yp>=B1)
     Yp[loc]=B1
     Lberm=loc[0];Ltoe=Indexed(Xp,Xp[Lberm+W1])
     Yp[Ltoe:-1]=B1+D1
     
     Yp0=m*Xp-1*m*R1 # profile of erosion before management action
-    loc=find(Yp0>=B1);
+    loc=find(Yp0>=B1)
     if R1 <= W1:
         Yp0[loc]=B1
         Lberm0=loc[0]
@@ -1320,7 +1390,7 @@ if Beach==1 and sand==1:
         Ltoe0=loc[0]
     
     Ypv=m*Xp-1*m*R2 # profile of erosion after management action
-    loc=find(Ypv>=B1);
+    loc=find(Ypv>=B1)
     if R2 <= W1:
         Ypv[loc]=B1
         Lbermv=loc[0]
@@ -1334,7 +1404,7 @@ if Beach==1 and sand==1:
     subplot(211)    
     if max([R1,R2])>=W1-1:    
         temp2=Indexed(Xp,Xp[Ltoe0]+max([R1,R2])+.5);temp1=0
-    else:     temp2=Indexed(Xp,Xp[Lberm]+max([R1,R2])+5);temp1=Indexed(Xp,Xp[Lberm]-10);
+    else:     temp2=Indexed(Xp,Xp[Lberm]+max([R1,R2])+5);temp1=Indexed(Xp,Xp[Lberm]-10)
     plot(Xp,Yp,Xp,Yp0,'--r',Xp,Ypv,'--g',linewidth=2);grid()
     xlim(Xp[temp1],Xp[temp2]);ylim(Yp[temp1],Yp[temp2]+.05)
     ylabel('Backshore Elevation [m]',size='large')
@@ -1359,7 +1429,7 @@ elif mud==1: #Compute erosion amount for consolidated sediments
         lx=len(X)
         Ubot1=num.array(Ubot1);Ubot2=num.array(Ubot2)
         values=range(Zero,lx)
-        R1,Trms1,Tc1,Tw1,Te=MudErosion(0,Ubot1,h,To,me,Cm,values)#Before management action
+        R1,Trms1,Tc1,Tw1,Te=MudErosion(0,Ubot1,h,To,me,Cm,values) #Before management action
         R2,Trms2,Tc2,Tw2,Te=MudErosion(0,Ubot2,h,To,me,Cm,values) #After
         
         if MgPst:
@@ -1382,22 +1452,22 @@ elif mud==1: #Compute erosion amount for consolidated sediments
         ylabel('Depth',size='large')
         xlabel('Cross-Shore Distance [m]',size='large')
         savefig(outputws+"ErosionBed_"+subwsStr+".png",dpi=(640/8))
-        Fig2=1; #for HTML
+        Fig2=1 #for HTML
         
 if Oyster==1:
     figure(2)
-    subplot(311);
+    subplot(311)
     plot(X1[-1]-X1[Xloc[0]-50:len(h)],H1[Xloc[0]-50:len(h)],X1[-1]-X1[Xloc[0]-50:len(h)],H2[Xloc[0]-50:len(h)]);grid()
     ylabel('Wave Height',size='large',weight='demi')
     legend(('Oyster Reef Absent','Oyster Reef Present'),'upper right')
-    subplot(312);
+    subplot(312)
     if mud==1:
         plot(X[-1]-X[Xloc[0]-50:len(h)],R1[Xloc[0]-50:len(h)],X[-1]-X[Xloc[0]-50:len(h)],R2[Xloc[0]-50:len(h)]);grid()
         ylabel('Scour depth [cm]',size='large',weight='demi')
     elif mud==0:
         plot(X[-1]-X[Xloc[0]-50:len(h)],Ubot1[Xloc[0]-50:len(h)],X[-1]-X[Xloc[0]-50:len(h)],Ubot2[Xloc[0]-50:len(h)]);grid()
         ylabel('Bed Velo. [m/s]',size='large',weight='demi')
-    subplot(313);
+    subplot(313)
     plot(X[-1]-X[Xloc[0]-50:len(h)],-h[Xloc[0]-50:len(h)]+S,Xrf,Yrf,'r',Xrf+.05,Yrf,'r',Xrf+.1,Yrf,'r');grid()
     ylabel('Depth',size='large',weight='demi')
     xlabel('Cross-Shore Distance from Offshore Boundary [m]',size='large',weight='demi')
@@ -1413,62 +1483,67 @@ htmlfile=open(outputws+"OutputWaveModel_"+subwsStr+".html","w")
 htmlfile.write("<html>\n")
 htmlfile.write("<title>Marine InVEST - Wave, Erosion, and Inundation</title>")
 htmlfile.write("<CENTER><H1>Coastal Protection - Tier 1</H1><H2>Erosion Results ("+subwsStr+")<br></H2></CENTER>")
-htmlfile.write("<br><HR><H2><u>Plot</u></H2>\n")
+htmlfile.write("<br><HR><H2><u>Site Info</u></H2>\n")
 
+# site info
+htmlfile.write("Inputs conditions are: Ho = "+str(round(Ho,2))+" and To = "+str(round(To,1))+"<br>\n")
 if Beach==1:
-    htmlfile.write("<li>A sandy beach is present in your system")
+    htmlfile.write("<li>A <b>sandy beach</b> is present in your system.")
 else:
-    htmlfile.write("<li>You do NOT have a sandy beach in your system.")
+    htmlfile.write("<li>You do NOT have a <b>sandy beach</b> in your system.")
 if Coral==1:
-    htmlfile.write("<li>A coral reef is present in your system.")
+    htmlfile.write("<li>A <b>coral reef</b> is present in your system.")
 if Coral==-1:
-    htmlfile.write("<li>A coral reef is present in your system.")
+    htmlfile.write("<li>A <b>coral reef</b> is present in your system.")
 elif Coral==0:
-    htmlfile.write("<li>You do NOT have a coral reef in your system")
+    htmlfile.write("<li>You do NOT have a <b>coral reef</b> in your system.")
 if MgPst==1:
-    htmlfile.write("<li>A mangrove is present in your system")
+    htmlfile.write("<li>A <b>mangrove</b> is present in your system.")
 else:
-    htmlfile.write("<li>You do NOT have a mangrove in your system")
+    htmlfile.write("<li>You do NOT have a <b>mangrove</b> in your system.")
 if SgPst==1:
-    htmlfile.write("<li>A seagrass bed is present in your system")
+    htmlfile.write("<li>A <b>seagrass bed</b> is present in your system.")
 else:
-    htmlfile.write("<li>You do NOT have a  seagrass bed in your system")
+    htmlfile.write("<li>You do NOT have a <b>seagrass bed</b> in your system.")
 if MrPst==1:
-    htmlfile.write("<li>A marsh is present in your system")
+    htmlfile.write("<li>A <b>marsh</b> is present in your system.")
 else:
-    htmlfile.write("<li>You do NOT have a marsh in your system")
+    htmlfile.write("<li>You do NOT have a <b>marsh</b> in your system.")
 if Oyster==1:
-    htmlfile.write("<li>An oyster reef is present in your system")
+    htmlfile.write("<li>An <b>oyster reef is present in your system.")
 else:
-    htmlfile.write("<li>You do NOT have an oyster reef in your system")
+    htmlfile.write("<li>You do NOT have an <b>oyster reef</b> in your system.")
 
-#Inputs
-htmlfile.write("<li>Inputs conditions are: Ho="+str(round(Ho,2))+" and To="+str(round(To,1))+"<br>\n")
-
-#Figures
-htmlfile.write("<li>The figure below shows profiles of wave height along your profile, before and after your management action.")
-htmlfile.write("<img src=\"WavePlot_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\">")
+# figures
+htmlfile.write("<p><HR><H2><u>Plots</u></H2>")
+htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
+htmlfile.write("<td>The figure below shows profiles of wave height along your profile,<br>before and after your management action.<br>")
+htmlfile.write("<img src=\"WavePlot_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
 
 if Fig2:
-    htmlfile.write("<li>The average percent wave attenuation is " +str(round(Atn,2)))
-    htmlfile.write("<li>The figure below shows profiles of erosion in the intertidal and backshore regions, before and after your management action.")
-    htmlfile.write("<img src=\"ErosionBed_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\">")
-
-    #Erosion
+    htmlfile.write("<td><li>The average percent wave attenuation is "+str(round(Atn,2))+"</td></tr>")
+    htmlfile.write("<p><tr><td>The figure below shows profiles of erosion in the intertidal and backshore regions,<br>before and after your management action.<br>")
+    htmlfile.write("<img src=\"ErosionBed_"+subwsStr+".png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\"></td>")
+    # erosion
     if sand==1:
-        htmlfile.write("<li>Before your management action, your beach might erode by " +str(round(mean(R1),2)) +"m.  After your management action, your beach might erode by " +str(round(mean(R2),2)) +"m.")
+        htmlfile.write("<td><li>Before your management action,<br>your beach might erode by "+str(round(mean(R1),2))+"m.<br><p><li>After your management action,\
+                        <br>your beach might erode by "+str(round(mean(R2),2))+"m.</td></tr></table><br>")
     elif mud==1:
-        htmlfile.write("<li>Before your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R1),2)) +"m.  After your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R2),2)) +"m.")    
-else: #Oyster reef case
-    htmlfile.write("<li>The transmission coefficient is Kt= " +str(round(Kt,2)) +", which means that the wave transmitted shoreward of the reef is " +str(round(Kt*100,2)) +"% smaller that the incident wave right offshore of the reef")
-    htmlfile.write("<li>The figure below shows close-ups of the profile of wave height, bottom velocity and depth profile, offshore and shoreward of the reef.  The change in bed velocity is indicative of less potential for erosion and/or sediment resuspension. ")
-    htmlfile.write("<img src=\"ErosionBed_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\">")
-    
-    if hi>hc:
-        htmlfile.write("<li>The oyster reef is " +str(hc) +"m tall and the water depth is " +str(round(hi,2)) +"m. It is submerged.")
-    else:
-        htmlfile.write("<li>The oyster reef is " +str(hc) +"m tall and the water depth is " +str(round(hi,2)) +"m. It is emergent...please use results cautiously.")
+        htmlfile.write("<td><li>Before your management action,<br>your muddy backshore area might experience a maximum average scour rate of "+str(round(mean(R1),2))+\
+                        "m.<br><p><li>After your management action,<br>your muddy backshore area might experience a maximum average scour rate of "\
+                        +str(round(mean(R2),2))+"m.</td></tr></table><br>")
 
+else: # oyster reef case
+    htmlfile.write("<td><li>The transmission coefficient is Kt = "+str(round(Kt,2))+", which means that the wave transmitted shoreward of the reef is "+\
+                    str(round(Kt*100,2)) +"% smaller that the incident wave right offshore of the reef.</td></tr>")
+    htmlfile.write("<p><tr><td>The figure below shows close-ups of the profile of<br>wave height, bottom velocity and depth profile, offshore and shoreward of the reef.  \
+                    <br>The change in bed velocity is indicative of less potential for erosion and/or sediment resuspension.<br>")
+    htmlfile.write("<img src=\"ErosionBed_"+subwsStr+".png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\"></td>")
+    if hi>hc:
+        htmlfile.write("<td><li>The oyster reef is "+str(hc)+"m tall<br>and the water depth is "+str(round(hi,2))+"m.<br>It is submerged.</td></tr></table><br>")
+    else:
+        htmlfile.write("<td><li>The oyster reef is "+str(hc)+"m tall<br>and the water depth is "+str(round(hi,2))+"m.<br>It is emergent...please use results cautiously.</td></tr></table><br>")
+        
 htmlfile.write("</html>")
 htmlfile.close()
 

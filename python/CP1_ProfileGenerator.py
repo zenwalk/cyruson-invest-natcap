@@ -2235,7 +2235,7 @@ try:
         htmlfile.write("<html><title>Marine InVEST - Profile Generator</title><CENTER><H1>Coastal Protection - Tier 1</H1><H2>Profile Generator Results ("+subwsStr+")<br></H2><p>")
         htmlfile.write("<a href=\"profile.html\">[ PROFILE INFO ]</a><br>[ FETCH, WAVE, AND WIND INFO ]<br>")
         htmlfile.write("<CENTER><br><HR><H2><u>Fetch and Wind Roses</u></H2></CENTER>")
-        htmlfile.write("<table border=\"1\" width=\"1100\" cellpadding=\"5\" cellspacing=\"0\"><tr><td>")
+        htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"0\"><tr><td>")
         htmlfile.write("<iframe width=\"350\" height=\"325\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"")
         htmlfile.write("src=\"http://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=en&amp;geocode=&amp;q=")
         htmlfile.write(PtLat+","+PtLong)
@@ -2355,6 +2355,20 @@ try:
         parafile.writelines("\n")
     parafile.close()
 
+    # delete superfluous intermediate data
+    del1=[LandPointLyr,LandPolyLyr,LandPoint_Buff,LandPoint_Buff50k,LandPoint_Geo,Shoreline,Shoreline_Buff_Clip,Shoreline_Buff_Clip_Diss]
+    del2=[PT1,PT2,PT1_Z,PT2_Z,PT_Z_Near,Backshore_Pts,Profile_Pts_Merge,Profile_Pts_Lyr]
+    del3=[PtsCopy,PtsCopy2,PtsCopyLR,PtsCopy3,PtsCopyLD,Fetch_AOI,UnionFC,SeaPoly,seapoly_rst,seapoly_e,PtsCopyEL,PtsCopyExp,PtsCopyExp_Lyr,LandPoint_WW3]
+    del4=[]
+    if HabDirectory:
+        for i in range(0,len(HabAbbrevList)):
+            del4.append(interws+HabAbbrevList[i])
+            del4.append(interws+HabAbbrevList[i]+"_rc")
+            del4.append(interws+HabAbbrevList[i]+".shp")
+    deletelist = del1+del2+del3+del4
+    for data in deletelist:
+        if gp.exists(data):
+            gp.delete_management(data)
     del gp
 
 except Exception, ErrorDesc:
