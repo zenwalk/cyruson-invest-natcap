@@ -1,6 +1,6 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
-# 12/12/11
+# 12/13/11
 
 # import modules
 import sys, string, os, datetime, shlex, csv
@@ -29,8 +29,8 @@ msgCalcRiskMap = "\nError calculating risk scores within analysis grid (GS)."
 msgPlotArrays = "\nError preparing exposure and consequence matrix values for plotting."
 msgMapOutputs = "\nError generating map outputs."
 msgPlotHTMLOutputs = "\nError generating plot and HTML outputs."
+msgRiskOutputs = "\nError generating habitat maps of risk hotspots."
 msgNumPyNo = "NumPy extension is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
-msgWin32ComNo = "PythonWin extension is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
 msgSciPyNo = "SciPy extension is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ for instructions on how to install."
 msgMatplotlibNo = "Matplotlib extension (version 1.0 or newer) is required to run the Habitat Risk Assessment Model.  Please consult the Marine InVEST FAQ document for instructions on how to install."
 
@@ -47,12 +47,6 @@ except:
     gp.AddError(msgSciPyNo)
     raise Exception
     
-try:
-    from win32com.client import Dispatch
-except:
-    gp.AddError(msgWin32ComNo)
-    raise Exception
-
 try:
     try:
         # get parameters
@@ -1079,8 +1073,8 @@ try:
             # create html file
             htmlfile = open(outputHTML, "w")
             htmlfile.write("<html>\n")
-            htmlfile.write("<title>Marine InVEST</title>\n")
-            htmlfile.write("<CENTER><H1>Visualizing the InVEST Habitat Risk Assessment Model</H1></CENTER>\n")
+            htmlfile.write("<title>Marine InVEST - HRA</title>\n")
+            htmlfile.write("<CENTER><H1>Visualizing the InVEST Habitat Risk Assessment Model (HRA)</H1></CENTER>\n")
             htmlfile.write("<br><b>A note on data quality and uncertainty:</b>  Ecological risk assessment is an integrative process, \
                             which requires a substantial amount of data on many attributes of human and ecological systems. \
                             It is likely that some aspects of the risk assessment will be supported high quality data and others \
@@ -1092,7 +1086,7 @@ try:
                             quality, users will be aware of some sources of uncertainty in the risk assessment, and will therefore be cautious \
                             when using results derived from low quality data. In addition, this information can be used to guide research and \
                             monitoring effects to improve data quality and availability.<br>\n")
-            htmlfile.write("<br><HR><H2>Cumulative Ecosystem Risk Plot</H2>\n")
+            htmlfile.write("<br><HR><H2><u>Cumulative Ecosystem Risk Plot</u></H2>\n")
             htmlfile.write("<table border=\"0\"><tr><td>")
             htmlfile.write("<img src=\"plot_ecosys_risk.png\" width=\"960\" height=\"720\">")
             htmlfile.write("</td><td>")
@@ -1109,7 +1103,7 @@ try:
             for i in range(0,len(HabLyrList)):
                 htmlfile.write("<big><u>H"+str(i+1)+"</u>: "+str(HabLyrList[i])+"</big><br>\n")
             htmlfile.write("</td></tr></table>\n")
-            htmlfile.write("<br><HR><H2>Risk Plots for Each Habitat</H2>\n")
+            htmlfile.write("<br><HR><H2><u>Risk Plots for Each Habitat</u></H2>\n")
             htmlfile.write("<table border=\"0\"><tr><td>")
             htmlfile.write("<img src=\"plots_risk.png\" width=\"960\" height=\"720\">")
             htmlfile.write("</td><td>")
@@ -1131,84 +1125,88 @@ try:
     ######## GENERATE HABITAT MAPS OF RISK HOTSPOTS  #########
     ##########################################################
 
-    if RiskBoolean == "true":
-        gp.AddMessage("\nGenerating habitat maps of risk hotspots...")
-        
-        # copy 'GS_HQ_area' and erase superfluous attributes before intersection
-        gp.CopyFeatures_management(GS_HQ_area, GS_HQ_intersect, "", "0", "0", "0")
-        keepFieldList = ["FID", "Shape", "CELL_SIZE"]
-        eraseFieldList = []
-        for i in range(0,HabCount):
-            keepFieldList.append("CUMRISK_H"+str(i+1))
-            for j in range(0,StressCount):
-                keepFieldList.append("RISK_H"+str(i+1)+"S"+str(j+1))
-        
-        fields = gp.ListFields(GS_HQ_intersect, "*")
-        fc_field = fields.Next()
-        while fc_field:
-            if fc_field.name not in keepFieldList:
-                eraseFieldList.append(fc_field.name)
-            fc_field = fields.Next()
-        del fc_field
- 
-        EraseFieldExpr = eraseFieldList[0]
-        for i in range(1,len(eraseFieldList)):
-            EraseFieldExpr = EraseFieldExpr+";"+str(eraseFieldList[i])
-        gp.DeleteField_management(GS_HQ_intersect, EraseFieldExpr)
-
-        # intersect 'GS_HQ_area' with each habitat input and genrate risk hotspots
-        for i in range(0,len(HabLyrList)):
-            HabVariable = Hab_Directory+"\\"+HabLyrList[i]
-            IntersectExpr = HabVariable+" 1; "+GS_HQ_intersect+" 2"
-            gp.Intersect_analysis(IntersectExpr, maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "NO_FID", "", "INPUT")
-            for j in range(0,StressCount):
-                gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "S"+str(j+1)+"RISKNUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
-            gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "CRISK_NUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
-            gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "RISK_NUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
-            gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "RISK_QUAL", "TEXT", "10", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+    try:
+        if RiskBoolean == "true":
+            gp.AddMessage("\nGenerating habitat maps of risk hotspots...")
             
-            cur = gp.UpdateCursor(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp")          
-            row = cur.Next()
-            while row:
-                # individual stressor risk logic
+            # copy 'GS_HQ_area' and erase superfluous attributes before intersection
+            gp.CopyFeatures_management(GS_HQ_area, GS_HQ_intersect, "", "0", "0", "0")
+            keepFieldList = ["FID", "Shape", "CELL_SIZE"]
+            eraseFieldList = []
+            for i in range(0,HabCount):
+                keepFieldList.append("CUMRISK_H"+str(i+1))
                 for j in range(0,StressCount):
-                    if row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(1.0/3.0)):
-                        row.SetValue("S"+str(j+1)+"RISKNUM", 1)
-                    elif row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) >= (np.sqrt(8.0)*(1.0/3.0)) and row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(2.0/3.0)):
-                        row.SetValue("S"+str(j+1)+"RISKNUM", 2)
-                    else:
-                        row.SetValue("S"+str(j+1)+"RISKNUM", 3)        
-                    
-                # cumulative risk logic
-                if row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(1.0/3.0)):
-                    row.SetValue("CRISK_NUM", 1)
-                elif row.GetValue("CUMRISK_H"+str(i+1)) >= (np.sqrt(8.0*StressCount)*(1.0/3.0)) and row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(2.0/3.0)):
-                    row.SetValue("CRISK_NUM", 2)
-                else:
-                    row.SetValue("CRISK_NUM", 3)
+                    keepFieldList.append("RISK_H"+str(i+1)+"S"+str(j+1))
+            
+            fields = gp.ListFields(GS_HQ_intersect, "*")
+            fc_field = fields.Next()
+            while fc_field:
+                if fc_field.name not in keepFieldList:
+                    eraseFieldList.append(fc_field.name)
+                fc_field = fields.Next()
+            del fc_field
+     
+            EraseFieldExpr = eraseFieldList[0]
+            for i in range(1,len(eraseFieldList)):
+                EraseFieldExpr = EraseFieldExpr+";"+str(eraseFieldList[i])
+            gp.DeleteField_management(GS_HQ_intersect, EraseFieldExpr)
 
-                # determine risk hotspots ratings
-                HotSpotRatingList = []
-                for k in range(0,StressCount):
-                    HotSpotRatingList.append(row.GetValue("S"+str(k+1)+"RISKNUM"))
-                HotSpotRatingList.append(row.GetValue("CRISK_NUM"))    
-                row.SetValue("RISK_NUM", max(HotSpotRatingList))
-                if row.GetValue("RISK_NUM") == 1:
-                    row.SetValue("RISK_QUAL", "Low")
-                elif row.GetValue("RISK_NUM") == 2:
-                    row.SetValue("RISK_QUAL", "Medium")
-                else:
-                    row.SetValue("RISK_QUAL", "High")            
-                cur.UpdateRow(row)
-                row = cur.next()
-            del row
-            del cur
+            # intersect 'GS_HQ_area' with each habitat input and genrate risk hotspots
+            for i in range(0,len(HabLyrList)):
+                HabVariable = Hab_Directory+"\\"+HabLyrList[i]
+                IntersectExpr = HabVariable+" 1; "+GS_HQ_intersect+" 2"
+                gp.Intersect_analysis(IntersectExpr, maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "NO_FID", "", "INPUT")
+                for j in range(0,StressCount):
+                    gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "S"+str(j+1)+"RISKNUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+                gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "CRISK_NUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+                gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "RISK_NUM", "SHORT", "0", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+                gp.AddField_management(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp", "RISK_QUAL", "TEXT", "10", "0", "", "", "NON_NULLABLE", "NON_REQUIRED", "")
+                
+                cur = gp.UpdateCursor(maps+"h"+str(i+1)+"_"+HabLyrList[i][:-5]+"Risk.shp")          
+                row = cur.Next()
+                while row:
+                    # individual stressor risk logic
+                    for j in range(0,StressCount):
+                        if row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(1.0/3.0)):
+                            row.SetValue("S"+str(j+1)+"RISKNUM", 1)
+                        elif row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) >= (np.sqrt(8.0)*(1.0/3.0)) and row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(2.0/3.0)):
+                            row.SetValue("S"+str(j+1)+"RISKNUM", 2)
+                        else:
+                            row.SetValue("S"+str(j+1)+"RISKNUM", 3)        
+                        
+                    # cumulative risk logic
+                    if row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(1.0/3.0)):
+                        row.SetValue("CRISK_NUM", 1)
+                    elif row.GetValue("CUMRISK_H"+str(i+1)) >= (np.sqrt(8.0*StressCount)*(1.0/3.0)) and row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(2.0/3.0)):
+                        row.SetValue("CRISK_NUM", 2)
+                    else:
+                        row.SetValue("CRISK_NUM", 3)
+
+                    # determine risk hotspots ratings
+                    HotSpotRatingList = []
+                    for k in range(0,StressCount):
+                        HotSpotRatingList.append(row.GetValue("S"+str(k+1)+"RISKNUM"))
+                    HotSpotRatingList.append(row.GetValue("CRISK_NUM"))    
+                    row.SetValue("RISK_NUM", max(HotSpotRatingList))
+                    if row.GetValue("RISK_NUM") == 1:
+                        row.SetValue("RISK_QUAL", "Low")
+                    elif row.GetValue("RISK_NUM") == 2:
+                        row.SetValue("RISK_QUAL", "Medium")
+                    else:
+                        row.SetValue("RISK_QUAL", "High")            
+                    cur.UpdateRow(row)
+                    row = cur.next()
+                del row, cur
+
+    except:
+        gp.AddError(msgRiskOutputs)
+        raise Exception
             
     # create parameter file
     parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
     parafile = open(outputws+"parameters_"+now.strftime("%Y-%m-%d-%H-%M")+".txt","w") 
     parafile.writelines("HABITAT RISK ASSESSMENT MODEL PARAMETERS\n")
-    parafile.writelines("___________________________________________\n\n")
+    parafile.writelines("________________________________________\n\n")
          
     for para in parameters:
         parafile.writelines(para+"\n")
