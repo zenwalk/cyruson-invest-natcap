@@ -1,6 +1,6 @@
 # Marine InVEST: Python and GIS Extensions Check
 # Author: Gregg Verutes
-# 12/02/11
+# 10/20/11
 
 # import basic extensions
 import sys, string, os
