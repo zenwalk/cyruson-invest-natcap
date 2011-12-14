@@ -521,9 +521,13 @@ class HRA:
         Reads data in the CSV format.
         """
         infile=open(filename,"r")
-        assessmentName,survey,habitat,stressor,habitatStressor,weights=infile.read().strip().split("\n\n")
+        text=infile.read().strip().strip(",")
         infile.close()
 
+        text="\n".join([row.strip(",") for row in text.split("\n")])
+        
+        assessmentName,survey,habitat,stressor,habitatStressor,weights=text.split("\n\n")
+        
         #survey
         survey=survey.split("\n")
         row=survey.pop(0).split(",")
