@@ -2272,8 +2272,13 @@ class HRA:
 
     def NoExport(self):
         if tkMessageBox.askyesno("Export", "Discard changes?", default=tkMessageBox.NO, icon=tkMessageBox.WARNING):
-            self.tk.destroy()
+            self.Repeat()
 
+    def Repeat(self):
+        if tkMessageBox.askyesno("Repeat", "Congratulations!  You have completed the HabitatStressor_RatingsSurvey.  If you are finished and ready to run the Habitat Risk Assessment in ArcGIS click \"Yes\"  If you would like to fill out another survey for a different location or scenario click \"No\"."):
+            self.tk.destroy()
+        else:
+            self.Home()
 
     def Export(self):
         filename=tkFileDialog.asksaveasfilename(initialfile=self.assessmentName.get()+".csv",filetypes=[("Comma Separated Values",".csv"),("All Files","*")])
