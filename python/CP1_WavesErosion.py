@@ -913,7 +913,7 @@ try:
 
     try:
         # compute offshorewave height
-        if WaveErosionQuestion=="(2) No, I need to compute these values from wind speed and fetch distance values": 
+        if WaveErosionQuestion=="(2) No, please compute these values from wind speed and fetch distance": 
             Us=Us;Ft=Ft;depth=depth
             Ho,To=WindWave(Us,Ft,depth) # compute wave from wind speed
         gp.AddMessage('\nInput conditions are: Ho = ' +str(round(Ho,2)) +'m and To = ' +str(round(To,2)) +'s')
@@ -1672,7 +1672,7 @@ try:
                 htmlfile.write("<td><u>Before</u> your management action, your beach might erode by " +str(round(mean(R1),2)) +"m.<br><u>After</u> your management action, your beach might erode by " +str(round(mean(R2),2)) +"m.")
             elif mud==1:
                 htmlfile.write("<td><u>Before</u> your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R1),2)) +"m.<br><u>After</u> your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R2),2)) +"m.")    
-        else: # oyster reef case
+        elif Oyster==1: # oyster reef case
             htmlfile.write("</td><td>The transmission coefficient is Kt= " +str(round(Kt,2)) +", which means that the wave transmitted shoreward of the reef is " +str(round(Kt*100,2)) +"% smaller that the incident wave right offshore of the reef.</td></tr>")
             htmlfile.write("<tr><td>The figure below shows close-ups of the profile of wave height, bottom velocity and depth profile, offshore and shoreward of the reef.  The change in bed velocity is indicative of less potential for erosion and/or sediment resuspension. ")
             htmlfile.write("<img src=\"ErosionBed_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
