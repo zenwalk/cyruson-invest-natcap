@@ -253,8 +253,8 @@ try:
 
         # get habitat and stressor counts
         HabInputCount = int(rawList[14][0])
-        StressInputCount = int(rawList[21][0])
-
+        StressInputCount = int(rawList[17+HabInputCount][0])
+        
         # put values in temporary lists
         HabVar = []
         StressVar = []
@@ -269,7 +269,7 @@ try:
                 HabStressVar.append(rawList[i][4:])
             elif i > 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+1 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+13:
                 CritWeights.append(float(rawList[i][0]))
-
+        
         # adjust inter-criteria weights
         for w,i in enumerate(CritWeights):
             if i==0.0:
