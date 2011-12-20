@@ -1,0 +1,22 @@
+April 15, 2009
+
+Updates to InVEST Beta
+
+InVEST 1.002 – Beta
+
+Differences between InVEST 1.001 and InVEST ARS 1.002 
+
+
+Avoided Reservoir Sedimentation
+
+1.In version 1.000, the calibration constant was one floating parameter input for the whole watershed. In version 1.002, this parameter is included in the sediment table and is watershed specific. 
+2.In version 1.000, the LS factor determination method was based on the original USLE method. In version 1.002, the LS factor method uses different equations based on the slope value. This modification allows the model to predict sediment yield values that better approximate observed values
+3.In version 1.000 the model did not include the sediment removal as output.  Version 1.002 calculates the sediment removal (sed_rem) as output. 
+4.In version 1.000, the value of sediment removal in the Present Value used the sediment delivered (sed_deliv). In version 1.002, the valuation uses the sediment removal (sed_rem). 
+5.In Version 1.000, the model required as input the points of interest for which valuation is needed, from which watersheds would be generated. Due to an ArcMap bug, in version 1.002, the model requires as input watersheds of interest instead which requires the user to delineate watersheds outside the script. 
+6.In version 1.000 the model allowed the user to ‘calibrate’ sediment yield to observed values in the second script (Sediment Removal Value). In version 1.002, this has been moved to the first script (Soil Loss).
+
+
+Water pollution regulation
+
+1. This model is unavailable in this release. We are currently in the process of updating version 1.0.  Check back in June 2009.
