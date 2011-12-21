@@ -253,8 +253,8 @@ try:
 
         # get habitat and stressor counts
         HabInputCount = int(rawList[14][0])
-        StressInputCount = int(rawList[21][0])
-
+        StressInputCount = int(rawList[17+HabInputCount][0])
+        
         # put values in temporary lists
         HabVar = []
         StressVar = []
@@ -269,7 +269,7 @@ try:
                 HabStressVar.append(rawList[i][4:])
             elif i > 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+1 and i < 15 + HabInputCount+3 + StressInputCount+3 + (HabInputCount*StressInputCount)+13:
                 CritWeights.append(float(rawList[i][0]))
-
+        
         # adjust inter-criteria weights
         for w,i in enumerate(CritWeights):
             if i==0.0:
@@ -1073,8 +1073,8 @@ try:
             # create html file
             htmlfile = open(outputHTML, "w")
             htmlfile.write("<html>\n")
-            htmlfile.write("<title>Marine InVEST</title>\n")
-            htmlfile.write("<CENTER><H1>Visualizing the InVEST Habitat Risk Assessment Model</H1></CENTER>\n")
+            htmlfile.write("<title>Marine InVEST - HRA</title>\n")
+            htmlfile.write("<CENTER><H1>Visualizing the InVEST Habitat Risk Assessment Model (HRA)</H1></CENTER>\n")
             htmlfile.write("<br><b>A note on data quality and uncertainty:</b>  Ecological risk assessment is an integrative process, \
                             which requires a substantial amount of data on many attributes of human and ecological systems. \
                             It is likely that some aspects of the risk assessment will be supported high quality data and others \
@@ -1086,7 +1086,7 @@ try:
                             quality, users will be aware of some sources of uncertainty in the risk assessment, and will therefore be cautious \
                             when using results derived from low quality data. In addition, this information can be used to guide research and \
                             monitoring effects to improve data quality and availability.<br>\n")
-            htmlfile.write("<br><HR><H2>Cumulative Ecosystem Risk Plot</H2>\n")
+            htmlfile.write("<br><HR><H2><u>Cumulative Ecosystem Risk Plot</u></H2>\n")
             htmlfile.write("<table border=\"0\"><tr><td>")
             htmlfile.write("<img src=\"plot_ecosys_risk.png\" width=\"960\" height=\"720\">")
             htmlfile.write("</td><td>")
@@ -1103,7 +1103,7 @@ try:
             for i in range(0,len(HabLyrList)):
                 htmlfile.write("<big><u>H"+str(i+1)+"</u>: "+str(HabLyrList[i])+"</big><br>\n")
             htmlfile.write("</td></tr></table>\n")
-            htmlfile.write("<br><HR><H2>Risk Plots for Each Habitat</H2>\n")
+            htmlfile.write("<br><HR><H2><u>Risk Plots for Each Habitat</u></H2>\n")
             htmlfile.write("<table border=\"0\"><tr><td>")
             htmlfile.write("<img src=\"plots_risk.png\" width=\"960\" height=\"720\">")
             htmlfile.write("</td><td>")
