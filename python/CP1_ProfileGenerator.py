@@ -2084,7 +2084,7 @@ try:
             htmlfile.write("<tr><td>The figure below shows the whole smoothed profile that was created for you.<br>")
             htmlfile.write("<img src=\"ProfilePlot1.png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
             htmlfile.write("<td>The figure below shows a zoom-in on the bathymetry and inter- to supratidal portions.<br>")
-            htmlfile.write("<li> The top subplot shows original and smoothed bathymetry.<br><li> The bottom subplot shows a zoom-in on intertidal and backshore profiles.<br>")
+            htmlfile.write("<li> The figure below shows your original and modified bathymetry.<br>")
             htmlfile.write("<img src=\"ProfilePlot2.png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\"></td></tr></table><br>")
             htmlfile.write("Additional information about your site from your inputs:<br>")
             if abs(OffX[0]+ShoreX[0])<>0:
@@ -2109,14 +2109,14 @@ try:
             htmlfile.write("<tr><td><img src=\"ProfilePlot6.png\" alt=\"Location of Natural Habitats\" width=\"640\" height=\"480\"></td><td>")
             htmlfile.write("You have at least one biotic or abiotic natural habitat in your area of interest.  \
                             We indicate below its type, start and end locations.  Distances are referenced in meters from the shoreline.\
-                            Positive distances are oriented seaward and negative distances landward.<p>")
+                            Positive distances are oriented seaward and negative distances landward. In other words, if a distance is positive, your habitat is in the water, and if a distance is negative, your habitat in on land.<p>")
             if pst(begMGx)<>0:
                 htmlfile.write("You have a mangrove field that starts and ends at the locations indicated below:<br>")
                 B=begMGx;F=finMGx
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2135,7 +2135,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2154,7 +2154,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2173,7 +2173,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2192,7 +2192,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2211,7 +2211,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2235,7 +2235,7 @@ try:
         htmlfile.write("<html><title>Marine InVEST - Profile Generator</title><CENTER><H1>Coastal Protection - Tier 1</H1><H2>Profile Generator Results ("+subwsStr+")<br></H2><p>")
         htmlfile.write("<a href=\"profile.html\">[ PROFILE INFO ]</a><br>[ FETCH, WAVE, AND WIND INFO ]<br>")
         htmlfile.write("<CENTER><br><HR><H2><u>Fetch and Wind Roses</u></H2></CENTER>")
-        htmlfile.write("<table border=\"1\" width=\"1100\" cellpadding=\"5\" cellspacing=\"0\"><tr><td>")
+        htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"0\"><tr><td>")
         htmlfile.write("<iframe width=\"350\" height=\"325\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"")
         htmlfile.write("src=\"http://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=en&amp;geocode=&amp;q=")
         htmlfile.write(PtLat+","+PtLong)
@@ -2355,6 +2355,20 @@ try:
         parafile.writelines("\n")
     parafile.close()
 
+    # delete superfluous intermediate data
+    del1=[LandPointLyr,LandPolyLyr,LandPoint_Buff,LandPoint_Buff50k,LandPoint_Geo,Shoreline,Shoreline_Buff_Clip,Shoreline_Buff_Clip_Diss]
+    del2=[PT1,PT2,PT1_Z,PT2_Z,PT_Z_Near,Backshore_Pts,Profile_Pts_Merge,Profile_Pts_Lyr]
+    del3=[PtsCopy,PtsCopy2,PtsCopyLR,PtsCopy3,PtsCopyLD,Fetch_AOI,UnionFC,SeaPoly,seapoly_rst,seapoly_e,PtsCopyEL,PtsCopyExp,PtsCopyExp_Lyr,LandPoint_WW3]
+    del4=[]
+    if HabDirectory:
+        for i in range(0,len(HabAbbrevList)):
+            del4.append(interws+HabAbbrevList[i])
+            del4.append(interws+HabAbbrevList[i]+"_rc")
+            del4.append(interws+HabAbbrevList[i]+".shp")
+    deletelist = del1+del2+del3+del4
+    for data in deletelist:
+        if gp.exists(data):
+            gp.delete_management(data)
     del gp
 
 except Exception, ErrorDesc:
