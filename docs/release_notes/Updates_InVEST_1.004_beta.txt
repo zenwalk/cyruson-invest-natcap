@@ -1,0 +1,67 @@
+March 10, 2010
+
+Updates to InVEST Beta
+
+InVEST 1.004 – Beta
+
+Changes in InVEST 1.004
+
+
+Carbon
+
+In version 1.003, the carbon model produces the error "Parameter : reclassfile.asc does not exist." and fails giving a message "Error reclassing  C_above".  
+This has been corrected in 1.004.
+
+
+Pollination
+
+1. In 1.003 the final result of running the Pollination model was abundance of pollinators on farms. In 1.004 the user can elect to convert this abundance into a service value and attributes it back to the contributing pixels producing a pollinator service value map.
+
+2. 1.003 required the user to input a table of coordinates of farms for which to calculate the pollinator abundance.  In 1.004 this has been removed and instead the model requires the user to identify agricultural pixels (entered in the interface).  If these are not specified then it assumes all pixels to be agricultural.
+
+3. In 1.003 nesting guilds were entered as a continuous value between 0 and 1 with this value indicating the relative suitability.  In 1.004 these are entered as either 0 or 1 with 1 indicating a nesting type that is utilized and 0 indicating a non-utilized nest type
+
+4. In 1.003 the pollinator foraging map was calculated by taking the minimum value from all the seasons. In 1.004 this is calculated as a proportion based on the floral suitability in each season.
+
+
+
+Hydropower
+
+1. 1.003 underestimated each pixel's contribution to hydropower production because of the formulation of the consumptive use calculation. 1.004 calculates each pixel's contribution to hydropower based on it's fractional contribution to toal basin yield.
+
+
+Avoided Reservoir Sedimentation
+
+1. 1.003 did not include downslope routing of yielded sediemtn or the capacity of downslope vegetation to filter out yielded sediment. 1.004 accounts for both.
+
+2. 1.004 adjusts the amount of sediment that reaches the stream based on downslope filtration.
+
+
+Water Purification 
+
+1. 1.001 used physical characteristics to estimate the likelihood of runoff. 1.004 uses the output of the water yield portion of the hydropower production model instead.
+
+2. 1.001 used a relative ranking approach to identify relative levels of pollutant loads across the landscape. 1.004 adjusts the actual load to give a quantitative estimate for pollutant load.
+
+3. 1.001 calculated the total retention of pollutant along flow path then distributes it back on the  pixels based on their filtration efficiency and distance to stream, without routing. 1.004 uses hydraulic routing to calculate pollutant retention from upslope pixels based on vegetation retention efficiency.
+
+4. 1.001 calculated an annual average value based on avoided treatment costs. 1.004 calculates net present value based on avoided treatment costs.
+
+
+Biodiversity
+
+1. In version 1.003 the grid cell habitat quality values were not being calculated correctly. Areas with high degradation had low degradation scores and vice-versa. This has been revised in 1.004. 
+
+2. In version 1.003 grid cell degradation scores were normalized.  This caused problems when comparing degradation and quality across maps.  Values are no longer normalized in version 1.004.   
+
+3. The habitat quality equation has been revised in version 1.003. In the new equation a grid cell’s degradation score is translated into a habitat quality value using a half saturation function where the user must determine the half-saturation value (parameter k in equation 4; please refer to the User Guide).  As a grid cell’s degradation score increases its habitat quality decreases. Grid cell habitat quality is equal to 1 if the degradation score in a grid cell is 0 and the cell’s habitat is perfectly suitable for the species group being modeled (see point 7 below).  Habitat quality can only approach 0 given the structure of a half-saturation function. 
+
+4. Rarity can now only be calculated using a baseline map.  Further, the mapped rarity score is no longer normalized.
+
+5. In version 1.003 the input table for "Threats data"  contained the column "linear". This has now been changed to "Decay".
+
+6. In version 1.003 the input table for "Sensitivity of land cover types to each threat"  contained the column "Natural". This has now been changed to "Habitat" in version 1.004. 
+
+7. In version 1.003 a land cover type could only be designated as habitat by using a binary 1 or 0 in the "Sensitivity of land cover types to each threat" table. This has been revised in version 1.004 and the habitat suitability of each land cover type is a continuous variable from 0.0 to 1.0.  
+
+8. In version 1.003 a model run could only be done for the current and baseline scenario. This has been revised in version 1.004. If you are analyzing habitat quality for more than one land cover / land use change scenario (e.g., a current and future map or a baseline, current, and future map) then you need to designate a set of threat layers for each modeled scenario.  Add a ‘c’ at the end of the raster for all ‘current’ threat layers, a ‘f’ for all future threat layers, and a ‘b’ for all ‘baseline’ threat layers.  If you do not use such endings then the model assumes the degradation source layers correspond to the current map.  
