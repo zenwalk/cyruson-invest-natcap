@@ -495,7 +495,7 @@ class HRA:
         habitatRange = range(int(self.habitats.get()))
         for label,function in [("Area Change",self.GetHabitatAreaChangeIndex),
                                ("Structure Change",self.GetHabitatStructureChangeIndex),
-                               ("Disturbance Frequencey",self.GetHabitatDisturbanceFrequencyIndex),
+                               ("Disturbance Frequency",self.GetHabitatDisturbanceFrequencyIndex),
                                ("Temporal Overlap",self.GetHabitatTimeOverlapIndex)]:
             tmp = Menu(data, tearoff=0)
             for i in habitatRange:
