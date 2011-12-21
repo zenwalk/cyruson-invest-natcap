@@ -2084,7 +2084,7 @@ try:
             htmlfile.write("<tr><td>The figure below shows the whole smoothed profile that was created for you.<br>")
             htmlfile.write("<img src=\"ProfilePlot1.png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
             htmlfile.write("<td>The figure below shows a zoom-in on the bathymetry and inter- to supratidal portions.<br>")
-            htmlfile.write("<li> The top subplot shows original and smoothed bathymetry.<br><li> The bottom subplot shows a zoom-in on intertidal and backshore profiles.<br>")
+            htmlfile.write("<li> The figure below shows your original and modified bathymetry.<br>")
             htmlfile.write("<img src=\"ProfilePlot2.png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\"></td></tr></table><br>")
             htmlfile.write("Additional information about your site from your inputs:<br>")
             if abs(OffX[0]+ShoreX[0])<>0:
@@ -2109,14 +2109,14 @@ try:
             htmlfile.write("<tr><td><img src=\"ProfilePlot6.png\" alt=\"Location of Natural Habitats\" width=\"640\" height=\"480\"></td><td>")
             htmlfile.write("You have at least one biotic or abiotic natural habitat in your area of interest.  \
                             We indicate below its type, start and end locations.  Distances are referenced in meters from the shoreline.\
-                            Positive distances are oriented seaward and negative distances landward.<p>")
+                            Positive distances are oriented seaward and negative distances landward. In other words, if a distance is positive, your habitat is in the water, and if a distance is negative, your habitat in on land.<p>")
             if pst(begMGx)<>0:
                 htmlfile.write("You have a mangrove field that starts and ends at the locations indicated below:<br>")
                 B=begMGx;F=finMGx
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2135,7 +2135,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2154,7 +2154,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2173,7 +2173,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2192,7 +2192,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):
@@ -2211,7 +2211,7 @@ try:
                 htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
                 htmlfile.write("<td> </td>")
                 for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(kk)+"</td>")
+                    htmlfile.write("<td>Field "+str(kk)+"</td>")
                 htmlfile.write("</tr>")
                 htmlfile.write("<td>Start [m]</td>")
                 for kk in range(len(B)):

@@ -333,7 +333,7 @@ try:
             
             CdDN=Cdr[xx+1]*dr*Nr
             temp1=rho*CdDN*(k[xx+1]*g/(2.0*sig))**3.0/(2.0*sqrt(pi))
-            temp2=sinh(k[xx+1]*alphs[xx+1]*h[xx+1])**3.0+3.0*sinh(k[xx+1]*alphs[xx+1]*h[xx+1])
+            temp2=sinh(k[xx+1]*alphr[xx+1]*h[xx+1])**3.0+3.0*sinh(k[xx+1]*alphr[xx+1]*h[xx+1])
             temp3=(3.0*k[xx+1]*cosh(k[xx+1]*h[xx+1])**3.0)
             Dr[xx+1]=temp1*temp2/temp3*H[xx+1]**3.0 # diss due to marshes
 
@@ -963,9 +963,12 @@ try:
         D2=(100-Dred)*D1/100 # new dune height
         if A>0 and B1+W1+D1<>0:
             Beach=1 # a sandy beach is present
-            gp.AddMessage("...a sandy beach is present in your system")
         else:
             Beach=0
+            
+        if Beach+sand==2:
+            gp.AddMessage("...a sandy beach is present in your system")
+        else:
             gp.AddMessage("...you do NOT have a sandy beach in your system\n   The model will NOT compute erosion for the type of sediment that you have.")
 
         # prepare oyster data
@@ -1147,8 +1150,9 @@ try:
             Kt=BreakwaterKt(Ho1,To,hi,hc,Cw,Bw);Ho1=Kt*Ho1 # transmitted Wave height
             UbotO1=num.array(Ubot1);Ubot1=num.array(Ubot1)
             if Kt<1:
-                Hlag,Etalag,Hs,Etas,DissAtn1,temp2,temp=WaveModel(X[Xloc],h[Xloc],Ho1,To,Seagr,Marsh,Mang,Cf_bed[Xloc]) 
-                Ubot1[Xloc]=temp2 # bottom velocity    
+                Hlag,Etalag,Hs,Etas,DissAtn1,temp2,temp=WaveModel(X[Xloc],h[Xloc],Ho1,To,Seagr,Marsh,Mang,Cf_bed[Xloc])
+                temp1=num.array(Hlag);temp2=num.array(H)
+                Ubot1[Xloc]=UbotO1[Xloc]*temp1/temp2[Xloc] # bottom velocity    
 
             if Xo1s>Xr and (MgPst+MrPst+SgPst)<>0: # wave height in lagoon in case there is vegetation
                 Hsimple1=Hs;Etasimple1=Etas        
@@ -1238,7 +1242,8 @@ try:
                 UbotO2=num.array(Ubot1);Ubot2=num.array(Ubot2)
                 if Kt<1:
                     Hlag,Etalag,Hs,Etas,DissAtn2,temp2,temp=WaveModel(X[Xloc],h[Xloc],Ho2,To,Seagr1,Marsh1,Mang1,Cf1_bed[Xloc]) 
-                    Ubot2[Xloc]=temp2 # bottom velocity    
+                    temp1=num.array(Hlag);temp2=num.array(H)
+                    Ubot2[Xloc]=UbotO2[Xloc]*temp1/temp2[Xloc] # bottom velocity    
             
                 if Xo1s>Xr and (MgPst+MrPst+SgPst)<>0: # wave height in lagoon in case there is vegetation
                     Hsimple2=Hs;Etasimple2=Etas
@@ -1322,45 +1327,62 @@ try:
 
         # plot
         figure(1)
-        subplot(311);plot(X1[::-1],H1,X2[::-1],H2,linewidth=2);grid()
-        ylabel('Wave Height [m]',size='large')
-        legend(('Initial Condition','Management Action'),'lower right')
-        subplot(3,1,2);plot(X1[::-1],AtnH,linewidth=2);grid()
-        ylabel('Wave Attenuation [%]',size='large')
+        ax=subplot(311);plot(X1[::-1],H1,X2[::-1],H2,linewidth=2);grid()
+        box=ax.get_position();
+        ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+        ylabel('Wave Height[m]',size='large')
+        ax.legend(('Initial','Mgmt'),loc='center left', bbox_to_anchor=(.95, 0.5))
+        ax=subplot(3,1,2);plot(X1[::-1],AtnH,linewidth=2);grid()
+        box=ax.get_position();
+        ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+        ylabel('Wave Attn[%]',size='large')
         if sum(VegLoc1)>0 and Coral<>0:
             if Xco+Xcn>3:
-                subplot(313);plot(X[-1]-X[Loco],X[Loco]*0.0-ho+S,'ob',X[::-1],VegLoc+S,'xg',X[::-1],-h+S,linewidth=2);grid()
+                ax=subplot(313);plot(X[-1]-X[Loco],X[Loco]*0.0-ho+S,'ob',X[::-1],VegLoc+S,'xg',X[::-1],-h+S,linewidth=2);grid()
             elif Xco+Xcn==0:
                 temp=num.arange(-Wr,0,1);
-                subplot(313);plot(X[-1]-temp,temp*0.0-ho+S,'ob',X[::-1],VegLoc+S,'xg',X[::-1],-h+S,linewidth=2);grid()
+                ax=subplot(313);plot(X[-1]-temp,temp*0.0-ho+S,'ob',X[::-1],VegLoc+S,'xg',X[::-1],-h+S,linewidth=2);grid()
             elif Xco+Xcn==2:
                 temp=num.arange(X[-1],X[-1]+Wr,1);
-                subplot(313);plot(X[-1]-temp,temp*0.0-ho+S,'ob',X[::-1],VegLoc,'xg',X[::-1],-h+S,linewidth=2);grid()        
-            legend(('Coral Reef','Vegetation Field','Depth Profile'),'lower right')
+                ax=subplot(313);plot(X[-1]-temp,temp*0.0-ho+S,'ob',X[::-1],VegLoc,'xg',X[::-1],-h+S,linewidth=2);grid()        
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ax.legend(('Coral','Vegetation','Transect'),loc='center left', bbox_to_anchor=(.95, 0.5))
         elif sum(VegLoc1)>0 and Coral==0:
-            subplot(313);plot(X[::-1],VegLoc+S,'xg',X[::-1],-h+S,linewidth=2);grid()
-            legend(('Vegetation Field','Depth Profile'),'lower right')
+            ax=subplot(313);plot(X[::-1],VegLoc+S,'xg',X[::-1],-h+S,linewidth=2);grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ax.legend(('Vegetation','Transect'),loc='center left', bbox_to_anchor=(.95, 0.5))
         elif sum(VegLoc1)==0 and Coral<>0:
-            subplot(313);plot(X[-1]-(X[Loco[0]]+Xn),num.array(Xn)*0.0-ho+S,'ob',X[::-1],-h+S,linewidth=2);grid()
-            legend(('Coral Reef','Depth Profile'),'lower right')
+            ax=subplot(313);plot(X[-1]-(X[Loco[0]]+Xn),num.array(Xn)*0.0-ho+S,'ob',X[::-1],-h+S,linewidth=2);grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ax.legend(('Coral','Transect'),loc='center left', bbox_to_anchor=(.95, 0.5))
         else:
-            subplot(313);plot(X[::-1],-h+S,linewidth=2);grid()    
-        ylabel('Water Depth [m]',size='large')
+            ax=subplot(313);plot(X[::-1],-h+S,linewidth=2);grid()  
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            
+        ylabel('Depth[m]',size='large')
         xlabel('Cross-Shore Distance from Offshore Boundary',size='large')
         savefig(outputws+"WavePlot_"+subwsStr+".png",dpi=(640/8))
 
         if Oyster==1:
-            subplot(211);plot(X1[::-1],H1,X2[::-1],H2,linewidth=2);grid()
-            ylabel('Wave Height [m]',size='large')
-            legend(('Initial Condition','Management Action'),'lower left')
+            ax=subplot(211);plot(X1[::-1],H1,X2[::-1],H2,linewidth=2);grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ax.legend(('Initial','Mgmt'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ylabel('Wave Height[m]',size='large')
             
             Yrf=num.arange((-hi)+S,0.0,0.05);Xrf=X[-1]-(Yrf*0.0+Xloc[0]) # x-axis
-            subplot(212);plot(X[::-1],-h+S,Xrf[::-1],Yrf,'r',Xrf[::-1]+.05,Yrf,'r',Xrf[::-1]+.1,Yrf,'r');grid()
-            ylabel('Water Depth [m]',size='large',weight='demi')
-            xlabel('Cross-Shore Distance from Offshore Boundary [m]',size='large',weight='demi')
-            legend(('Depth Profile','Oyster Reef'),'upper left')
+            ax=subplot(212);plot(X[::-1],-h+S,Xrf[::-1],Yrf,'r',Xrf[::-1]+.05,Yrf,'r',Xrf[::-1]+.1,Yrf,'r');grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ax.legend(('Transect','Oyster'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ylabel('Depth[m]',size='large')
+            xlabel('Cross-Shore Distance from Offshore Boundary [m]',size='large')
             savefig(outputws+"WavePlot_"+subwsStr+".png",dpi=(640/8))
-            
+           
         Fig2=0
         if Beach==1 and sand==1:
             # estimate runup amount
@@ -1467,21 +1489,25 @@ try:
                 Ypv[loc]=B1+D2
             
             figure(2)
-            subplot(211)    
+            ax=subplot(211)    
             if max([R1,R2])>=W1-1:    
                 temp2=Indexed(Xp,Xp[Ltoe0]+max([R1,R2])+.5);temp1=0
             else:     temp2=Indexed(Xp,Xp[Lberm]+max([R1,R2])+5);temp1=Indexed(Xp,Xp[Lberm]-10);
             plot(Xp[::-1],Yp,Xp[::-1],Yp0,'--r',Xp[::-1],Ypv,'--g',linewidth=2);grid()
             xlim(Xp[-1]-Xp[temp2],Xp[-1]-Xp[temp1]);ylim(Yp[temp1],Yp[temp2]+.05)
-            ylabel('Backshore Elevation [m]',size='large')
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ax.legend(('Initital','Bef. Mgmt','After Mgmt'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ylabel('Backsh. Elev.[m]',size='large')
             title('Erosion Profiles',size='large',weight='bold')
-            legend(('Initial Profile','Before Management','After Management'),'upper right')
             
-            subplot(212)
+            ax=subplot(212)
             temp1=Indexed(Xp,Xp[Lberm]-10);temp2=Indexed(Xp,Xp[Ltoe0]+10)
             plot(Xp[::-1],Yp,Xp[::-1],Yp0,'--r',Xp[::-1],Ypv,'--g',linewidth=2);grid()
             xlim(Xp[-1]-Xp[temp2]-R1,Xp[-1]-Xp[temp1]);ylim(Yp[temp1],B1+D1+0.5)
-            ylabel('Backshore Elevation [m]',size='large')
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ylabel('Backsh. Elev.[m]',size='large')
             xlabel('Not to Scale',size='large')
             savefig(outputws+"ErosionBed_"+subwsStr+".png",dpi=(640/8))
             Fig2=1; #for HTML
@@ -1504,42 +1530,55 @@ try:
                     loc1=Indexed(X,Xo1r);loc2=Indexed(X,Xo2r) # locate the edges of the marsh              
                 
                 figure(2)
-                subplot(311)
+                ax=subplot(311)
                 plot(X[-1]-X[Zero:-1],Trms1[Zero:-1],X[-1]-X[Zero:-1],Trms2[Zero:-1],X[-1]-X[Zero:-1],Te[Zero:-1],'--k',linewidth=2);grid()
-                legend(('Before Management Action','After Management Action','Threshold for Motion'),'upper right')
-                ylabel('Bed Shear Stress [N/m^2]',size='large')
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+                ax.legend(('Bef. Mgmt','After Mgmt','Mvt Thresh.'),loc='center left', bbox_to_anchor=(.95, 0.5))
+                ylabel('Bed Stress[N/m^2]',size='large')
                 
-                subplot(312)
+                ax=subplot(312)
                 plot(X[-1]-X[Zero:-1],R1[Zero:-1],X[-1]-X[Zero:-1],R2[Zero:-1],linewidth=2);grid()
-                ylabel('Rate of bed erosion [cm/hr]',size='large')
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+                ylabel('Bed Erosn[cm/hr]',size='large')
                 
-                subplot(313)
+                ax=subplot(313)
                 plot(X[-1]-X[Zero:-1],-h[Zero:-1]+S,X[-1]-X[loc1:loc2],-h[loc1:loc2]+S,'xg',linewidth=2);grid()
-                ylabel('Depth',size='large')
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+                ylabel('Depth[m]',size='large')
                 xlabel('Cross-Shore Distance [m]',size='large')
                 savefig(outputws+"ErosionBed_"+subwsStr+".png",dpi=(640/8))
                 Fig2=1 # for HTML
                 
         if Oyster==1:
             figure(2)
-            subplot(311)
+            ax=subplot(311)
             plot(X1[-1]-X1[Xloc[0]-50:len(h)],H1[Xloc[0]-50:len(h)],X1[-1]-X1[Xloc[0]-50:len(h)],H2[Xloc[0]-50:len(h)]);grid()
-            ylabel('Wave Height',size='large',weight='demi')
-            legend(('Oyster Reef Absent','Oyster Reef Present'),'upper right')
-            subplot(312)
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ylabel('Wave Height[m]',size='large')
+            ax.legend(('Oyster','No Oyster'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ax=subplot(312)
             if mud==1:
                 plot(X[-1]-X[Xloc[0]-50:len(h)],R1[Xloc[0]-50:len(h)],X[-1]-X[Xloc[0]-50:len(h)],R2[Xloc[0]-50:len(h)]);grid()
-                ylabel('Scour depth [cm]',size='large',weight='demi')
+                ylabel('Scour depth[cm]',size='large')
             elif mud==0:
                 plot(X[-1]-X[Xloc[0]-50:len(h)],Ubot1[Xloc[0]-50:len(h)],X[-1]-X[Xloc[0]-50:len(h)],Ubot2[Xloc[0]-50:len(h)]);grid()
-                ylabel('Bed Velo. [m/s]',size='large',weight='demi')
-            subplot(313)
-            plot(X[-1]-X[Xloc[0]-50:len(h)],-h[Xloc[0]-50:len(h)]+S,Xrf,Yrf,'r',Xrf+.05,Yrf,'r',Xrf+.1,Yrf,'r');grid()
-            ylabel('Depth',size='large',weight='demi')
-            xlabel('Cross-Shore Distance from Offshore Boundary [m]',size='large',weight='demi')
-            legend(('Depth Profile','Oyster Reef'),'upper left')
-            savefig(outputws+"ErosionBed_"+subwsStr+".png",dpi=(640/8))
+                ylabel('Bed Velo.[m/s]',size='large')
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
             
+            ax=subplot(313)
+            plot(X[-1]-X[Xloc[0]-50:len(h)],-h[Xloc[0]-50:len(h)]+S,Xrf,Yrf,'r',Xrf+.05,Yrf,'r',Xrf+.1,Yrf,'r');grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
+            ax.legend(('Transect','Oyster'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ylabel('Depth[m]',size='large')
+            xlabel('Cross-Shore Distance from Offshore Boundary [m]',size='large')
+            savefig(outputws+"ErosionBed_"+subwsStr+".png",dpi=(640/8))
+           
     except:
         gp.AddError(msgPlotErosion)
         raise Exception
