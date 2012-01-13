@@ -1553,7 +1553,7 @@ else:
                 arcpy.env.cellSize = lcraster
                 outConstant = CreateConstantRaster(0)
                 arcpy.DefineProjection_management(outConstant, rasterSpatref)
-                outConstant.save("C:/InVEST1005/pollination/constant")
+                outConstant.save(arcpy.env.workspace + os.sep + 'intermediate' + os.sep + 'constant')
                 for sppoutput in speciesnames:
                     outConstant = outConstant + arcpy.Raster(arcpy.env.workspace+os.sep+'intermediate'+os.sep+sppoutput)
                 outConstant.save(arcpy.env.workspace+os.sep+'output'+os.sep+"sup_val"+suffix)
