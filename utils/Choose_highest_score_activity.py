@@ -201,7 +201,8 @@ try:
 
         # Choose which score raster has the highest score
         # In case of a tie, HighestPosition takes the first raster in 
-        #  the list with the tie score
+        #  the list with the tie score (input list is in order of increasing cost,
+        #  so less expensive activities are chosen first, an ROI approach)
         gp.HighestPosition_sa(score_ras_list, highest_score_pos)
 
         # Loop through all activity rasters
