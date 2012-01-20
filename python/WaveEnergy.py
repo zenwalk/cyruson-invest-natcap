@@ -1,7 +1,7 @@
 # Marine InVEST: Wave Energy Model
 # Authors: CK Kim, Gregg Verutes, Apollo Yi, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 01/06/12
+# 01/17/12
 
 # import modules
 import sys, string, os, datetime
