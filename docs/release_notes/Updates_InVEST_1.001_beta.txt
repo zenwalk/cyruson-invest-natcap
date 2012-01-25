@@ -1,0 +1,41 @@
+Updates to InVEST Beta
+
+InVEST 1.001 – Beta
+
+Differences between InVEST 1.000 and InVEST 1.001 
+
+Carbon Storage and Sequestration Model
+
+1. When a current and future landscape are given, version 1.000 of the model always calculates zero sequestration by a grid’s aboveground biomass, belowground biomass, soil, and dead organic pools no matter the LULC transition in the grid.  Version 1.001 correctly calculates sequestration by these pools.
+2. The value of sequestration in the harvested wood product (HWP) pool is valued incorrectly in version 1.000.  In version 1.001 the value is correctly calculated.
+3. Version 1.000 of the model crashes if the carbon discount rate is set equal to 0.  In version 1.001 “carbon discount rate” is renamed the “the annual rate of change in the price of carbon” and no longer crashes if set equal to 0.  In addition, the User’s Guide now notes that the price of carbon’s discount rate can be set less than 0%.  
+4. In version 1.000 the parcel attribute table for the map of current harvest rates includes FID, Cut, Start_date, and Freq.  In version 1.001 Cut and Freq have been renamed Cut_cur and Freq_cur.
+5. In version 1.000 the parcel attribute table for the map of future harvest rates includes FID, Cut, and Freq.  In version 1.001 the Cut and Freq attributes have been renamed Cut_fut and Freq_fut.
+6. In version 1.000 the HWP carbon pool-related attribute, Decay, is included in the .dbf file that gives attribute data for the aboveground biomass, belowground biomass, soil, and dead organic carbon pools.  In version 1.001 Decay_cur and Decay_fut are given in the polygon attribute tables of the current and future harvest rates maps, respectively.   
+7. The parcel attribute tables for the current and future harvest rates maps have two additional attributes in version 1.001, carbon density in harvested wood (C_den_cur and C_den_fut) and the biomass conversion and expansion factor (BCEF_cur and BCEF_fut) for translating wood mass into wood volume.  The user can assign each parcel, on the current and future harvest rates maps, a value for C_den_cur and BCEF_cur and, if applicable, C_den_fut and BCEF_fut.  Default values are 0.5 for C_den and 1 for BCEF if the user does not submit the data.  C_den_cur and C_den_fut indicate the average portion of the harvested wood that is comprised of elemental carbon.  These data are used to determine the biomass of wood that has been removed from a parcel in the years prior to the current or future year.  BCEF indicates the average mass per volume of the wood removed from a parcel and is used to determine the volume of wood that has been removed from a parcel in the years prior to the current or future year.
+8. Version 1.001 produces several intermediate files (GIS datasets) that are not produced in version 1.000:
+a. Bio_HWP_cur – biomass of wood harvested from each grid cell during the period from the “start date” to “yr_cur” (the year associated with the current land cover).
+b. Bio_HWP_fut – biomass of wood harvested from each grid cell during the period from the “start date” to “yr_fut” (the year associated with the future land cover).
+c. Vol_HWP_cur – volume of wood harvested from each grid cell during the period from the “start date” to “yr_cur.”
+d. Vol_HWP_fut – volume of wood harvested from each grid cell during the period from the “start date” to “yr_fut.”
+e. lc_res_cur – the current LULC map at the resolution chosen by the user.
+f. lc_res_fut – the future LULC map at the resolution chosen by the user.
+g. Carbon_dateandtime.txt – a text file that summarizes the parameter data used to run the Carbon Storage and Sequestration Model. The text file’s name includes “dateandtime” which means that the data and time is stamped into the text’s file name.
+9. The Carbon Storage and Sequestration section of the User’s Guide that accompanies version 1.001 of the model has been updated to reflect all of these changes.  Additional suggestions and advice for running the model have also been added.  
+
+Managed Timber Forestry Model
+
+1. The net present value of managed timber forestry in a parcel (TNPV) is incorrectly calculated in version 1.000.  In version 1.001 it is correctly calculated.
+2. In version 1.001 the attribute names in the Production table .dbf have been changed to  Parcel_ID, Parcl_area, Perc_harv, Harv_mass, Freq_harv, Maint_cost, Harv_cost, and Immed_harv from Plant_ID, ManArea, PerHarv, H, Freq, MCost, HCost, HTY, respectively.
+3. In version 1.001 the Production table .dbf now includes the attribute biomass conversion and expansion factor (BCEF). The user can assign each timber parcel a value for BCEF.  If the user does not submit BCEF data, the default value is 1.  BCEF indicates the average mass per volume of the wood removed from a parcel.  The model uses this factor to convert the mass of all wood harvested from a parcel over the user-defined time interval into the total volume of harvested wood from the parcel over the user-defined time interval.
+4. Version 1.001 of the model can now be run with ArcGIS 9.3.
+5. The text file Timber_dateandtime.txt is now placed into the output folder after the timber management model is run.  This text file summarizes the parameter data used to run the Managed Timber Model. The text file’s name includes “dateandtime” which means that the data and time is stamped into the text’s file name. 
+6. The shape file output (Timber.shp) for version 1.001 includes several attributes that are not included in the version 1.000 output:
+a. TBiomass – expected wood biomass to be removed from timber parcels over the user’s defined time range.
+b. TVolume – expected wood volume to be harvested from timber parcels over the user’s defined time range.
+7. We have updated the Managed Timber Forestry Model section of the User’s Guide that accompanies version 1.001.  In the updated text we discuss the changes made to version 1.000 and give more suggestions and advice for running the model. 
+
+Water pollution regulation
+
+1. We are currently in the process of updating version 1.0.  Check back in January.
+
