@@ -959,6 +959,7 @@ try:
         if Xr>X[-1]:    Xr=X[-1]
 
         # management actions
+        gp.AddMessage("\nEcosystems present at your site...")
         # beach
         D2=(100-Dred)*D1/100 # new dune height
         if A>0 and B1+W1+D1<>0:
@@ -967,20 +968,20 @@ try:
             Beach=0
             
         if Beach+sand==2:
-            gp.AddMessage("...a sandy beach is present in your system")
+            gp.AddMessage("...a sandy beach is present")
         else:
-            gp.AddMessage("...you do NOT have a sandy beach in your system\n   The model will NOT compute erosion for the type of sediment that you have.")
+            gp.AddMessage("...you do NOT have a sandy beach\n   The model will NOT compute erosion for the type of sediment that you have.")
 
         # prepare oyster data
         if hc+Bw<> 0:
             Oyster=1 # oyster info was entered
             if Cw<>0:
-                gp.AddMessage("...an oyster reef is present in your system")
+                gp.AddMessage("...an oyster reef is present")
             else:
-                gp.AddMessage("...reef balls are present in your system")        
+                gp.AddMessage("...reef balls are present")        
         else:
             Oyster=0
-            gp.AddMessage("...you do NOT have an oyster reef in your system")
+            gp.AddMessage("...you do NOT have an oyster reef")
 
         # prepare mangrove data
         Mang0=[[[0,0,0],[0,0,0],[0,0,0]],[0,0]];Mang=[[[0,0,0],[0,0,0],[0,0,0]],[0,0]]
@@ -1001,9 +1002,9 @@ try:
         MgPst=sum(sum(Mang[0]))+sum(sum(Mang1[0]))
         if MgPst<>0:  
             MgPst=1
-            gp.AddMessage("...a mangrove is present in your system")
+            gp.AddMessage("...a mangrove is present")
         else:
-            gp.AddMessage("...you do NOT have a mangrove in your system")
+            gp.AddMessage("...you do NOT have a mangrove")
             
         # prepare seagrass data
         Seagr0=[[0,0,0],[0,0]];Seagr=[[0,0,0],[0,0]];Seagr1=[[0,0,0],[0,0]]
@@ -1023,9 +1024,9 @@ try:
         SgPst=sum(Seagr[0])+sum(Seagr[1])+sum(Seagr1[0])+sum(Seagr1[1])
         if SgPst<>0:  
             SgPst=1
-            gp.AddMessage("...a seagrass bed is present in your system")
+            gp.AddMessage("...a seagrass bed is present")
         else:
-            gp.AddMessage("...you do NOT have a seagrass bed in your system")
+            gp.AddMessage("...you do NOT have a seagrass bed")
 
         # prepare marsh data
         Marsh=[[0,0,0],[0,0]];Marsh0=[[0,0,0],[0,0]];Marsh1=[[0,0,0],[0,0]]
@@ -1045,20 +1046,20 @@ try:
         MrPst=sum(Marsh[0])+sum(Marsh[1])+sum(Marsh1[0])+sum(Marsh1[1])
         if MrPst<>0:    
             MrPst=1 
-            gp.AddMessage("...a marsh is present in your system")
+            gp.AddMessage("...a marsh is present")
         else:
-            gp.AddMessage("...you do NOT have a marsh in your system")
+            gp.AddMessage("...you do NOT have a marsh")
 
         # prepare coral data
         if AlphF+AlphR+he+hr+Wr<>0: # check if coral profile is imported
             Coral=1
-            gp.AddMessage("...a coral reef is present in your system\n   We will estimate its profile for you.")
+            gp.AddMessage("...a coral reef is present\n   We will estimate its profile for you.")
         if Xcn+Xco<>0 and AlphF+AlphR+he+hr+Wr==0: # check if coral profile is part of the bathy
             Coral=-1
-            gp.AddMessage("...a coral reef is present in your system\n   It is incorporated in the bathy profile you uploaded.")
+            gp.AddMessage("...a coral reef is present\n   It is incorporated in the bathy profile you uploaded.")
         elif Xcn+Xco+AlphF+AlphR+he+hr+Wr==0:    
             Coral=0
-            gp.AddMessage("...you do NOT have a coral reef in your system")
+            gp.AddMessage("...you do NOT have a coral reef")
 
         Cf_bed=num.arange(0,len(h),.5)*0+0.01 # bottom friction for sand only
         Cf1_bed=num.arange(0,len(h),.5)*0+0.01  # for management action
@@ -1300,7 +1301,8 @@ try:
     ##############################
 
     try:
-        gp.AddMessage("\nGenerating output plots and HTML...")
+        gp.AddMessage("...plotting wave profiles")
+        
         # percent wave attenuation
         lx=len(X1)
         AtnH=H1*0
@@ -1347,17 +1349,17 @@ try:
                 ax=subplot(313);plot(X[-1]-temp,temp*0.0-ho+S,'ob',X[::-1],VegLoc,'xg',X[::-1],-h+S,linewidth=2);grid()        
             box=ax.get_position();
             ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
-            ax.legend(('Coral','Vegetation','Transect'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ax.legend(('Coral','Vegetation','Bed Profile'),loc='center left', bbox_to_anchor=(.95, 0.5))
         elif sum(VegLoc1)>0 and Coral==0:
             ax=subplot(313);plot(X[::-1],VegLoc+S,'xg',X[::-1],-h+S,linewidth=2);grid()
             box=ax.get_position();
             ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
-            ax.legend(('Vegetation','Transect'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ax.legend(('Vegetation','Bed Profile'),loc='center left', bbox_to_anchor=(.95, 0.5))
         elif sum(VegLoc1)==0 and Coral<>0:
             ax=subplot(313);plot(X[-1]-(X[Loco[0]]+Xn),num.array(Xn)*0.0-ho+S,'ob',X[::-1],-h+S,linewidth=2);grid()
             box=ax.get_position();
             ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
-            ax.legend(('Coral','Transect'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ax.legend(('Coral','Bed Profile'),loc='center left', bbox_to_anchor=(.95, 0.5))
         else:
             ax=subplot(313);plot(X[::-1],-h+S,linewidth=2);grid()  
             box=ax.get_position();
@@ -1368,23 +1370,25 @@ try:
         savefig(outputws+"WavePlot_"+subwsStr+".png",dpi=(640/8))
 
         if Oyster==1:
-            ax=subplot(211);plot(X1[::-1],H1,X2[::-1],H2,linewidth=2);grid()
+            ax=subplot(211);plot(X1[::-1],H1,linewidth=2);grid()
             box=ax.get_position();
             ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
-            ax.legend(('Initial','Mgmt'),loc='center left', bbox_to_anchor=(.95, 0.5))
             ylabel('Wave Height[m]',size='large')
             
+            ax=subplot(212);
             Yrf=num.arange((-hi)+S,0.0,0.05);Xrf=X[-1]-(Yrf*0.0+Xloc[0]) # x-axis
-            ax=subplot(212);plot(X[::-1],-h+S,Xrf[::-1],Yrf,'r',Xrf[::-1]+.05,Yrf,'r',Xrf[::-1]+.1,Yrf,'r');grid()
+            plot(X[::-1],-h+S,'k',Xrf[::-1],Yrf,'r',Xrf[::-1]+.05,Yrf,'r',Xrf[::-1]+.1,Yrf,'r',linewidth=2);grid()
             box=ax.get_position();
             ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
-            ax.legend(('Transect','Oyster'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ax.legend(('Bed Profile','Oyster Reef'),loc='center left', bbox_to_anchor=(.95, 0.5))
             ylabel('Depth[m]',size='large')
             xlabel('Cross-Shore Distance from Offshore Boundary [m]',size='large')
             savefig(outputws+"WavePlot_"+subwsStr+".png",dpi=(640/8))
            
         Fig2=0
+        gp.AddMessage("\nGenerating outputs...")
         if Beach==1 and sand==1:
+            gp.AddMessage("...estimating erosion amount for sandy beach")
             # estimate runup amount
             Lo=g*To**2.0/(2.0*pi)
             
@@ -1411,9 +1415,6 @@ try:
                     Etap2=0 # if Eta with veg. neg, take as zero
                 Hp2=(Etap2/(0.35*m))**2/Lo # Hprime to estimate runup with veg
                 Rnp2=1.1*(Etap2+num.sqrt(Lo*(Hp2*0.563*m**2+0.004*Ho))/2) # runup with vegetation
-                
-            # estimate erosion amount
-            gp.AddMessage("...estimating erosion amount for sandy beach")
                 
             # check if foreshore slope adequate (use worst wave height)
             hb=(((max([Ho2,Ho1])**2.0)*g*To/(2*pi))/2.0)**(2.0/5.0)/(g**(1.0/5.0)*0.73**(4.0/5.0)) # breaking depth
@@ -1488,6 +1489,7 @@ try:
             else:
                 Ypv[loc]=B1+D2
             
+            gp.AddMessage("...plotting erosion profiles")
             figure(2)
             ax=subplot(211)    
             if max([R1,R2])>=W1-1:    
@@ -1513,6 +1515,7 @@ try:
             Fig2=1; #for HTML
                     
         elif mud==1: # compute erosion amount for consolidated sediments
+            gp.AddMessage("...estimating erosion amount for muddy substrate")
             if Oyster:
                 R1,Trms1,Tc1,Tw1,Te=MudErosion(0,Ubot1,h,To,me,Cm,Xloc)
                 R2,Trms2,Tc2,Tw2,Te=MudErosion(0,Ubot2,h,To,me,Cm,Xloc)
@@ -1529,6 +1532,7 @@ try:
                 elif MrPst:
                     loc1=Indexed(X,Xo1r);loc2=Indexed(X,Xo2r) # locate the edges of the marsh              
                 
+                gp.AddMessage("...plotting erosion profiles")
                 figure(2)
                 ax=subplot(311)
                 plot(X[-1]-X[Zero:-1],Trms1[Zero:-1],X[-1]-X[Zero:-1],Trms2[Zero:-1],X[-1]-X[Zero:-1],Te[Zero:-1],'--k',linewidth=2);grid()
@@ -1553,28 +1557,19 @@ try:
                 Fig2=1 # for HTML
                 
         if Oyster==1:
+            temp1=5*(X[-1]-Xr)
             figure(2)
-            ax=subplot(311)
-            plot(X1[-1]-X1[Xloc[0]-50:len(h)],H1[Xloc[0]-50:len(h)],X1[-1]-X1[Xloc[0]-50:len(h)],H2[Xloc[0]-50:len(h)]);grid()
+            ax=subplot(211)
+            plot(X1[-1]-X1[Xloc[0]-temp1:len(h)],H2[Xloc[0]-temp1:len(h)],X1[-1]-X1[Xloc[0]-temp1:len(h)],H1[Xloc[0]-temp1:len(h)],X1[-1]-X1[Xloc[0]-temp1:len(h)],H2[Xloc[0]-temp1:len(h)],'b',linewidth=2);grid()
             box=ax.get_position();
             ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
             ylabel('Wave Height[m]',size='large')
-            ax.legend(('Oyster','No Oyster'),loc='center left', bbox_to_anchor=(.95, 0.5))
-            ax=subplot(312)
-            if mud==1:
-                plot(X[-1]-X[Xloc[0]-50:len(h)],R1[Xloc[0]-50:len(h)],X[-1]-X[Xloc[0]-50:len(h)],R2[Xloc[0]-50:len(h)]);grid()
-                ylabel('Scour depth[cm]',size='large')
-            elif mud==0:
-                plot(X[-1]-X[Xloc[0]-50:len(h)],Ubot1[Xloc[0]-50:len(h)],X[-1]-X[Xloc[0]-50:len(h)],Ubot2[Xloc[0]-50:len(h)]);grid()
-                ylabel('Bed Velo.[m/s]',size='large')
+            ax.legend(('No Reef','Reef Present'),loc='center left', bbox_to_anchor=(.95, 0.5))            
+            ax=subplot(212)
+            plot(X[-1]-X[Xloc[0]-temp1:len(h)],-h[Xloc[0]-temp1:len(h)]+S,'k',Xrf,Yrf,'r',Xrf+.05,Yrf,'r',Xrf+.1,Yrf,'r',linewidth=2);grid()
             box=ax.get_position();
             ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
-            
-            ax=subplot(313)
-            plot(X[-1]-X[Xloc[0]-50:len(h)],-h[Xloc[0]-50:len(h)]+S,Xrf,Yrf,'r',Xrf+.05,Yrf,'r',Xrf+.1,Yrf,'r');grid()
-            box=ax.get_position();
-            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])                
-            ax.legend(('Transect','Oyster'),loc='center left', bbox_to_anchor=(.95, 0.5))
+            ax.legend(('Bed Profile','Oyster Reef'),loc='center left', bbox_to_anchor=(.95, 0.5))
             ylabel('Depth[m]',size='large')
             xlabel('Cross-Shore Distance from Offshore Boundary [m]',size='large')
             savefig(outputws+"ErosionBed_"+subwsStr+".png",dpi=(640/8))
@@ -1589,6 +1584,7 @@ try:
     #################################
 
     try:
+        gp.AddMessage("...creating html output")
         # create HTML file
         AddMActionHeader = 'yes'
         htmlfile=open(outputws+"OutputWaveModel_"+subwsStr+".html","w")
@@ -1601,16 +1597,16 @@ try:
         if sand==1:
             htmlfile.write("You have a sandy beach, and the average sediment size is: "+str(d50)+"mm<br><p>")
         elif mud==1:
-            htmlfile.write("Your systems has a lots of fines/consolidated sediments. It is NOT an erodible beach.  We will estimate an amount of hourly bed erosion.<br><p>")
+            htmlfile.write("Your bed is composed of fines/consolidated sediments. <br><p>")
         else:
             htmlfile.write("<p>")
-        htmlfile.write("The tidal range is: "+str(round(MHW,1))+"m (high tide value)<br>")
+        htmlfile.write("The tidal range at your site is: "+str(round(MHW,1))+"m (high tide value). ")
         if MHW < 2:
-            htmlfile.write("Your site is: <i>microtidal</i> (Tidal Range < 2m)<br>")
+            htmlfile.write("It is <i>microtidal</i> (Tidal Range < 2m)<br>")
         elif MHW <= 4:
-            htmlfile.write("Your site is: <i>meso-tidal</i> (2 <= Tidal Range <= 4m)<br>")
+            htmlfile.write("It is <i>meso-tidal</i> (2 <= Tidal Range <= 4m)<br>")
         else:
-            htmlfile.write("Your site is: <i>macro-tidal</i> (Tidal Range > 4m)<br>")
+            htmlfile.write("It is <i>macro-tidal</i> (Tidal Range > 4m)<br>")
         htmlfile.write("</td></tr></table>")
 
         if Slope+B1+D1>0 and sand==1:
@@ -1632,7 +1628,8 @@ try:
         if Coral<>0:
             if AddMActionHeader == 'yes':
                 htmlfile.write("<HR><H2><u>Management Action</u></H2>"); AddMActionHeader = 'no'
-            htmlfile.write("<b><i>A coral reef is present in your system.</i></b>")
+            htmlfile.write("<b><i>A coral reef is present at your site.  </i></b>")
+            htmlfile.write("<li> Reef-top depth is " +str(hr) +"m, and reef-top width is " +str(Wr))
             if Xco+Xcn==0:
                 htmlfile.write("<li> The reef is located at the offshore edge of the profile")
             elif Xco+Xcn==2:
@@ -1641,65 +1638,79 @@ try:
             if CoralMngt=="Dead":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u>Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("<li>The reef is dead but structurally intact.  We assumed that coral is smooth.<br>")
+                htmlfile.write("<li> You assumed that the reef will die, but will remain structurally intact.  We will assume that the coral is smooth.<br>")
             elif CoralMngt=="Rmv":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u>Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("<li>The reef is dead and broken.  It is no longer structurally intact.  We assumed that reef top is covered with sand.<br>")
+                htmlfile.write("<li>You assumed that the reef will die and break.  It will no longer remain structurally intact.  We will assume that the reef top is covered with sand.<br>")
             elif CoralMngt=="None":
-                htmlfile.write("<li>The reef is not affected by a particular management action.</u></H2>")
+                htmlfile.write("<li>You assumed that the reef will not be affected by a particular management action.</u></H2>")
 
         if MgPst<>0:    
-            htmlfile.write("<b><i>A mangrove forest is present in your system.</i></b>")
+            htmlfile.write("<b><i>A mangrove forest is present at your site.</i></b>")
             if MangMngt=="Half":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u> Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("<li>Half of the mangrove is removed.  Its density will be reduced by half.<br>")
+                htmlfile.write("<li>You assumed that half of the mangrove will be removed.  We will reduce its density by half.<br>")
             elif MangMngt=="Rmv":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u> Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("<li>The mangrove forest is fully removed. <br>")
+                htmlfile.write("<li>You assumed that the mangrove forest will be fully removed. <br>")
             elif MangMngt=="None":
-                htmlfile.write("<li>The mangrove forest is not affected by a particular management action.<br>")
+                htmlfile.write("<li>You assumed that the mangrove forest will not be affected by a particular management action.<br>")
                 
         if SgPst<>0:    
-            htmlfile.write("<b><i>A seagrass bed is present in your system.</i></b>")
+            htmlfile.write("<b><i>A seagrass bed is present at your site.</i></b>")
             if SeagMngt=="Half":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u> Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("<li>Half of the seagrass bed is removed.  Its density will be reduced by half.<br>")
+                htmlfile.write("<li>You assumed that half of the seagrass bed will be removed.  We will reduce its density by half.<br>")
             elif SeagMngt=="Rmv":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u> Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("T<li>The seagrass bed is fully removed.<br>")
+                htmlfile.write("T<li>You assumed that the seagrass bed will be fully removed.<br>")
             elif SeagMngt=="None":
-                htmlfile.write("<li>The seagrass bed is not affected by a particular management action.<br>")
+                htmlfile.write("<li>You assumed that the seagrass bed will not affected by a particular management action.<br>")
                 
         if MrPst<>0:    
-            htmlfile.write("<b><i>A marsh is present in your system.</i></b>")
+            htmlfile.write("<b><i>A marsh is present at your site.</i></b>")
             if MarshMngt=="Half":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u>Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("Half of the marsh is removed.  Its density will be reduced by half.<br>")
+                htmlfile.write("You assumed that half of the marsh is removed.  We will reduce its density by half.<br>")
             elif MarshMngt=="Rmv":
                 if AddMActionHeader == 'yes':
                     htmlfile.write("<H2><u>Management Action</u></H2>"); AddMActionHeader = 'no'
-                htmlfile.write("The marsh is fully removed. <br>")
+                htmlfile.write("You assumed that the marsh will be fully removed. <br>")
             elif MarshMngt=="None":
-                htmlfile.write("The marsh is not affected by a particular management action.<br>")
+                htmlfile.write("You assumed that the marsh will not be affected by a particular management action.<br>")
                 
         if Oyster==1:
-            htmlfile.write("<b><i>An oyster reef is present in your system.</i></b>") # inputs
-
+            htmlfile.write("<b><i>An oyster reef is present at your site.</i></b>") # inputs
+            if hi>hc:
+                htmlfile.write("<tr>The oyster reef is " +str(X[-1]-Xr) +"m from the shoreline, with a base width of " +str(Bw) +"m, and a crest width of "+str(Cw) +"m. It is "+str(hc) +"m tall, and the water depth is " +str(round(hi,2)) +"m: it is submerged.<br><p>")
+            else:
+                htmlfile.write("<tr>The oyster reef is " +str(X[-1]-Xr) +"m from the shoreline, with a base width of " +str(Bw) +"m, and a crest width of "+str(Cw) +"m. It is"  +str(hc) +"m tall, and the water depth is " +str(round(hi,2)) +"m: it is emergent...please use results with caution.")            
+    
         # figures
         htmlfile.write("<HR><H2><u>Model Outputs</u></H2>")
         htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\"><tr><td>")
         if WaveErosionQuestion=="(2) No, I need to compute these values from wind speed and fetch distance values": 
             htmlfile.write("We computed offshore wave height and period values based on your input of wind speed (U=" +str(Us)+"m/s), fetch distance (Ft="+ str(Ft)+"km), and average water depth at your site(d=" +str(depth) +"m).<br>")
-        htmlfile.write('Input conditions are: Ho=' +str(round(Ho,2)) +'m, and To=' +str(round(To,2)) +'s<br>')
 
-        htmlfile.write("The figure below shows profiles of wave height along your profile, before and after your management action.<br>")
-        htmlfile.write("<img src=\"WavePlot_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\">")
+        if Oyster==1:
+            htmlfile.write("<b>The oyster reef attenuated " +str(round((1-Kt)*100,1)) +"% of the incident wave height and " +str(round((1-Kt*Kt)*100,1)) +"% of the incident wave energy.</b><br>")
+            htmlfile.write('Offshore wave input conditions are: Ho=' +str(round(Ho,2)) +'m, and To=' +str(round(To,2)) +'s<br>')
+            
+            
+            htmlfile.write("The figure below shows close-ups of the profile of wave height and depth profile in the vicinity of the reef.<br>")
+            htmlfile.write("<img src=\"ErosionBed_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\">")          
+            
+            htmlfile.write("</td><td>The transmission coefficient is Kt= " +str(round(Kt,2)) +", which means that the wave transmitted shoreward of the reef has a height equal to " +str(round(Kt*100,2)) +"% of  the incident wave height right offshore of the reef.</td></tr>")
+            
+        else:
+            htmlfile.write("The figure below shows profiles of wave height along your profile, before and after your management action.<br>")
+            htmlfile.write("<img src=\"WavePlot_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\">")
 
         if Fig2:
             htmlfile.write("</td><td>The average percent wave attenuation is " +str(round(Atn,2))+"</td></tr>")
@@ -1710,17 +1721,11 @@ try:
             if sand==1:
                 htmlfile.write("<td><u>Before</u> your management action, your beach might erode by " +str(round(mean(R1),2)) +"m.<br><u>After</u> your management action, your beach might erode by " +str(round(mean(R2),2)) +"m.")
             elif mud==1:
-                htmlfile.write("<td><u>Before</u> your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R1),2)) +"m.<br><u>After</u> your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R2),2)) +"m.")    
+                htmlfile.write("<td><u>Before</u> your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R1),2)) +"m.<br><u>After</u> your management action, your muddy backshore area might experience a maximum average scour rate of " +str(round(mean(R2),2)) +"m.")                    
         elif Oyster==1: # oyster reef case
-            htmlfile.write("</td><td>The transmission coefficient is Kt= " +str(round(Kt,2)) +", which means that the wave transmitted shoreward of the reef is " +str(round(Kt*100,2)) +"% smaller that the incident wave right offshore of the reef.</td></tr>")
-            htmlfile.write("<tr><td>The figure below shows close-ups of the profile of wave height, bottom velocity and depth profile, offshore and shoreward of the reef.  The change in bed velocity is indicative of less potential for erosion and/or sediment resuspension. ")
-            htmlfile.write("<img src=\"ErosionBed_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
-            
-            if hi>hc:
-                htmlfile.write("<td>The oyster reef is " +str(hc) +"m tall, and the water depth is " +str(round(hi,2)) +"m. It is submerged.")
-            else:
-                htmlfile.write("<td>The oyster reef is " +str(hc) +"m tall, and the water depth is " +str(round(hi,2)) +"m, It is emergent...please use results cautiously.")
-
+            htmlfile.write("<tr><td>The figure below shows profiles of wave height along your profile in the presence of an oyster reef. ")
+            htmlfile.write("<img src=\"WavePlot_"+subwsStr+".png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
+        
         htmlfile.write("</td></tr></table></html>")
         htmlfile.close()
         
