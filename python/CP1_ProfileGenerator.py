@@ -171,6 +171,7 @@ try:
     BathyProfile=html_txt+"BathyProfile_"+subwsStr+".txt"
     CreatedProfile=html_txt+"CreatedProfile_"+subwsStr+".txt"
     ProfileCutGIS=html_txt+"ProfileCutGIS_"+ subwsStr+".txt"
+    FetchDistances=html_txt+"FetchDistances_"+ subwsStr+".txt"
     HabitatLocation=html_txt+"HabitatLocation_"+ subwsStr+".txt"
     Profile_HTML=html_txt+"profile.html"
     FetchWindWave_HTML=html_txt+"fetchwindwave.html"
@@ -842,6 +843,13 @@ try:
             
             # select fetch lines where "DISTANCE > 0"
             gp.Select_analysis(PtsCopyLD,Fetch_Distances,"\"DISTANCE\" > 0")
+            
+            # Save fetch distances as text
+            file=open(FetchDistances,"w")
+            for i in range(0,16):
+                file.writelines(str(AngleList[i])+"\t"+str(FetchFinalList[i])+"\n")
+            file.close()
+            
 
         # compute wave height from wind
         if WW3_Pts and FetchQuestion=='(1) Yes':
@@ -1759,14 +1767,16 @@ try:
             if ProfileQuestion=="(1) Yes":
                 Dorig=num.array(Dorig);Xorig=num.array(Xorig)
                 figure(2)
-                plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-                legend(('Elevation','Mean Sea Level','Mean Low Water','Mean High Water'),'upper right')
+                ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+                ax.legend(('Elevation','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
                 ylabel('Depth [m]',weight='bold')
                 xlabel('Cross-Shore Distance [m]',weight='bold')
                 title('Created Profile',size='large',weight='bold')
                 savefig(html_txt+"ProfilePlot1.png",dpi=(640/8));Fig2=1
                 figure(3)
-                plot(Xorig,Dorig,Xorig,Dorig*0,'k',linewidth=2);grid()
+                plot(Xorig,Dorig[::-1],Xorig,Dorig*0,'k',linewidth=2);grid()
                 title('Elevation seaward and landward of chosen location',size='large',weight='bold')
                 ylabel('Elevation [m]',weight='bold')
                 xlabel('Cross-Shore Distance [m]',weight='bold')
@@ -1776,8 +1786,10 @@ try:
                 figure(2)
                 keep=num.nonzero(yd <= 0);keep=keep[0]
                 temp1=xd[keep];temp2=yd[keep]
-                plot(Dx,Dmeas,temp1,temp2,Dx,Dmeas*0,'k',linewidth=2);grid()
-                legend(('Initial Profile','Smoothed Profile'),'upper right')
+                ax=subplot(111);plot(Dx,Dmeas,'r',temp1,temp2,'b',Dx,Dmeas*0,'k',linewidth=2);grid()
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+                ax.legend(('Initial Profile','Smoothed Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
                 ylabel('Depth [m]',weight='bold')
                 xlabel('Cross-Shore Distance [m]',weight='bold')
                 title('Bathymetry Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
@@ -1799,13 +1811,15 @@ try:
                 Fig3=0
                 
             figure(4)
-            subplot(211)
-            plot(Dx,Dmeas,xd2,yd2,linewidth=2);grid()
-            legend(('Initial Profile','Smoothed Profile'),'upper right')
+            ax=subplot(211);plot(Dx,Dmeas,'r',xd2,yd2,'b',linewidth=2);grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+            ax.legend(('Initial Profile','Smoothed Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
             title('Bathymetry-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
             ylabel('Depth [m]',weight='bold')
-            subplot(212)
-            plot(xd[0:DeepLoc],yd[0:DeepLoc],xd[0:DeepLoc],yd[0:DeepLoc]*0,'k',xd[0:DeepLoc],yd[0:DeepLoc]*0+HT-MSL,'-.k',linewidth=2);grid()
+            ax=subplot(212);plot(xd[0:DeepLoc],yd[0:DeepLoc],xd[0:DeepLoc],yd[0:DeepLoc]*0,'k',xd[0:DeepLoc],yd[0:DeepLoc]*0+HT-MSL,'-.k',linewidth=2);grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
             xlabel('Cross-Shore Distance [m]',weight='bold')
             ylabel('Elevation [m]',size='large')
             title('Foreshore and Backshore',size='large',weight='bold')
@@ -1813,15 +1827,20 @@ try:
             
         elif BackHelp==2 or BackHelp==3:
             figure(2)
-            plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-            legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),'upper right')
+            ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+            ax.legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
             ylabel('Depth [m]',weight='bold')
             xlabel('Cross-Shore Distance [m]',weight='bold')
             title('Created Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')   
             savefig(html_txt+"ProfilePlot1.png",dpi=(640/8))
+            
             figure(3)
-            plot(Dx,Dmeas,'r',xd,yd,linewidth=2);grid()
-            legend(('Initial Profile','Modified Profile'),'upper right')
+            ax=subplot(111);plot(Dx,Dmeas,'r',xd,yd,'b',linewidth=2);grid()
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+            ax.legend(('Initial Profile','Modified Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
             ylabel('Elevation [m]',weight='bold')
             xlabel('Cross-Shore Distance [m]',weight='bold')
             savefig(html_txt+"ProfilePlot2.png",dpi=(640/8))
@@ -1837,13 +1856,15 @@ try:
                 title('Created Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
                 savefig(html_txt+"ProfilePlot1.png",dpi=(640/8));Fig2=1
                 figure(3)
-                subplot(211)
-                plot(Dx,Dmeas,'r',xd2,yd,linewidth=2);grid()
-                legend(('Initial Profile','Smoothed Profile'),'upper right')
+                ax=subplot(211);plot(Dx,Dmeas,'r',xd2,yd,'b',linewidth=2);grid()
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+                ax.legend(('Initial Profile','Smoothed Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
                 title('Bathymetry',size='large',weight='bold')
                 ylabel('Depth [m]',weight='bold')
-                subplot(212)
-                plot(Xorig,Dorig[::-1],Xorig,Dorig*0,'k',linewidth=2);grid()
+                ax=subplot(212);plot(Xorig,Dorig[::-1],Xorig,Dorig*0,'k',linewidth=2);grid()
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])               
                 ylabel('Elevation [m]',size='large',weight='bold')
                 title('Elevation seaward and landward of chosen location',size='large',weight='bold')
                 xlabel('Cross-Shore Distance [m]',weight='bold')
@@ -1852,8 +1873,10 @@ try:
                 
             elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
                 figure(2)
-                plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-                legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),'upper right')
+                ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+                ax.legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
                 ylabel('Depth [m]',weight='bold')
                 xlabel('Cross-Shore Distance [m]',weight='bold')
                 title('Created Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
@@ -1867,8 +1890,10 @@ try:
 
             elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
                 figure(3)
-                plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-                legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),'upper right')
+                ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
+                box=ax.get_position();
+                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
+                ax.legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
                 ylabel('Depth [m]',weight='bold')
                 xlabel('Cross-Shore Distance [m]',weight='bold')
                 title('Created Profile',size='large',weight='bold')
@@ -1914,12 +1939,12 @@ try:
                     la=num.nonzero(CR);temp1[la]=TempY[la]
                     plot(TempX,TempY,TempX,temp1,'xg');grid()
                     ylabel('Coral Reef');j=j+1
-                xlabel('Cross-Shore Distance [m]',weight='bold')
                 if pst(begOTx)<>0:
                     subplot(temp,1,j); temp1=TempY+nan
                     la=num.nonzero(OT);temp1[la]=TempY[la]
                     plot(TempX,TempY,TempX,temp1,'xg');grid()
                     ylabel('Other Habitat');j=j+1
+                xlabel('Cross-Shore Distance [m]',weight='bold')
                 savefig(html_txt+"ProfilePlot6.png",dpi=(640/8))
                 Fig6=1               
 
@@ -2256,7 +2281,7 @@ try:
             htmlfile.write("<tr align=\"center\"><td></td>")
             for kk in range(0,16):
                 htmlfile.write("<td><b>"+str(dirList[kk])+"°</b></td>")
-            htmlfile.write("</tr><tr align=\"center\"><td><b>Fetch (km)</b></td>")
+            htmlfile.write("</tr><tr align=\"center\"><td><b>Fetch (m)</b></td>")
             
             if FetchQuestion=='(1) Yes':
                 for kk in range(0,16):
@@ -2272,14 +2297,14 @@ try:
                     
             if WW3_Pts and FetchQuestion=='(1) Yes':
                 htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wave Height (m)</b></td>")
+                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
                 for kk in range(0,16):
                     temp1=round(WiWavMax[kk],2)
                     if temp1==0.0:
                         temp1=0 
                     htmlfile.write("<td>"+str(temp1)+"</td>")
                 htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wave Period (s)</b></td>")
+                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
                 for kk in range(0,16):
                     temp2=round(WiPerMax[kk],2)
                     if temp2==0.0:
@@ -2291,10 +2316,44 @@ try:
                 htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"C80000\">Top 10% Wind Speed (m/s)</FONT></b></td>")
                 for kk in range(0,16):
                     htmlfile.write("<td>"+str(Wi10[kk])+"</td>")
+                    
+            if WW3_Pts and FetchQuestion=='(1) Yes':
+                htmlfile.write("</tr>")
+                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
+                for kk in range(0,16):
+                    temp1=round(WiWav10[kk],2)
+                    if temp1==0.0:
+                        temp1=0 
+                    htmlfile.write("<td>"+str(temp1)+"</td>")
+                htmlfile.write("</tr>")
+                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
+                for kk in range(0,16):
+                    temp2=round(WiPer10[kk],2)
+                    if temp2==0.0:
+                        temp2=0     
+                    htmlfile.write("<td>"+str(temp2)+"</td>")
+                    
+            if WW3_Pts:            
                 htmlfile.write("</tr>")
                 htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"FF0000\">Top 25% Wind Speed (m/s)</FONT></b></td>")
                 for kk in range(0,16):
                     htmlfile.write("<td>"+str(Wi25[kk])+"</td>")
+                            
+            if WW3_Pts and FetchQuestion=='(1) Yes':
+                htmlfile.write("</tr>")
+                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
+                for kk in range(0,16):
+                    temp1=round(WiWav25[kk],2)
+                    if temp1==0.0:
+                        temp1=0 
+                    htmlfile.write("<td>"+str(temp1)+"</td>")
+                htmlfile.write("</tr>")
+                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
+                for kk in range(0,16):
+                    temp2=round(WiPer25[kk],2)
+                    if temp2==0.0:
+                        temp2=0     
+                    htmlfile.write("<td>"+str(temp2)+"</td>")
             htmlfile.write("</tr></table><p>")
             
             if WW3_Pts and FetchQuestion=='(1) Yes':
