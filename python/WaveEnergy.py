@@ -236,6 +236,7 @@ try:
         outputNPV_rc = outputws + "npv_rc"
         GridPt_prj = outputws + "GridPt_prj.shp"
         LandPts_prj = outputws + "LandPts_prj.shp"
+        netval_yr = outputws + "netval_yr" ## FIX FOR CK
     
     except:
         gp.AddError("Error configuring local variables: " + gp.GetMessages())
@@ -930,7 +931,9 @@ try:
 
             # reclass NPV raster
             gp.BuildRasterAttributeTable_management(outputNPV, "Overwrite")
-            outputNPV = AddField(outputNPV, "NPV_BREAKS", "SHORT", "", "")            
+
+            outputNPV = AddField(outputNPV, "NPV_BREAKS", "SHORT", "", "")
+            outputNPV = AddField(outputNPV, "YR_NET_VAL", "FLOAT", "", "") ## FIX FOR CK 
             NPVList = []
             cur = gp.UpdateCursor(outputNPV)
             row = cur.Next()
@@ -939,10 +942,17 @@ try:
                 if row.GetValue("VALUE") > 0:
                     for i in range(CellCount):
                         NPVList.append(row.GetValue("VALUE"))
+                        
+                ## FIX FOR CK # AnnualNetValue= NPV*(r*(1+r)^T) / ((1+r)^T-1)
+                ## FIX FOR CK # r = discount rate ## FIX FOR CK
+                ## FIX FOR CK # T = duration of WE project ## FIX FOR CK
+                row.SetValue("YR_NET_VAL", ((row.GetValue("VALUE")*1000.0)*(r*(1+r)**25.0) / ((1+r)**25.0-1))/1000.0) ## FIX FOR CK
                 cur.UpdateRow(row)
                 row = cur.next()
             del row
             del cur
+
+            gp.Lookup_sa(outputNPV, "YR_NET_VAL", netval_yr) ## FIX FOR CK
             
             NPVPctList = getPercentiles(NPVList)
             cur = gp.UpdateCursor(outputNPV)
