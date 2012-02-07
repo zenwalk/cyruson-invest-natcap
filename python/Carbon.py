@@ -184,6 +184,7 @@ try:
           gp.extent = lcraster
           gp.mask = lcraster
           gp.CreateConstantRaster_sa(gp.workspace+os.sep+"intermediate"+os.sep+"unitynew", 1, "INTEGER")
+          gp.BuildRasterAttributeTable_management(gp.workspace+os.sep+"intermediate"+os.sep+"unitynew")
           gp.ZonalStatisticsAsTable_sa (gp.workspace+os.sep+"intermediate"+os.sep+"unitynew", "Value", theraster, summaryfile, "DATA")
           cur = gp.SearchCursor(summaryfile)
           row = cur.Next()

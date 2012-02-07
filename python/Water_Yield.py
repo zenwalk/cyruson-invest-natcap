@@ -370,6 +370,8 @@ try:
         gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, precip, ws_precip_table, "DATA")
         gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, eto, ws_pet_table, "DATA")
         gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, aet, ws_aet_table, "DATA")
+
+        # *******  CHANGE THIS - DO TOTAL YIELD IN m^3 *******
         gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, wyield, ws_wyield_table, "DATA")
 
         # Zonal stats field name changed in Arc10
@@ -406,6 +408,8 @@ try:
             ws_pet = float(pet_row.getValue("MEAN"))
             ws_aet = float(aet_row.getValue("MEAN"))
             ws_wyield = float(wyield_row.getValue("MEAN"))
+
+            # *******  CHANGE THIS - DO TOTAL YIELD IN m^3 *******
             ws_wyield_sum = float(wyield_row.getValue("SUM"))
             
             new_row = out_table_rows.NewRow()
