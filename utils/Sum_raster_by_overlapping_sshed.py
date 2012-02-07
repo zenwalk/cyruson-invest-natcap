@@ -150,7 +150,7 @@ try:
         extent = dsc.Extent
 
         # Create starter output sum file, containing all zeroes
-        gp.CreateConstantRaster_sa(service_sum_tmp, 0, "FLOAT", cell_size, extent)
+        gp.Times_sa(service, 0, service_sum_tmp)
 
         # Loop through each serviceshed
         ss_rows = gp.SearchCursor(ssheds)
@@ -170,6 +170,12 @@ try:
             # Clip service raster by selected serviceshed
             gp.ExtractByMask_sa(service, sshed_sel, service_clip)
 
+##            # Try creating a new sum layer each time - will produce a lot of
+##            # output files, but removes the CopyRaster step when only 2
+##            # running total layers are used.
+##
+##            service_sum_ss = interws + "ssum" + str(ss_id)
+
             # Set NoData to zero so rasters can be summed properly
             gp.AddMessage("SOMA")
             gp.SingleOutputMapAlgebra_sa("CON(isnull(" + service_clip + "), 0, " + service_clip + ")", service_clip0)
@@ -177,6 +183,8 @@ try:
             # Add clipped service raster to running total
             gp.AddMessage("Plus")
             gp.Plus_sa(service_sum_tmp, service_clip0, service_sum)
+##            gp.Plus_sa(service_sum_tmp, service_clip0, service_sum_ss)
+##            gp.SingleOutputMapAlgebra_sa(service_sum_tmp " + " service_clip0, service_sum_ss)
 
             # Set tmp sum to total sum for processing the next round
             gp.AddMessage("CopyRaster")
@@ -184,6 +192,9 @@ try:
 
             ss_row = ss_rows.Next()
 
+        # Copy the final summed map to the output folder
+        gp.AddMessage("CopyRaster")
+        gp.CopyRaster_management(service_sum_ss, service_sum)
         gp.AddMessage("\n\tCreated summed service output file: \n\t" + str(service_sum))
 
     except:
@@ -214,11 +225,6 @@ try:
 ##    except:
 ##        gp.AddError("Error cleaning up temporary files:  " + gp.GetMessages(2))
 ##        raise Exception
-
-
-    # REMOVE THIS
-##    gp.AddMessage("\nIGNORE THE FOLLOWING ERROR\n")
-##    raise Exception
 
 
 except:
