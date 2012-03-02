@@ -14,4 +14,6 @@ This is a minor release which fixes the following defects:
 -Fixed bug where smaller than default (2000) resolutions threw an error about 
  not being able to find the field in "unitynew". With non-default resolution, 
  "unitynew" was created without an attribute table, so force one to be created.
+-Removed mention of beta state and ecoinformatics from header of software 
+ license.
  
