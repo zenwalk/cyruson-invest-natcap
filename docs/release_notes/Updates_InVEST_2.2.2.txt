@@ -1,0 +1,17 @@
+March 2, 2012
+
+Changes in InVEST 2.2.2
+
+General:
+
+This is a minor release which fixes the following defects: 
+
+-Fixed an issue with sediment retention model where large watersheds
+ allowed loading per cell was incorrectly rounded to integer values.
+-Fixed bug where changing the threshold didn't affect the retention output 
+ because function was incorrectly rounded to integer values.
+-Added total water yield in meters cubed to to output table by watershed.
+-Fixed bug where smaller than default (2000) resolutions threw an error about 
+ not being able to find the field in "unitynew". With non-default resolution, 
+ "unitynew" was created without an attribute table, so force one to be created.
+ 
