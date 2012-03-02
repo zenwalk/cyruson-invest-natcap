@@ -16,4 +16,6 @@ This is a minor release which fixes the following defects:
  "unitynew" was created without an attribute table, so force one to be created.
 -Removed mention of beta state and ecoinformatics from header of software 
  license.
+-Overlap Analysis model now gives an error in the UI if the workspace is too
+ long to create the VAT table.
  
