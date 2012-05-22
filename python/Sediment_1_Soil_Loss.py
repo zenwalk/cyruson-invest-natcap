@@ -170,6 +170,7 @@ try:
         p_tmp = interws + "p_tmp"
         c_factor = interws + "c_factor"
         p_factor = interws + "p_factor"
+        NN = interws + "nn"
         LS_le = interws + "ls_le"
         LS_gt = interws + "ls_gt"
         LS = interws + "LS"
@@ -494,7 +495,7 @@ try:
                 return "64_bit"
 
         except:
-            AddError("\nError determining sub-watershed pixel type...")
+            gp.AddError("\nError determining sub-watershed pixel type...")
             raise Exception
         
         
@@ -522,15 +523,10 @@ try:
 
         gp.Times_sa(flow_dir, v_stream, dir2stream)
 
-        # Adjust LS equation value based on slope 
-        if percent_slope >= 5:
-            NN = 0.5
-        elif percent_slope > 3.5 and percent_slope < 5:
-            NN = 0.4
-        elif percent_slope > 1 and percent_slope <= 3.5:
-            NN = 0.3
-        else:
-            NN = 0.2
+        # Adjust LS equation value based on slope
+        gp.SingleOutputMapAlgebra_sa("CON(" + percent_slope + " >= 5, 0.5, CON(" \
+                                     + percent_slope + " > 3.5 && " + percent_slope + " < 5, 0.4, CON(" \
+                                     + percent_slope + " > 1 && " + percent_slope + " <= 3.5, 0.3, 0.2)))", NN)
 
         # LS power and multiplication variables
         ls_power = 1.4
