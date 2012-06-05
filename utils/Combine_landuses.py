@@ -99,7 +99,8 @@ try:
         interws = gp.workspace + os.sep + "Intermediate" + os.sep
         
         # Intermediate variables
-        na_all = interws + "na_all"
+##        na_all = interws + "na_all"
+        na_all = postprocws + "na_all"
         
         # Output layers
         lu_port = postprocws + "port_lu"
@@ -112,7 +113,7 @@ try:
     # Add suffix to end of output filenames
     # Constrain length of output raster filenames to 13 characters
     try:
-        Outputnames = [lu_port]           
+        Outputnames = [lu_port, na_all]           
         num = 0
         for x in Outputnames:
             y = x.split("\\")
@@ -129,6 +130,7 @@ try:
             num = num + 1
 
         lu_port = str(Outputnames[0])
+        na_all = str(Outputnames[1])
             
     except:
         gp.AddError ("Error validating output filenames: " + gp.GetMessages(2))

@@ -50,35 +50,30 @@ try:
         gp.workspace = sys.argv[1]
         parameters.append("Workspace: " + gp.workspace)
 
-        act_fence = sys.argv[2]
-        parameters.append("Fencing activity raster: " + act_fence)
-
-        
-        act_protect = sys.argv[3]
+        act_protect = sys.argv[2]
         parameters.append("Protection activity raster: " + act_protect)
 
-
-        act_enrich = sys.argv[4]
+        act_enrich = sys.argv[3]
         parameters.append("Enrichment activity raster: " + act_enrich)
 
+        act_fence = sys.argv[4]
+        parameters.append("Fencing activity raster: " + act_fence)
         
         act_reforest = sys.argv[5]
         parameters.append("Reforest activity raster: " + act_reforest)
 
-
         act_silvo = sys.argv[6]
         parameters.append("Silvopasture activity raster: " + act_silvo)
 
-
-        score_fence = sys.argv[7]
-        parameters.append("Fencing score raster: " + score_fence)
-
-        score_protect = sys.argv[8]
+        score_protect = sys.argv[7]
         parameters.append("Protection score raster: " + score_protect)
                
-        score_enrich = sys.argv[9]
+        score_enrich = sys.argv[8]
         parameters.append("Enrichment score raster: " + score_enrich)
 
+        score_fence = sys.argv[9]
+        parameters.append("Fencing score raster: " + score_fence)
+        
         score_reforest = sys.argv[10]
         parameters.append("Reforest score raster: " + score_reforest)
         
@@ -175,15 +170,15 @@ try:
         gp.SingleOutputMapAlgebra_sa("CON(" + act_reforest_ws + " > 0," + sc_reforest_ws + ", 0)", score_reforest_act)
         gp.SingleOutputMapAlgebra_sa("CON(" + act_silvo_ws + " > 0," + sc_silvo_ws + ", 0)", score_silvo_act)
 
-        score_rasters[1] = score_fence_act
-        score_rasters[2] = score_protect_act
-        score_rasters[3] = score_enrich_act
+        score_rasters[1] = score_protect_act
+        score_rasters[2] = score_enrich_act
+        score_rasters[3] = score_fence_act
         score_rasters[4] = score_reforest_act
         score_rasters[5] = score_silvo_act
 
-        activity_rasters[1] = act_fence_ws
-        activity_rasters[2] = act_protect_ws
-        activity_rasters[3] = act_enrich_ws
+        activity_rasters[1] = act_protect_ws
+        activity_rasters[2] = act_enrich_ws
+        activity_rasters[3] = act_fence_ws
         activity_rasters[4] = act_reforest_ws
         activity_rasters[5] = act_silvo_ws
                     
