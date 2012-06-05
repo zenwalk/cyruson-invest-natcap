@@ -183,47 +183,47 @@ try:
             gp.AddMessage("\nErosion Control selected, checking required inputs:")
             
             if dem_found:
-                gp.AddMessage("\tDEM found")
+                gp.AddMessage("\tDEM")
                 input_raster_list.append(DEM)
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a DEM must be provided.\n")
                 raise Exception
             if erosivity_found:
-                gp.AddMessage("\tErosivity found")
+                gp.AddMessage("\tErosivity")
                 input_raster_list.append(erosivity)
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, an Erosivity raster must be provided.\n")
                 raise Exception
             if erodibility_found:
-                gp.AddMessage("\tErodibility found")
+                gp.AddMessage("\tErodibility")
                 input_raster_list.append(erodibility)
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, an Erodibility raster must be provided.\n")
                 raise Exception
             if soil_depth_found:
-                gp.AddMessage("\tSoil depth found")
+                gp.AddMessage("\tSoil depth")
                 input_raster_list.append(soil_depth)
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Soil Depth raster must be provided.\n")
                 raise Exception
             if lulc_found:
-                gp.AddMessage("\tLand use/land cover found")
+                gp.AddMessage("\tLand use/land cover")
                 input_raster_list.append(lulc)
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Land use / Land cover raster must be provided.\n")
                 raise Exception
             if lulc_general_table_found:
-                gp.AddMessage("\tLand use/land cover general class table found")
+                gp.AddMessage("\tLand use/land cover general class table")
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value found")
+                gp.AddMessage("\tThreshold flow accumulation value")
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value found")
+                gp.AddMessage("\tRiparian buffer distance value")
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -232,52 +232,52 @@ try:
             gp.AddMessage("\nPhosphorus Retention selected, checking required inputs:")
             
             if dem_found:
-                gp.AddMessage("\tDEM found")
+                gp.AddMessage("\tDEM")
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a DEM must be provided.\n")
                 raise Exception
             if erosivity_found:
-                gp.AddMessage("\tErosivity found")
+                gp.AddMessage("\tErosivity")
                 if erosivity not in input_raster_list:
                     input_raster_list.append(erosivity)
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, an Erosivity raster must be provided.\n")
                 raise Exception
             if erodibility_found:
-                gp.AddMessage("\tErodibility found")
+                gp.AddMessage("\tErodibility")
                 if erodibility not in input_raster_list:
                     input_raster_list.append(erodibility)
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, an Erodibility raster must be provided.\n")
                 raise Exception
             if soil_depth_found:
-                gp.AddMessage("\tSoil depth found")
+                gp.AddMessage("\tSoil depth")
                 if soil_depth not in input_raster_list:
                     input_raster_list.append(soil_depth)
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Soil Depth raster must be provided.\n")
                 raise Exception
             if lulc_found:
-                gp.AddMessage("\tLand use/land cover found")
+                gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Land use / Land cover raster must be provided.\n")
                 raise Exception
             if lulc_general_table_found:
-                gp.AddMessage("\tLand use/land cover general class table found")
+                gp.AddMessage("\tLand use/land cover general class table")
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value found")
+                gp.AddMessage("\tThreshold flow accumulation value")
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value found")
+                gp.AddMessage("\tRiparian buffer distance value")
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -286,38 +286,38 @@ try:
             gp.AddMessage("\nNitrogen Retention selected, checking required inputs:")
             
             if dem_found:
-                gp.AddMessage("\tDEM found")
+                gp.AddMessage("\tDEM")
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a DEM must be provided.\n")
                 raise Exception
             if soil_depth_found:
-                gp.AddMessage("\tSoil depth found")
+                gp.AddMessage("\tSoil depth")
                 if soil_depth not in input_raster_list:
                     input_raster_list.append(soil_depth)
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Soil Depth raster must be provided.\n")
                 raise Exception
             if lulc_found:
-                gp.AddMessage("\tLand use/land cover found")
+                gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Land use / Land cover raster must be provided.\n")
                 raise Exception
             if lulc_general_table_found:
-                gp.AddMessage("\tLand use/land cover general class table found")
+                gp.AddMessage("\tLand use/land cover general class table")
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value found")
+                gp.AddMessage("\tThreshold flow accumulation value")
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value found")
+                gp.AddMessage("\tRiparian buffer distance value")
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -326,43 +326,43 @@ try:
             gp.AddMessage("\nFlood Mitigation selected, checking required inputs:")
             
             if dem_found:
-                gp.AddMessage("\tDEM found")
+                gp.AddMessage("\tDEM")
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a DEM must be provided.\n")
                 raise Exception
             if precip_month_found:
-                gp.AddMessage("\tPrecipitation Depth for Wettest Month found")
+                gp.AddMessage("\tPrecipitation Depth for Wettest Month")
                 input_raster_list.append(precip_month)
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Precipitation Depth for Wettest Month raster must be provided.\n")
                 raise Exception 
             if soil_texture_found:
-                gp.AddMessage("\tSoil texture found")
+                gp.AddMessage("\tSoil texture")
                 input_raster_list.append(soil_texture)
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Soil Texture raster must be provided.\n")
                 raise Exception
             if lulc_found:
-                gp.AddMessage("\tLand use/land cover found")
+                gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Land use / Land cover raster must be provided.\n")
                 raise Exception
             if lulc_general_table_found:
-                gp.AddMessage("\tLand use/land cover general class table found")
+                gp.AddMessage("\tLand use/land cover general class table")
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value found")
+                gp.AddMessage("\tThreshold flow accumulation value")
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value found")
+                gp.AddMessage("\tRiparian buffer distance value")
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -371,52 +371,52 @@ try:
             gp.AddMessage("\nGroundwater Recharge selected, checking required inputs:")
             
             if dem_found:
-                gp.AddMessage("\tDEM found")
+                gp.AddMessage("\tDEM")
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a DEM must be provided.\n")
                 raise Exception
             if precip_annual_found:
-                gp.AddMessage("\tAnnual average precipitation found")
+                gp.AddMessage("\tAnnual average precipitation")
                 input_raster_list.append(precip_annual)
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, an Annual Average Precipitation raster must be provided.\n")
                 raise Exception
             if aet_found:
-                gp.AddMessage("\tActual Evapotranspiration found")
+                gp.AddMessage("\tActual Evapotranspiration")
                 input_raster_list.append(AET)
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, an Actual Evapotranspiration raster must be provided.\n")
                 raise Exception
             if lulc_found:
-                gp.AddMessage("\tLand use/land cover found")
+                gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Land use / Land cover raster must be provided.\n")
                 raise Exception
             if lulc_general_table_found:
-                gp.AddMessage("\tLand use/land cover general class table found")
+                gp.AddMessage("\tLand use/land cover general class table")
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
             if soil_texture_found:
-                gp.AddMessage("\tSoil texture found")
+                gp.AddMessage("\tSoil texture")
                 if soil_texture not in input_raster_list:
                     input_raster_list.append(soil_texture)
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Soil Texture raster must be provided.\n")
                 raise Exception
             if soil_depth_found:
-                gp.AddMessage("\tSoil depth found")
+                gp.AddMessage("\tSoil depth")
                 if soil_depth not in input_raster_list:
                     input_raster_list.append(soil_depth)
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Soil Depth raster must be provided.\n")
                 raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value found")
+                gp.AddMessage("\tThreshold flow accumulation value")
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
@@ -494,8 +494,8 @@ try:
         
 
         ### LOCATION OF COEFFICIENT MAPPING TABLE - HARD-CODED - WHAT TO DO WITH THIS?! ###
-        rios_coeff_table = "D:\Stacie\WaterFunds\RIOS_pre_processing\Input\general_lulc_coefficients_sw_made_up_P.csv"
-        
+        # HAVE INPUT FOR LOCATION OF RIOS INSTALL? #
+        rios_coeff_table = "F:\GIS\WaterFunds\WATER_tool\general_lulc_coefficients_sw_made_up_P.csv"        
 
         # LULC coefficient table field names
         lulc_gen_field = "lulc_gen"
@@ -587,6 +587,7 @@ try:
         # Make sure all outputs align with the land cover map
         gp.snapRaster = lulc
         gp.Extent = lulc
+        install_info = gp.GetInstallInfo("desktop")
 
     except:
         gp.AddError( "\nError setting geoprocessing environment: " + gp.GetMessages(2))
@@ -669,8 +670,11 @@ try:
     def define_channels():
 
         try:
+            gp.AddMessage("\nDefining flow direction channels...")
             exp = "\"VALUE\" > " + str(int(threshold_flowacc))
+            gp.AddMessage("flow acc = " + flow_acc)
             gp.SetNull_sa(flow_acc, flow_dir, flowdir_channels, exp)
+##            gp.SingleOutputMapAlgebra_sa("CON(" + flow_acc + " <= " + threshold_flowacc + ", " + flow_dir, ")", flowdir_channels)
             
         except:
             gp.AddError ("\nError defining flow direction channels:  " + gp.GetMessages(2))
@@ -693,10 +697,8 @@ try:
     def map_coefficients():
 
         try:
-
-            lulc_gen_join = interws + "lu_gen_join"
-            
             gp.AddMessage("\n\tMapping coefficients to landcover...")
+            lulc_gen_join = interws + "lu_gen_join"
             gp.MakeRasterLayer_management(lulc, "lulc_layer")
 
             if not confirmfield(lulc_gen_field, "lulc_layer"):
@@ -725,8 +727,9 @@ try:
 
 
     # Create riparian index
+    # Takes in a mosaic filename because Mosaic to New Raster doesn't work otherwise
 
-    def riparian_index(retention_index, out_rindex):
+    def riparian_index(retention_index, out_rindex, cont_index_mosaic_filename):
         try:
             # Intermediate files
             streams_ras = interws + "streams_ras"
@@ -738,8 +741,8 @@ try:
             cont_index_right = interws + "cind_right"
             cont_index_left_clip = interws + "cind_left_cl"
             cont_index_right_clip = interws + "cind_right_cl"
-            cont_index_mosaic_filename = "cind_mosaic"
-            cont_index_mosaic = interws + "cind_mosaic"
+##            cont_index_mosaic_filename = "cind_mosaic"
+            cont_index_mosaic = interws + cont_index_mosaic_filename
             one = interws + "one"
             
             gp.AddMessage("\n\tCreating riparian continuity index...")
@@ -803,6 +806,8 @@ try:
             gp.Lookup_sa(lulc_coeffs, sed_exp_rios_field, erosion_index_exp)
             gp.Lookup_sa(lulc_coeffs, sed_ret_rios_field, erosion_index_ret)
 
+            gp.AddMessage("\n\tCreating downslope retention index...")
+            
             ## Combined weight retention
             if not made_slope_index:
                 normalize(slope, slope_index)
@@ -814,10 +819,19 @@ try:
                 define_channels()
                 made_flowdir_channels = True
 
+##            gp.AddMessage("\nDefining flow direction channels...")
+##            exp = "\"VALUE\" > " + str(int(threshold_flowacc))
+##            gp.AddMessage("flow acc = " + flow_acc)
+####            gp.SetNull_sa(flow_acc, flow_dir, flowdir_channels, exp)
+####            gp.SingleOutputMapAlgebra_sa("CON(" + flow_acc + " <= " + threshold_flowacc + ", " + flow_dir, ")", flowdir_channels)
+##            gp.SingleOutputMapAlgebra_sa("CON(G:\\GIS\scratch\\tmp_rios_preproc2\\Output\\Hydro_layers\\flow_acc <= " + threshold_flowacc + ", " + flow_dir, ")", flowdir_channels)
+
             ## Downslope retention index
             gp.FlowLength_sa(flowdir_channels, erosion_dret_flowlen, "DOWNSTREAM", erosion_comb_weight_R)
             normalize(erosion_dret_flowlen, erosion_dret_index)
             gp.AddMessage("\n\tCreated Erosion downslope retention index: " + erosion_dret_index)
+
+            gp.AddMessage("\n\tCreating upslope source index...")
 
             # Erosivity index
             if not made_erosivity_index:
@@ -841,8 +855,7 @@ try:
                                          erosion_index_exp + ") / 6", erosion_comb_weight_Exp)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, erosion_ups_flowacc, erosion_comb_weight_Exp)
-            normalize(erosion_ups_flowacc, erosion_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, erosion_ups_flowacc, erosion_upslope_index)
             gp.AddMessage("\n\tCreated Erosion upslope source index: " + erosion_upslope_index)
 
             ## Riparian continuity
@@ -853,7 +866,7 @@ try:
                 gp.AddError("\nSorry, the Riparian Continuity index can only currently be calculated with an ArcInfo license.")
                 gp.AddError("\nThe Riparian Continuity index will not be created.")
             else:
-                riparian_index(erosion_index_ret, erosion_riparian_index)
+                riparian_index(erosion_index_ret, erosion_riparian_index, "eros_mosaic")
                 gp.AddMessage("\n\tCreated Erosion riparian continuity index: " + erosion_riparian_index)
         
         except:
@@ -880,6 +893,8 @@ try:
             gp.Lookup_sa(lulc_coeffs, p_exp_rios_field, phos_index_exp)
             gp.Lookup_sa(lulc_coeffs, p_ret_rios_field, phos_index_ret)
 
+            gp.AddMessage("\n\tCreating downslope retention index...")
+            
             ## Combined weight retention
             if not made_slope_index:
                 normalize(slope, slope_index)
@@ -887,16 +902,18 @@ try:
 
             gp.SingleOutputMapAlgebra_sa("((1.0 - " + slope_index + " ) + " + phos_index_ret + ") / 2", phos_comb_weight_R)
 
-            # Set flow direction raster to null where there are streams
-            if not made_flowdir_channels: 
-                define_channels()
-                made_flowdir_channels = True
+##            # Set flow direction raster to null where there are streams
+##            if not made_flowdir_channels: 
+##                define_channels()
+##                made_flowdir_channels = True
+##
+##            ## Downslope retention index
+##            gp.FlowLength_sa(flowdir_channels, phos_dret_flowlen, "DOWNSTREAM", phos_comb_weight_R)
+##            normalize(phos_dret_flowlen, phos_dret_index)
+##            gp.AddMessage("\n\tCreated Phosphorus downslope retention index: " + phos_dret_index)
 
-            ## Downslope retention index
-            gp.FlowLength_sa(flowdir_channels, phos_dret_flowlen, "DOWNSTREAM", phos_comb_weight_R)
-            normalize(phos_dret_flowlen, phos_dret_index)
-            gp.AddMessage("\n\tCreated Phosphorus downslope retention index: " + phos_dret_index)
-
+            gp.AddMessage("\n\tCreating upslope source index...")
+            
             # Erosivity index
             if not made_erosivity_index:
                 normalize(erosivity, erosivity_index)
@@ -919,8 +936,7 @@ try:
                                          phos_index_exp + ") / 6", phos_comb_weight_Exp)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, phos_ups_flowacc, phos_comb_weight_Exp)
-            normalize(phos_ups_flowacc, phos_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, phos_ups_flowacc, phos_upslope_index)
             gp.AddMessage("\n\tCreated Phosphorus upslope source index: " + phos_upslope_index)
 
             ## Riparian continuity
@@ -931,7 +947,7 @@ try:
                 gp.AddError("\nSorry, the Riparian Index can only currently be calculated with an ArcInfo license.")
                 gp.AddError("\nThe Riparian Continuity index will not be created.")
             else:
-                riparian_index(phos_index_ret, phos_riparian_index)
+                riparian_index(phos_index_ret, phos_riparian_index, "phos_mosaic")
                 gp.AddMessage("\n\tCreated Phosphorus riparian continuity index: " + phos_riparian_index)
         
         except:
@@ -958,6 +974,8 @@ try:
             gp.Lookup_sa(lulc_coeffs, n_exp_rios_field, nit_index_exp)
             gp.Lookup_sa(lulc_coeffs, n_ret_rios_field, nit_index_ret)
 
+            gp.AddMessage("\n\tCreating downslope retention index...")
+            
             ## Combined weight retention
             if not made_slope_index:
                 normalize(slope, slope_index)
@@ -965,16 +983,18 @@ try:
                 
             gp.SingleOutputMapAlgebra_sa("((1.0 - " + slope_index + " ) + " + nit_index_ret + ") / 2", nit_comb_weight_R)
 
-            # Set flow direction raster to null where there are streams
-            if not made_flowdir_channels: 
-                define_channels()
-                made_flowdir_channels = True
+##            # Set flow direction raster to null where there are streams
+##            if not made_flowdir_channels: 
+##                define_channels()
+##                made_flowdir_channels = True
+##
+##            ## Downslope retention index
+##            gp.FlowLength_sa(flowdir_channels, nit_dret_flowlen, "DOWNSTREAM", nit_comb_weight_R)
+##            normalize(nit_dret_flowlen, nit_dret_index)
+##            gp.AddMessage("\n\tCreated Nitrogen downslope retention index: " + nit_dret_index)
 
-            ## Downslope retention index
-            gp.FlowLength_sa(flowdir_channels, nit_dret_flowlen, "DOWNSTREAM", nit_comb_weight_R)
-            normalize(nit_dret_flowlen, nit_dret_index)
-            gp.AddMessage("\n\tCreated Nitrogen downslope retention index: " + nit_dret_index)
-
+            gp.AddMessage("\n\tCreating upslope source index...")
+            
             # Soil depth index
             if not made_soil_depth_index:
                 normalize(soil_depth, soil_depth_norm)
@@ -987,8 +1007,7 @@ try:
                                          nit_index_exp + ") / 4", nit_comb_weight_Exp)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, nit_ups_flowacc, nit_comb_weight_Exp)
-            normalize(nit_ups_flowacc, nit_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, nit_ups_flowacc, nit_upslope_index)
             gp.AddMessage("\n\tCreated Nitrogen upslope source index: " + nit_upslope_index)
 
             ## Riparian continuity
@@ -999,7 +1018,7 @@ try:
                 gp.AddError("\nSorry, the Riparian Index can only currently be calculated with an ArcInfo license.")
                 gp.AddError("\nThe Riparian Continuity index will not be created.")
             else:
-                riparian_index(nit_index_ret, nit_riparian_index)
+                riparian_index(nit_index_ret, nit_riparian_index, "nit_mosaic")
                 gp.AddMessage("\n\tCreated Nitrogen riparian continuity index: " + nit_riparian_index)
         
         except:
@@ -1030,12 +1049,6 @@ try:
                 gp.Lookup_sa(lulc_coeffs, roughness_rios_field, flgw_index_rough)
                 made_flgw_index_rough = True
 
-            ## Slope index - binned, not normalized
-            if not made_flgw_slope_index:
-                gp.SingleOutputMapAlgebra_sa("CON(" + slope + " >= 10.001, 1.0, CON(" \
-                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flgw_slope_index)
-                made_flgw_slope_index = True
-
             ## Riparian continuity
             
             # Only ArcInfo supports one-sided buffers, and no workaround has been found
@@ -1044,22 +1057,32 @@ try:
                 gp.AddError("\nSorry, the Riparian Index can only currently be calculated with an ArcInfo license.")
                 gp.AddError("\nThe Riparian Continuity index will not be created.")
             else:
-                riparian_index(flgw_index_rough, flood_riparian_index)
+                riparian_index(flgw_index_rough, flood_riparian_index, "flood_mosaic")
                 gp.AddMessage("\n\tCreated Flood Mitigation riparian continuity index: " + flood_riparian_index)
 
+            gp.AddMessage("\n\tCreating downslope retention index...")
+
+            ## Slope index - binned, not normalized
+            if not made_flgw_slope_index:
+                gp.SingleOutputMapAlgebra_sa("CON(" + slope + " >= 10.001, 1.0, CON(" \
+                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flgw_slope_index)
+                made_flgw_slope_index = True
+            
             # Combined weight R
             gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", flood_comb_weight_ret)
+            
+##            # Set flow direction raster to null where there are streams
+##            if not made_flowdir_channels: 
+##                define_channels()
+##                made_flowdir_channels = True
+##
+##            ## Downslope retention index
+##            gp.FlowLength_sa(flowdir_channels, flood_dret_flowlen, "DOWNSTREAM", flood_comb_weight_ret)
+##            normalize(flood_dret_flowlen, flood_dret_index)
+##            gp.AddMessage("\n\tCreated Flood Mitigation downslope retention index: " + flood_dret_index)
 
-            # Set flow direction raster to null where there are streams
-            if not made_flowdir_channels: 
-                define_channels()
-                made_flowdir_channels = True
-
-            ## Downslope retention index
-            gp.FlowLength_sa(flowdir_channels, flood_dret_flowlen, "DOWNSTREAM", flood_comb_weight_ret)
-            normalize(flood_dret_flowlen, flood_dret_index)
-            gp.AddMessage("\n\tCreated Flood Mitigation downslope retention index: " + flood_dret_index)
-
+            gp.AddMessage("\n\tCreating upslope source index...")
+            
             # Rainfall depth index
             normalize(precip_month, flood_rainfall_depth_index)
                 
@@ -1069,8 +1092,7 @@ try:
                                          " + (1 - " + flgw_index_rough + ")) / 5" , flood_comb_weight_source)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, flood_ups_flowacc, flood_comb_weight_source)
-            normalize(flood_ups_flowacc, flood_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, flood_ups_flowacc, flood_upslope_index)
             gp.AddMessage("\n\tCreated Flood Mitigation upslope source index: " + flood_upslope_index)
         
         except:
@@ -1107,27 +1129,28 @@ try:
                                              + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flgw_slope_index)
                 made_flgw_slope_index = True
 
-
             # If Flood was already done, use its outputs instead of re-calculating, since many are the same
             if do_flood == 'true':
-                gp.CopyRaster_management(flood_riparian_index, gwater_riparian_index)
-                gp.AddMessage("\n\tCreated Groundwater riparian continuity index: " + gwater_riparian_index)
-                gp.CopyRaster_management(flood_dret_index, gwater_dret_index)
-                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
+                gp.AddMessage("\n\tCreating downslope retention index...")
+##                gp.CopyRaster_management(flood_dret_index, gwater_dret_index)
+##                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
             else:
                 # Combined weight R
                 gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", gwater_comb_weight_ret)
 
-                # Set flow direction raster to null where there are streams
-                if not made_flowdir_channels: 
-                    define_channels()
-                    made_flowdir_channels = True
+##                gp.AddMessage("\n\tCreating downslope retention index...")
+##                # Set flow direction raster to null where there are streams
+##                if not made_flowdir_channels: 
+##                    define_channels()
+##                    made_flowdir_channels = True
+##
+##                ## Downslope retention index
+##                gp.FlowLength_sa(flowdir_channels, gwater_dret_flowlen, "DOWNSTREAM", gwater_comb_weight_ret)
+##                normalize(gwater_dret_flowlen, gwater_dret_index)
+##                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
 
-                ## Downslope retention index
-                gp.FlowLength_sa(flowdir_channels, gwater_dret_flowlen, "DOWNSTREAM", gwater_comb_weight_ret)
-                normalize(gwater_dret_flowlen, gwater_dret_index)
-                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
-
+            gp.AddMessage("\n\tCreating upslope source index...")
+            
             # Annual average precipitation index
             normalize(precip_annual, gwater_precip_annual_index)
 
@@ -1146,8 +1169,7 @@ try:
                                           ") + " + "(1 - " + flgw_index_rough + ") + " + soil_depth_index + ") / 7", gwater_comb_weight_source)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, gwater_ups_flowacc, gwater_comb_weight_source)
-            normalize(gwater_ups_flowacc, gwater_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, gwater_ups_flowacc, gwater_upslope_index)
             gp.AddMessage("\n\tCreated Groundwater upslope source index: " + gwater_upslope_index)
         
         except:
