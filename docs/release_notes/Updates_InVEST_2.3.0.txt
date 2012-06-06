@@ -1,4 +1,4 @@
-June 5, 2012
+June 6, 2012
 
 Changes in InVEST 2.3.0
 
@@ -15,12 +15,16 @@ include:
 
 -Reservoir Hydropower Production 3.0 beta
 -Wave Energy 3.0 beta
+ -Runtimes for non-global runs decreased by a factor of 7
+ -Minor bugs in interpolation that exist in the 2.x model is fixed in 
+  3.0 beta.
 -Crop Pollination 3.0 beta
+ -Runtimes decreased by a factor of over 10,000
 
 This release also includes the new models which only exist in the 3.0
 framework:
 
--Marine Water Quality
+-Marine Water Quality 3.0 alpha with a preliminary  user's guide.
 
 InVEST models in the 3.0 framework from previous releases that now
 have a standalone executable include: 
@@ -35,4 +39,5 @@ enhancements since the previous release:
  calculates slope exponentials.
 -Minor fixes to several chapters in the user's guide.
 -The 3.0 version of the Carbon model now can value the price of carbon
- in either C or CO2.
+ in metric tons of C or CO2.
+-Other minor bug fixes and runtime performance tweaks in the 3.0 framework.
