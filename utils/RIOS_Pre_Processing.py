@@ -4,8 +4,6 @@
 # Coded by Stacie Wolny
 # for the Natural Capital Project
 #
-# Last edited: 5/23/2012
-#
 # Performs the calculations necessary for producing input 
 #    to the RIOS tool
 #
@@ -81,9 +79,17 @@ try:
             lulc_general_table_found = True
         else:
             lulc_general_table_found = False
+
+        # RIOS general coefficient table
+        rios_coeff_table = sys.argv[9]
+        parameters.append("RIOS general coefficient table: " + lulc_general_table)
+        if (rios_coeff_table != "") and (rios_coeff_table != string.whitespace) and (rios_coeff_table != "#"):
+            rios_coeff_table_found = True
+        else:
+            rios_coeff_table_found = False
         
         # Digital elevation model (DEM) raster
-        DEM = sys.argv[9]
+        DEM = sys.argv[10]
         parameters.append("DEM: " + DEM)
         if (DEM != "") and (DEM != string.whitespace) and (DEM != "#"):
             dem_found = True
@@ -91,7 +97,7 @@ try:
             dem_found = False
 
         # Rainfall erosivity raster
-        erosivity = sys.argv[10]
+        erosivity = sys.argv[11]
         parameters.append("Rainfall erosivity: " + erosivity)
         if (erosivity != "") and (erosivity != string.whitespace) and (erosivity != "#"):
             erosivity_found = True
@@ -99,7 +105,7 @@ try:
             erosivity_found = False
         
         # Erodibility raster
-        erodibility = sys.argv[11]
+        erodibility = sys.argv[12]
         parameters.append("Erodibility: " + erodibility)
         if (erodibility != "") and (erodibility != string.whitespace) and (erodibility != "#"):
             erodibility_found = True
@@ -107,7 +113,7 @@ try:
             erodibility_found = False
 
         # Soil depth raster
-        soil_depth = sys.argv[12]
+        soil_depth = sys.argv[13]
         parameters.append("Soil depth: " + soil_depth)
         if (soil_depth != "") and (soil_depth != string.whitespace) and (soil_depth != "#"):
             soil_depth_found = True
@@ -115,7 +121,7 @@ try:
             soil_depth_found = False
         
         # Precipitation depth for wettest month
-        precip_month = sys.argv[13]
+        precip_month = sys.argv[14]
         parameters.append("Precipitation for wettest month: " + precip_month)
         if (precip_month != "") and (precip_month != string.whitespace) and (precip_month != "#"):
             precip_month_found = True
@@ -123,7 +129,7 @@ try:
             precip_month_found = False
 
         # Soil texture raster
-        soil_texture = sys.argv[14]
+        soil_texture = sys.argv[15]
         parameters.append("Soil texture: " + soil_texture)
         if (soil_texture != "") and (soil_texture != string.whitespace) and (soil_texture != "#"):
             soil_texture_found = True
@@ -131,7 +137,7 @@ try:
             soil_texture_found = False
 
         # Annual average precipitation raster
-        precip_annual = sys.argv[15]
+        precip_annual = sys.argv[16]
         parameters.append("Annual average precipitation: " + precip_annual)
         if (precip_annual != "") and (precip_annual != string.whitespace) and (precip_annual != "#"):
             precip_annual_found = True
@@ -139,7 +145,7 @@ try:
             precip_annual_found = False
 
         # Annual actual evapotranspiration raster
-        AET = sys.argv[16]
+        AET = sys.argv[17]
         parameters.append("Actual Evapotranspiration: " + soil_texture)
         if (AET != "") and (AET != string.whitespace) and (AET != "#"):
             aet_found = True
@@ -147,7 +153,7 @@ try:
             aet_found = False
 
         # Threshold flow accumulation integer
-        threshold_flowacc = sys.argv[17]
+        threshold_flowacc = sys.argv[18]
         parameters.append("Threshold flow accumulation: " + str(threshold_flowacc))
         if (threshold_flowacc != "") and (threshold_flowacc != string.whitespace) and (threshold_flowacc != "#"):
             threshold_flowacc_found = True
@@ -155,7 +161,7 @@ try:
             threshold_flowacc_found = False
 
         # Riparian buffer distance (meters)
-        buffer_dist = sys.argv[18]
+        buffer_dist = sys.argv[19]
         parameters.append("Riparian buffer distance: " + str(buffer_dist))
         if (buffer_dist != "") and (buffer_dist != string.whitespace) and (buffer_dist != "#"):
             buffer_dist_found = True
@@ -163,7 +169,7 @@ try:
             buffer_dist_found = False
 
         # Suffix to add to end of output filenames, as <filename>_<suffix>
-        Suffix = sys.argv[19]
+        Suffix = sys.argv[20]
         parameters.append("Suffix: " + Suffix)
         
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -217,13 +223,18 @@ try:
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
+            if rios_coeff_table_found:
+                gp.AddMessage("\tRIOS general coefficient table")
+            else:
+                gp.AddError("\n\tError: If Erosion Control is to be processed, the RIOS general coefficient table must be provided.\n")
+                raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value")
+                gp.AddMessage("\tThreshold flow accumulation")
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value")
+                gp.AddMessage("\tRiparian buffer distance")
             else:
                 gp.AddError("\n\tError: If Erosion Control is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -271,13 +282,18 @@ try:
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
+            if rios_coeff_table_found:
+                gp.AddMessage("\tRIOS general coefficient table")
+            else:
+                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, the RIOS general coefficient table must be provided.\n")
+                raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value")
+                gp.AddMessage("\tThreshold flow accumulation")
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value")
+                gp.AddMessage("\tRiparian buffer distance")
             else:
                 gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -311,13 +327,18 @@ try:
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
+            if rios_coeff_table_found:
+                gp.AddMessage("\tRIOS general coefficient table")
+            else:
+                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, the RIOS general coefficient table must be provided.\n")
+                raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value")
+                gp.AddMessage("\tThreshold flow accumulation")
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value")
+                gp.AddMessage("\tRiparian buffer distance")
             else:
                 gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -333,10 +354,10 @@ try:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a DEM must be provided.\n")
                 raise Exception
             if precip_month_found:
-                gp.AddMessage("\tPrecipitation Depth for Wettest Month")
+                gp.AddMessage("\tPrecipitation depth for wettest month")
                 input_raster_list.append(precip_month)
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Precipitation Depth for Wettest Month raster must be provided.\n")
+                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Precipitation depth for wettest month raster must be provided.\n")
                 raise Exception 
             if soil_texture_found:
                 gp.AddMessage("\tSoil texture")
@@ -356,13 +377,18 @@ try:
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
+            if rios_coeff_table_found:
+                gp.AddMessage("\tRIOS general coefficient table")
+            else:
+                gp.AddError("\n\tError: If Flood Mitigation is to be processed, the RIOS general coefficient table must be provided.\n")
+                raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value")
+                gp.AddMessage("\tThreshold flow accumulation")
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
             if buffer_dist_found:
-                gp.AddMessage("\tRiparian buffer distance value")
+                gp.AddMessage("\tRiparian buffer distance")
             else:
                 gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Riparian buffer distance value must be provided.\n")
                 raise Exception
@@ -401,6 +427,11 @@ try:
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
                 raise Exception
+            if rios_coeff_table_found:
+                gp.AddMessage("\tRIOS general coefficient table")
+            else:
+                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, the RIOS general coefficient table must be provided.\n")
+                raise Exception
             if soil_texture_found:
                 gp.AddMessage("\tSoil texture")
                 if soil_texture not in input_raster_list:
@@ -416,7 +447,7 @@ try:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Soil Depth raster must be provided.\n")
                 raise Exception
             if threshold_flowacc_found:
-                gp.AddMessage("\tThreshold flow accumulation value")
+                gp.AddMessage("\tThreshold flow accumulation")
             else:
                 gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Threshold flow accumulation value must be provided.\n")
                 raise Exception
@@ -495,7 +526,7 @@ try:
 
         ### LOCATION OF COEFFICIENT MAPPING TABLE - HARD-CODED - WHAT TO DO WITH THIS?! ###
         # HAVE INPUT FOR LOCATION OF RIOS INSTALL? #
-        rios_coeff_table = "F:\GIS\WaterFunds\WATER_tool\general_lulc_coefficients_sw_made_up_P.csv"        
+##        rios_coeff_table = "F:\GIS\WaterFunds\WATER_tool\general_lulc_coefficients_sw_made_up_P.csv"        
 
         # LULC coefficient table field names
         lulc_gen_field = "lulc_gen"
@@ -584,10 +615,11 @@ try:
         install_info = gp.GetInstallInfo("desktop")
         # Make sure all temporary files go in the Intermediate folder
         gp.workspace = interws
+        # Use minimum cell size of all input rasters
+        gp.cellSize = "MINOF"
         # Make sure all outputs align with the land cover map
         gp.snapRaster = lulc
         gp.Extent = lulc
-        install_info = gp.GetInstallInfo("desktop")
 
     except:
         gp.AddError( "\nError setting geoprocessing environment: " + gp.GetMessages(2))
@@ -670,11 +702,13 @@ try:
     def define_channels():
 
         try:
-            gp.AddMessage("\nDefining flow direction channels...")
-            exp = "\"VALUE\" > " + str(int(threshold_flowacc))
-            gp.AddMessage("flow acc = " + flow_acc)
-            gp.SetNull_sa(flow_acc, flow_dir, flowdir_channels, exp)
-##            gp.SingleOutputMapAlgebra_sa("CON(" + flow_acc + " <= " + threshold_flowacc + ", " + flow_dir, ")", flowdir_channels)
+            gp.AddMessage("\n\tDefining flow direction channels...")
+            lyrFAC = "lyrFAC"
+            lyrFDIR = "lyrFDIR"
+            gp.MakeRasterLayer(flow_acc,lyrFAC)
+            gp.MakeRasterLayer(flow_dir,lyrFDIR)
+            expr = "con(%s <= %s, %s)" % (lyrFAC, str(int(threshold_flowacc)),lyrFDIR)
+            gp.SingleOutputMapAlgebra_sa(expr, flowdir_channels)
             
         except:
             gp.AddError ("\nError defining flow direction channels:  " + gp.GetMessages(2))
@@ -727,7 +761,6 @@ try:
 
 
     # Create riparian index
-    # Takes in a mosaic filename because Mosaic to New Raster doesn't work otherwise
 
     def riparian_index(retention_index, out_rindex, cont_index_mosaic_filename):
         try:
@@ -741,7 +774,6 @@ try:
             cont_index_right = interws + "cind_right"
             cont_index_left_clip = interws + "cind_left_cl"
             cont_index_right_clip = interws + "cind_right_cl"
-##            cont_index_mosaic_filename = "cind_mosaic"
             cont_index_mosaic = interws + cont_index_mosaic_filename
             one = interws + "one"
             
@@ -769,18 +801,15 @@ try:
             gp.ExtractByMask_sa(cont_index_right, buffer_right, cont_index_right_clip)
             
             # Mosaic them back together
-            ci_rasters = str(cont_index_left_clip) + ";" + str(cont_index_right_clip)
-            cell_size = gp.GetRasterProperties_management(cont_index_right_clip, "CELLSIZEX")
-            numbands = gp.GetRasterProperties_management(cont_index_right_clip, "BANDCOUNT")
             # Set extent, otherwise there may be clipping due to stream network being smaller than whole watershed
             desc = gp.Describe(retention_index)
             saveExtent = gp.Extent
             gp.Extent = desc.Extent
-            gp.MosaicToNewRaster_management(ci_rasters, interws, cont_index_mosaic_filename, "#", "32_BIT_FLOAT", cell_size, numbands, "MAXIMUM")
+            gp.Mosaic_management(cont_index_left_clip, cont_index_right_clip, "MAXIMUM")
             gp.Extent = saveExtent
 
             # Final riparian continuity index
-            gp.Minus_sa("1.0", cont_index_mosaic, out_rindex)
+            gp.Minus_sa("1.0", cont_index_right_clip, out_rindex)
             
         except:
             gp.AddError ("\nError creating riparian continuity index:  " + gp.GetMessages(2))
@@ -819,13 +848,6 @@ try:
                 define_channels()
                 made_flowdir_channels = True
 
-##            gp.AddMessage("\nDefining flow direction channels...")
-##            exp = "\"VALUE\" > " + str(int(threshold_flowacc))
-##            gp.AddMessage("flow acc = " + flow_acc)
-####            gp.SetNull_sa(flow_acc, flow_dir, flowdir_channels, exp)
-####            gp.SingleOutputMapAlgebra_sa("CON(" + flow_acc + " <= " + threshold_flowacc + ", " + flow_dir, ")", flowdir_channels)
-##            gp.SingleOutputMapAlgebra_sa("CON(G:\\GIS\scratch\\tmp_rios_preproc2\\Output\\Hydro_layers\\flow_acc <= " + threshold_flowacc + ", " + flow_dir, ")", flowdir_channels)
-
             ## Downslope retention index
             gp.FlowLength_sa(flowdir_channels, erosion_dret_flowlen, "DOWNSTREAM", erosion_comb_weight_R)
             normalize(erosion_dret_flowlen, erosion_dret_index)
@@ -855,7 +877,7 @@ try:
                                          erosion_index_exp + ") / 6", erosion_comb_weight_Exp)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, erosion_ups_flowacc, erosion_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, erosion_upslope_index, erosion_comb_weight_Exp)
             gp.AddMessage("\n\tCreated Erosion upslope source index: " + erosion_upslope_index)
 
             ## Riparian continuity
@@ -902,15 +924,15 @@ try:
 
             gp.SingleOutputMapAlgebra_sa("((1.0 - " + slope_index + " ) + " + phos_index_ret + ") / 2", phos_comb_weight_R)
 
-##            # Set flow direction raster to null where there are streams
-##            if not made_flowdir_channels: 
-##                define_channels()
-##                made_flowdir_channels = True
-##
-##            ## Downslope retention index
-##            gp.FlowLength_sa(flowdir_channels, phos_dret_flowlen, "DOWNSTREAM", phos_comb_weight_R)
-##            normalize(phos_dret_flowlen, phos_dret_index)
-##            gp.AddMessage("\n\tCreated Phosphorus downslope retention index: " + phos_dret_index)
+            # Set flow direction raster to null where there are streams
+            if not made_flowdir_channels: 
+                define_channels()
+                made_flowdir_channels = True
+
+            ## Downslope retention index
+            gp.FlowLength_sa(flowdir_channels, phos_dret_flowlen, "DOWNSTREAM", phos_comb_weight_R)
+            normalize(phos_dret_flowlen, phos_dret_index)
+            gp.AddMessage("\n\tCreated Phosphorus downslope retention index: " + phos_dret_index)
 
             gp.AddMessage("\n\tCreating upslope source index...")
             
@@ -936,7 +958,7 @@ try:
                                          phos_index_exp + ") / 6", phos_comb_weight_Exp)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, phos_ups_flowacc, phos_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, phos_upslope_index, phos_comb_weight_Exp)
             gp.AddMessage("\n\tCreated Phosphorus upslope source index: " + phos_upslope_index)
 
             ## Riparian continuity
@@ -983,15 +1005,15 @@ try:
                 
             gp.SingleOutputMapAlgebra_sa("((1.0 - " + slope_index + " ) + " + nit_index_ret + ") / 2", nit_comb_weight_R)
 
-##            # Set flow direction raster to null where there are streams
-##            if not made_flowdir_channels: 
-##                define_channels()
-##                made_flowdir_channels = True
-##
-##            ## Downslope retention index
-##            gp.FlowLength_sa(flowdir_channels, nit_dret_flowlen, "DOWNSTREAM", nit_comb_weight_R)
-##            normalize(nit_dret_flowlen, nit_dret_index)
-##            gp.AddMessage("\n\tCreated Nitrogen downslope retention index: " + nit_dret_index)
+            # Set flow direction raster to null where there are streams
+            if not made_flowdir_channels: 
+                define_channels()
+                made_flowdir_channels = True
+
+            ## Downslope retention index
+            gp.FlowLength_sa(flowdir_channels, nit_dret_flowlen, "DOWNSTREAM", nit_comb_weight_R)
+            normalize(nit_dret_flowlen, nit_dret_index)
+            gp.AddMessage("\n\tCreated Nitrogen downslope retention index: " + nit_dret_index)
 
             gp.AddMessage("\n\tCreating upslope source index...")
             
@@ -1007,7 +1029,7 @@ try:
                                          nit_index_exp + ") / 4", nit_comb_weight_Exp)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, nit_ups_flowacc, nit_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, nit_upslope_index, nit_comb_weight_Exp)
             gp.AddMessage("\n\tCreated Nitrogen upslope source index: " + nit_upslope_index)
 
             ## Riparian continuity
@@ -1071,15 +1093,15 @@ try:
             # Combined weight R
             gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", flood_comb_weight_ret)
             
-##            # Set flow direction raster to null where there are streams
-##            if not made_flowdir_channels: 
-##                define_channels()
-##                made_flowdir_channels = True
-##
-##            ## Downslope retention index
-##            gp.FlowLength_sa(flowdir_channels, flood_dret_flowlen, "DOWNSTREAM", flood_comb_weight_ret)
-##            normalize(flood_dret_flowlen, flood_dret_index)
-##            gp.AddMessage("\n\tCreated Flood Mitigation downslope retention index: " + flood_dret_index)
+            # Set flow direction raster to null where there are streams
+            if not made_flowdir_channels: 
+                define_channels()
+                made_flowdir_channels = True
+
+            ## Downslope retention index
+            gp.FlowLength_sa(flowdir_channels, flood_dret_flowlen, "DOWNSTREAM", flood_comb_weight_ret)
+            normalize(flood_dret_flowlen, flood_dret_index)
+            gp.AddMessage("\n\tCreated Flood Mitigation downslope retention index: " + flood_dret_index)
 
             gp.AddMessage("\n\tCreating upslope source index...")
             
@@ -1092,7 +1114,7 @@ try:
                                          " + (1 - " + flgw_index_rough + ")) / 5" , flood_comb_weight_source)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, flood_ups_flowacc, flood_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, flood_upslope_index, flood_comb_weight_source)
             gp.AddMessage("\n\tCreated Flood Mitigation upslope source index: " + flood_upslope_index)
         
         except:
@@ -1130,24 +1152,24 @@ try:
                 made_flgw_slope_index = True
 
             # If Flood was already done, use its outputs instead of re-calculating, since many are the same
-            if do_flood == 'true':
+            if do_flood == 'true' and gp.Exists(flood_dret_index):
                 gp.AddMessage("\n\tCreating downslope retention index...")
-##                gp.CopyRaster_management(flood_dret_index, gwater_dret_index)
-##                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
+                gp.CopyRaster_management(flood_dret_index, gwater_dret_index)
+                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
             else:
                 # Combined weight R
                 gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", gwater_comb_weight_ret)
 
-##                gp.AddMessage("\n\tCreating downslope retention index...")
-##                # Set flow direction raster to null where there are streams
-##                if not made_flowdir_channels: 
-##                    define_channels()
-##                    made_flowdir_channels = True
-##
-##                ## Downslope retention index
-##                gp.FlowLength_sa(flowdir_channels, gwater_dret_flowlen, "DOWNSTREAM", gwater_comb_weight_ret)
-##                normalize(gwater_dret_flowlen, gwater_dret_index)
-##                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
+                gp.AddMessage("\n\tCreating downslope retention index...")
+                # Set flow direction raster to null where there are streams
+                if not made_flowdir_channels: 
+                    define_channels()
+                    made_flowdir_channels = True
+
+                ## Downslope retention index
+                gp.FlowLength_sa(flowdir_channels, gwater_dret_flowlen, "DOWNSTREAM", gwater_comb_weight_ret)
+                normalize(gwater_dret_flowlen, gwater_dret_index)
+                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
 
             gp.AddMessage("\n\tCreating upslope source index...")
             
@@ -1169,7 +1191,7 @@ try:
                                           ") + " + "(1 - " + flgw_index_rough + ") + " + soil_depth_index + ") / 7", gwater_comb_weight_source)
 
             ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, gwater_ups_flowacc, gwater_upslope_index)
+            gp.FlowAccumulation_sa(flow_dir, gwater_upslope_index, gwater_comb_weight_source)
             gp.AddMessage("\n\tCreated Groundwater upslope source index: " + gwater_upslope_index)
         
         except:
