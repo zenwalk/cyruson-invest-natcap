@@ -2,4 +2,4 @@
 import subprocess
 import os
 os.chdir('invest-3')
-subprocess.check_call('invest_marine_water_quality_biophysical.exe')
+subprocess.check_call('invest_pollination_valuation.exe')
