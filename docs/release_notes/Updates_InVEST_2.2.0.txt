@@ -1,8 +1,14 @@
-Dec 15, 2011
+Dec 22, 2011
 
-Changes in InVEST 2.2.0
+In this release we include updates to the habitat risk assessment
+model, updates to Coastal Vulnerability Tier 0 (previously named
+Coastal Protection), and a new tier 1 Coastal Vulnerability tool.
+Additionally, we are releasing a beta version of our 3.0 platform that
+includes the terrestrial timber and carbon models.
 
-MARINE MODELS
+See the "Marine Models" and "InVEST 3.0 Beta" sections below for more details.
+
+Marine Models
 #############
 
 1. Marine Python Extension Check
@@ -93,15 +99,13 @@ MARINE MODELS
 InVEST 3.0 Beta
 ###############
 
-We are releasing a preliminary version of our InVEST 3.0 beta platform as a
-separate toolbox.  It is located in the install directory as InVEST30.tbx, or 
-in the InVEST220.mxd ArcMap Document, you'll see it as a subtoolbox in the 
-InVEST 2.2.0 toolbox named "InVEST 3.0 Beta".  Currently it holds beta
-versions of our carbon and managed timber production InVEST models.  To launch
+The 2.2.0 release includes a preliminary version of our InVEST 3.0 beta
+platform.  It is included as a toolset named "InVEST 3.0 Beta" in the 
+InVEST220.tbx.  It is currently only supported with ArcGIS 10.  To launch
 an InVEST 3.0 beta tool, double click on the desired tool in the InVEST 3.0 
-toolbox then click "Ok" on the Arc toolbox screen that opens; the InVEST 3.0
-beta tool will launch after this.  These tools are very similar to the 
-InVEST 2.2.0 versions of the tools with the following modifications:
+toolset then click "Ok" on the Arc toolbox screen that opens. The InVEST 3.0
+tool panel has inputs very similar to the InVEST 2.2.0 versions of the tools 
+with the following modifications:
 
 InVEST 3.0 Carbon:
   * Fixes a minor bug in the 2.2 version that ignored floating point values
