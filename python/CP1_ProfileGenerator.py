@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Profile Generator)
-# Authors: Greg Guannel, Gregg Verutes
-# 04/13/12
+# Authors: Greg Guannel, Gregg Verutes, Jeremy Davies
+# 06/08/12
 
 # import libraries
 import CPf_SignalSmooth as SignalSmooth
@@ -1137,6 +1137,7 @@ try:
                 cur.UpdateRow(row)
                 row=cur.next()
             del cur,row
+       
             Dmeas2=[]
             cur=gp.UpdateCursor(PT2_Z)
             row=cur.Next()
@@ -1155,7 +1156,7 @@ try:
                     if (negative==False) and (l[i] < 0) and (l[i] != -9999):
                         negative=True
                         negativeID=i
-                    if (negative==True)and (l[i] > 0):
+                    if (negative==True) and (l[i] > 0) or (l[i] == -9999):
                         positiveID=i
                         break
                 if negativeID==-555555:
@@ -1187,7 +1188,7 @@ try:
                 TransectChoice=2
 
             else:
-                if pos1ID  > pos2ID:
+                if pos1ID > pos2ID:
                     for i in range(neg1ID,pos1ID):
                         Dx.append(counter)
                         Dmeas.append(Dmeas1[i])
@@ -1198,39 +1199,6 @@ try:
                         Dmeas.append(Dmeas2[i])
                         counter += 1
                     TransectChoice=2
-
-##            # find which point transect hits water first
-##            DepthStart1=1
-##            for DepthValue1 in Dmeas1:
-##                if DepthValue1 < 0.0 and DepthValue1 <> -9999.0:
-##                    break
-##                DepthStart1=DepthStart1+1
-##            DepthStart2=1
-##            for DepthValue2 in Dmeas2:
-##                if DepthValue2 < 0.0 and DepthValue2 <> -9999.0:
-##                    break
-##                DepthStart2=DepthStart2+1
-##                
-##            # create final lists of cross-shore distance (Dx) and depth (Dmeas)
-##            Dx=[]   
-##            Dmeas=[]
-##            counter=0
-##            if DepthStart1 < DepthStart2:
-##                for i in range(DepthStart1-1,len(Dmeas1)):
-##                    if Dmeas1[i] < 0.0 and Dmeas1[i] <> -9999.0:
-##                        Dx.append(counter)
-##                        Dmeas.append(Dmeas1[i])
-##                        counter=counter+1
-##                    else:
-##                        break
-##            else:
-##                for j in range(DepthStart2-1,len(Dmeas2)):
-##                    if Dmeas2[j] < 0.0 and Dmeas2[j] <> -9999.0:
-##                        Dx.append(counter)
-##                        Dmeas.append(Dmeas2[j])
-##                        counter=counter+1
-##                    else:
-##                        break
 
             if len(Dmeas1)==0 and len(Dmeas2)==0:
                 gp.AddError("\nNeither transect overlaps the seas.  Please check the location of your 'LandPoint' and bathymetry inputs.")
@@ -1279,7 +1247,7 @@ try:
                     gp.DeleteField_management(PT1_Z,"RASTERVALU")
                     gp.CalculateField_management(PT1_Z,"PT_ID","!PT_ID! * -1","PYTHON")
                     gp.Select_analysis(PT1_Z,Backshore_Pts,"\"PT_ID\" < 0 AND \"PT_ID\" > -2001")
-
+                    
             # add and calculate field for "DEPTH"
             Profile_Pts=AddField(Profile_Pts,"DEPTH","DOUBLE","","")
             gp.CalculateField_management(Profile_Pts,"DEPTH","!RASTERVALU!","PYTHON")
