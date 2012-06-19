@@ -563,23 +563,23 @@ try:
 
         streams_line = outputws + "streams_" + str(threshold_flowacc) + Suffix + ".shp"
         erosion_dret_index = outputws + "erosion_downslope_retention_index" + Suffix + ".tif"
-        erosion_upslope_index = outputws + "erosion_upslope_source_index" + Suffix + ".tif"
+        erosion_upslope_source = outputws + "erosion_upslope_source" + Suffix + ".tif"
         erosion_riparian_index = outputws + "erosion_riparian_index" + Suffix + ".tif"
 
         phos_dret_index = outputws + "phosphorus_downslope_retention_index" + Suffix + ".tif"
-        phos_upslope_index = outputws + "phosphorus_upslope_source_index" + Suffix + ".tif"
+        phos_upslope_source = outputws + "phosphorus_upslope_source" + Suffix + ".tif"
         phos_riparian_index = outputws + "phosphorus_riparian_index" + Suffix + ".tif"
 
         nit_dret_index = outputws + "nitrogen_downslope_retention_index" + Suffix + ".tif"
-        nit_upslope_index = outputws + "nitrogen_upslope_source_index" + Suffix + ".tif"
+        nit_upslope_source = outputws + "nitrogen_upslope_source" + Suffix + ".tif"
         nit_riparian_index = outputws + "nitrogen_riparian_index" + Suffix + ".tif"
 
         flood_dret_index = outputws + "flood_downslope_retention_index" + Suffix + ".tif"
-        flood_upslope_index = outputws + "flood_upslope_source_index" + Suffix + ".tif"
+        flood_upslope_source = outputws + "flood_upslope_source" + Suffix + ".tif"
         flood_riparian_index = outputws + "flood_riparian_index" + Suffix + ".tif"
 
         gwater_dret_index = outputws + "groundwater_downslope_retention_index" + Suffix + ".tif"
-        gwater_upslope_index = outputws + "groundwater_upslope_source_index" + Suffix + ".tif"
+        gwater_upslope_source = outputws + "groundwater_upslope_source" + Suffix + ".tif"
         gwater_riparian_index = outputws + "groundwater_riparian_index" + Suffix + ".tif"
 
     except:
@@ -853,7 +853,7 @@ try:
             normalize(erosion_dret_flowlen, erosion_dret_index)
             gp.AddMessage("\n\tCreated Erosion downslope retention index: " + erosion_dret_index)
 
-            gp.AddMessage("\n\tCreating upslope source index...")
+            gp.AddMessage("\n\tCreating upslope source...")
 
             # Erosivity index
             if not made_erosivity_index:
@@ -876,9 +876,10 @@ try:
                                          " + " + soil_depth_index + " + (1 - " + erosion_index_ret + ") + " + \
                                          erosion_index_exp + ") / 6", erosion_comb_weight_Exp)
 
-            ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, erosion_upslope_index, erosion_comb_weight_Exp)
-            gp.AddMessage("\n\tCreated Erosion upslope source index: " + erosion_upslope_index)
+            ## Upslope source
+            ## Not an index because we're not normalizing in this script
+            gp.FlowAccumulation_sa(flow_dir, erosion_upslope_source, erosion_comb_weight_Exp)
+            gp.AddMessage("\n\tCreated Erosion upslope source: " + erosion_upslope_source)
 
             ## Riparian continuity
             
@@ -934,7 +935,7 @@ try:
             normalize(phos_dret_flowlen, phos_dret_index)
             gp.AddMessage("\n\tCreated Phosphorus downslope retention index: " + phos_dret_index)
 
-            gp.AddMessage("\n\tCreating upslope source index...")
+            gp.AddMessage("\n\tCreating upslope source...")
             
             # Erosivity index
             if not made_erosivity_index:
@@ -957,9 +958,9 @@ try:
                                          " + " + soil_depth_index + " + (1 - " + phos_index_ret + ") + " + \
                                          phos_index_exp + ") / 6", phos_comb_weight_Exp)
 
-            ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, phos_upslope_index, phos_comb_weight_Exp)
-            gp.AddMessage("\n\tCreated Phosphorus upslope source index: " + phos_upslope_index)
+            ## Upslope source
+            gp.FlowAccumulation_sa(flow_dir, phos_upslope_source, phos_comb_weight_Exp)
+            gp.AddMessage("\n\tCreated Phosphorus upslope source: " + phos_upslope_source)
 
             ## Riparian continuity
             
@@ -1015,7 +1016,7 @@ try:
             normalize(nit_dret_flowlen, nit_dret_index)
             gp.AddMessage("\n\tCreated Nitrogen downslope retention index: " + nit_dret_index)
 
-            gp.AddMessage("\n\tCreating upslope source index...")
+            gp.AddMessage("\n\tCreating upslope source...")
             
             # Soil depth index
             if not made_soil_depth_index:
@@ -1028,9 +1029,9 @@ try:
                                           " + (1 - " + nit_index_ret + ") + " + \
                                          nit_index_exp + ") / 4", nit_comb_weight_Exp)
 
-            ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, nit_upslope_index, nit_comb_weight_Exp)
-            gp.AddMessage("\n\tCreated Nitrogen upslope source index: " + nit_upslope_index)
+            ## Upslope source
+            gp.FlowAccumulation_sa(flow_dir, nit_upslope_source, nit_comb_weight_Exp)
+            gp.AddMessage("\n\tCreated Nitrogen upslope source: " + nit_upslope_source)
 
             ## Riparian continuity
             
@@ -1103,7 +1104,7 @@ try:
             normalize(flood_dret_flowlen, flood_dret_index)
             gp.AddMessage("\n\tCreated Flood Mitigation downslope retention index: " + flood_dret_index)
 
-            gp.AddMessage("\n\tCreating upslope source index...")
+            gp.AddMessage("\n\tCreating upslope source...")
             
             # Rainfall depth index
             normalize(precip_month, flood_rainfall_depth_index)
@@ -1113,9 +1114,9 @@ try:
                                          ") + " + soil_texture + " + " + flgw_slope_index + \
                                          " + (1 - " + flgw_index_rough + ")) / 5" , flood_comb_weight_source)
 
-            ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, flood_upslope_index, flood_comb_weight_source)
-            gp.AddMessage("\n\tCreated Flood Mitigation upslope source index: " + flood_upslope_index)
+            ## Upslope source
+            gp.FlowAccumulation_sa(flow_dir, flood_upslope_source, flood_comb_weight_source)
+            gp.AddMessage("\n\tCreated Flood Mitigation upslope source: " + flood_upslope_source)
         
         except:
             gp.AddError ("\nError processing Flood Mitigation objective:  " + gp.GetMessages(2))
@@ -1171,7 +1172,7 @@ try:
                 normalize(gwater_dret_flowlen, gwater_dret_index)
                 gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
 
-            gp.AddMessage("\n\tCreating upslope source index...")
+            gp.AddMessage("\n\tCreating upslope source...")
             
             # Annual average precipitation index
             normalize(precip_annual, gwater_precip_annual_index)
@@ -1190,9 +1191,9 @@ try:
                                          soil_texture + " + " + flgw_slope_index + " + (1 - " + flgw_index_cover + \
                                           ") + " + "(1 - " + flgw_index_rough + ") + " + soil_depth_index + ") / 7", gwater_comb_weight_source)
 
-            ## Upslope source index
-            gp.FlowAccumulation_sa(flow_dir, gwater_upslope_index, gwater_comb_weight_source)
-            gp.AddMessage("\n\tCreated Groundwater upslope source index: " + gwater_upslope_index)
+            ## Upslope source
+            gp.FlowAccumulation_sa(flow_dir, gwater_upslope_source, gwater_comb_weight_source)
+            gp.AddMessage("\n\tCreated Groundwater upslope source: " + gwater_upslope_source)
         
         except:
             gp.AddError ("\nError processing Groundwater Recharge objective:  " + gp.GetMessages(2))
