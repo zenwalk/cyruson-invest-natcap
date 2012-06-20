@@ -1,0 +1,43 @@
+June 6, 2012
+
+Changes in InVEST 2.3.0
+
+General:
+
+This is a major release which releases several beta versions of the
+InVEST models in the InVEST 3.0 framework.  These models run as
+standalones, but a GIS platform is needed to edit and view the data
+inputs and outputs.  Until InVEST 3.0 is released the original ArcGIS
+based versions of these tools will remain the release.
+
+Existing InVEST models migrated to the 3.0 framework in this release
+include:
+
+-Reservoir Hydropower Production 3.0 beta
+-Wave Energy 3.0 beta
+ -Runtimes for non-global runs decreased by a factor of 7
+ -Minor bugs in interpolation that exist in the 2.x model is fixed in 
+  3.0 beta.
+-Crop Pollination 3.0 beta
+ -Runtimes decreased by a factor of over 10,000
+
+This release also includes the new models which only exist in the 3.0
+framework:
+
+-Marine Water Quality 3.0 alpha with a preliminary  user's guide.
+
+InVEST models in the 3.0 framework from previous releases that now
+have a standalone executable include: 
+
+-Managed Timber Production Model
+-Carbon Storage and Sequestration
+
+Additionally there are a handful of other minor fixes and feature
+enhancements since the previous release:
+
+-Minor bug fix to 2.x sedimentation model that now correctly
+ calculates slope exponentials.
+-Minor fixes to several chapters in the user's guide.
+-The 3.0 version of the Carbon model now can value the price of carbon
+ in metric tons of C or CO2.
+-Other minor bug fixes and runtime performance tweaks in the 3.0 framework.
