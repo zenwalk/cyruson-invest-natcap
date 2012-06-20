@@ -27,7 +27,6 @@ msgDataPrep = "\nError preparing the data inputs."
 msgFetchCalc = "\nError calculating fetch distances."
 msgFetchThreshDist = "\nError storing fetch threshold distance in a text file."
 msgNumPyNo = "NumPy extension is required to run the Fetch Calculator tool.  Please consult the Marine InVEST FAQ document for instructions on how to install."
-msgWin32ComNo = "PythonWin extension is required to run the Fetch Calculator tool.  Please consult the Marine InVEST FAQ document for instructions on how to install."
 
 # import modules
 try:
@@ -36,12 +35,6 @@ except:
     gp.AddError(msgNumPyNo)
     raise Exception
     
-try:
-    from win32com.client import Dispatch
-except:
-    gp.AddError(msgWin32ComNo)
-    raise Exception
-
 try:
     try:
         # get parameters
