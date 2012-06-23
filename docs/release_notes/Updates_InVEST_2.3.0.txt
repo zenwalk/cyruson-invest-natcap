@@ -14,6 +14,9 @@ Existing InVEST models migrated to the 3.0 framework in this release
 include:
 
 -Reservoir Hydropower Production 3.0 beta
+ -Minor bug fixes.
+-Finfish Aquaculture
+ -Minor bug fixes and usability enhancements.
 -Wave Energy 3.0 beta
  -Runtimes for non-global runs decreased by a factor of 7
  -Minor bugs in interpolation that exist in the 2.x model is fixed in 
