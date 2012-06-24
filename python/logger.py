@@ -17,5 +17,9 @@ def log_model(model_name):
     invest3_path = os.path.abspath(os.path.join(os.path.abspath(__file__),
         '..\\..\\invest-3\\invest_natcap\\__init__.pyc'))
 
-    invest_natcap = imp.load_compiled('invest_natcap', invest3_path)
-    invest_natcap.log_model(model_name + '_arc')
+    try:
+        invest_natcap = imp.load_compiled('invest_natcap', invest3_path)
+        invest_natcap.log_model(model_name + '_arc')
+    except IOError:
+        # IOError thrown when imp can't find the invest_natcap module.
+        pass
