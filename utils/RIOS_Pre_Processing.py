@@ -732,16 +732,30 @@ try:
 
         try:
             gp.AddMessage("\n\tMapping coefficients to landcover...")
+
+            # intermediate files
             lulc_gen_join = interws + "lu_gen_join"
-            gp.MakeRasterLayer_management(lulc, "lulc_layer")
+            lulc_copy = interws + "lulc_copy"
+            
+            gp.CopyRaster_management(lulc, lulc_copy)
+##            gp.MakeRasterLayer_management(lulc, "lulc_layer")
+##
+##            if not confirmfield(lulc_gen_field, "lulc_layer"):
+##                gp.AddField("lulc_layer", lulc_gen_field, "TEXT")
 
-            if not confirmfield(lulc_gen_field, "lulc_layer"):
-                gp.AddField("lulc_layer", lulc_gen_field, "TEXT")
+            if not confirmfield(lulc_gen_field, lulc_copy):
+                gp.AddField(lulc_copy, lulc_gen_field, "TEXT")
+##
+##            # Remove any fields that conflict with the coefficient table input field names
+##            for field in rios_fields:
+##                if confirmfield(field, "lulc_layer"):
+##                    gp.DeleteField("lulc_layer", field)
 
-            # Remove any fields that conflict with the coefficient table input field names
             for field in rios_fields:
-                if confirmfield(field, "lulc_layer"):
-                    gp.DeleteField("lulc_layer", field)
+                if confirmfield(field, lulc_copy):
+                    gp.DeleteField(lulc_copy, field)
+
+            gp.MakeRasterLayer_management(lulc_copy, "lulc_layer")
 
             # Map general classes to landuse table via the lucode
             gp.MakeTableView_management(lulc_general_table, "lulc_gen_layer")
