@@ -723,7 +723,7 @@ try:
             raster_max = gp.GetRasterProperties_management(in_raster, "MAXIMUM")
             gp.Divide_sa(in_raster, float(raster_max), out_raster)
         except:
-            gp.AddError ("\nError normalizing raster:  " + gp.GetMessages(2))
+            gp.AddError ("\nError normalizing raster " + str(in_raster) + ":  " + gp.GetMessages(2))
             raise Exception
 
 
