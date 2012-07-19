@@ -529,10 +529,6 @@ try:
         gwater_dret_flowlen = interws + "gw_flowlen"
         
 
-        ### LOCATION OF COEFFICIENT MAPPING TABLE - HARD-CODED - WHAT TO DO WITH THIS?! ###
-        # HAVE INPUT FOR LOCATION OF RIOS INSTALL? #
-##        rios_coeff_table = "F:\GIS\WaterFunds\WATER_tool\general_lulc_coefficients_sw_made_up_P.csv"        
-
         # LULC coefficient table field names
         lulc_gen_field = "lulc_gen"
         sed_ret_field = "sed_ret"
