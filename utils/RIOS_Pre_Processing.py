@@ -168,8 +168,16 @@ try:
         else:
             buffer_dist_found = False
 
+        # Watershed mask
+        watershed = sys.argv[20]
+        parameters.append("Watershed: " + str(watershed))
+        if (watershed != "") and (watershed != string.whitespace) and (watershed != "#"):
+            watershed_found = True
+        else:
+            watershed_found = False
+
         # Suffix to add to end of output filenames, as <filename>_<suffix>
-        Suffix = sys.argv[20]
+        Suffix = sys.argv[21]
         parameters.append("Suffix: " + Suffix)
         
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -514,7 +522,6 @@ try:
 
         flgw_index_cover = interws + "fg_ind_c"
         flgw_index_rough = interws + "fg_ind_r"
-        flgw_slope_index = interws + "fg_slope_idx"
         flood_rainfall_depth_index = interws + "fl_rain_idx"
         flood_comb_weight_ret = interws + "fl_cwgt_r"
         flood_comb_weight_source = interws + "fl_cwgt_s"
@@ -552,7 +559,8 @@ try:
         made_lulc_coeffs = False
         made_flowdir_channels = False
         made_slope_index = False
-        made_flgw_slope_index = False
+        made_flood_slope_index = False
+        made_gwater_slope_index = False
         made_soil_depth_index = False
         made_erosivity_index = False
         made_erodibility_index = False
@@ -578,10 +586,12 @@ try:
         flood_dret_index = outputws + "flood_downslope_retention_index" + Suffix + ".tif"
         flood_upslope_source = outputws + "flood_upslope_source" + Suffix + ".tif"
         flood_riparian_index = outputws + "flood_riparian_index" + Suffix + ".tif"
+        flood_slope_index = outputws + "flood_slope_index" + Suffix + ".tif"
 
         gwater_dret_index = outputws + "groundwater_downslope_retention_index" + Suffix + ".tif"
         gwater_upslope_source = outputws + "groundwater_upslope_source" + Suffix + ".tif"
         gwater_riparian_index = outputws + "groundwater_riparian_index" + Suffix + ".tif"
+        gwater_slope_index = outputws + "groundwater_slope_index" + Suffix + ".tif"
 
     except:
         gp.AddError( "\nError configuring local variables: " + gp.GetMessages(2))
@@ -621,6 +631,9 @@ try:
         # Make sure all outputs align with the land cover map
         gp.snapRaster = lulc
         gp.Extent = lulc
+        # If a watershed mask is provided, use it to minimize processing time
+        if watershed_found:
+            gp.Mask = watershed
 
     except:
         gp.AddError( "\nError setting geoprocessing environment: " + gp.GetMessages(2))
@@ -1090,16 +1103,18 @@ try:
                 riparian_index(flgw_index_rough, flood_riparian_index, "flood_mosaic")
                 gp.AddMessage("\n\tCreated Flood Mitigation riparian continuity index: " + flood_riparian_index)
 
-            gp.AddMessage("\n\tCreating downslope retention index...")
-
             ## Slope index - binned, not normalized
-            if not made_flgw_slope_index:
+            gp.AddMessage("\n\tCreating slope index...")
+            if not made_flood_slope_index:
                 gp.SingleOutputMapAlgebra_sa("CON(" + slope + " >= 10.001, 1.0, CON(" \
-                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flgw_slope_index)
-                made_flgw_slope_index = True
+                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flood_slope_index)
+                made_flood_slope_index = True
+
+            gp.AddMessage("\n\tCreated Flood slope index: " + flood_slope_index)
             
             # Combined weight R
-            gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", flood_comb_weight_ret)
+            gp.AddMessage("\n\tCreating downslope retention index...")
+            gp.SingleOutputMapAlgebra_sa("((1.0 - " + flood_slope_index + " ) + " + flgw_index_rough + ") / 2", flood_comb_weight_ret)
             
             # Set flow direction raster to null where there are streams
             if not made_flowdir_channels: 
@@ -1118,7 +1133,7 @@ try:
                 
             # Combined weight source
             gp.SingleOutputMapAlgebra_sa("(" + flood_rainfall_depth_index + " + " + "(1 - " + flgw_index_cover + \
-                                         ") + " + soil_texture + " + " + flgw_slope_index + \
+                                         ") + " + soil_texture + " + " + flood_slope_index + \
                                          " + (1 - " + flgw_index_rough + ")) / 5" , flood_comb_weight_source)
 
             ## Upslope source
@@ -1153,22 +1168,26 @@ try:
                 gp.Lookup_sa(lulc_coeffs, cover_rios_field, flgw_index_rough)
                 made_flgw_index_rough = True
 
-            ## Slope index - binned, not normalized
-            if not made_flgw_slope_index:
+            ## Slope index - binned, not normalized, use Flood's slope index if it was created
+            gp.AddMessage("\n\tCreating slope index...")
+            if do_flood == 'true' and gp.Exists(flood_slope_index):
+                gp.CopyRaster_management(flood_slope_index, gwater_slope_index)
+                gp.AddMessage("\n\tCreated Groundwater slope index: " + gwater_slope_index)
+            else:
                 gp.SingleOutputMapAlgebra_sa("CON(" + slope + " >= 10.001, 1.0, CON(" \
-                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flgw_slope_index)
-                made_flgw_slope_index = True
+                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", gwater_slope_index)
+                made_gwater_slope_index = True
+
+            gp.AddMessage("\n\tCreated Groundwater slope index: " + gwater_slope_index)
 
             # If Flood was already done, use its outputs instead of re-calculating, since many are the same
+            gp.AddMessage("\n\tCreating downslope retention index...")
             if do_flood == 'true' and gp.Exists(flood_dret_index):
-                gp.AddMessage("\n\tCreating downslope retention index...")
                 gp.CopyRaster_management(flood_dret_index, gwater_dret_index)
-                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
             else:
                 # Combined weight R
-                gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", gwater_comb_weight_ret)
+                gp.SingleOutputMapAlgebra_sa("((1.0 - " + gwater_slope_index + " ) + " + flgw_index_rough + ") / 2", gwater_comb_weight_ret)
 
-                gp.AddMessage("\n\tCreating downslope retention index...")
                 # Set flow direction raster to null where there are streams
                 if not made_flowdir_channels: 
                     define_channels()
@@ -1177,7 +1196,8 @@ try:
                 ## Downslope retention index
                 gp.FlowLength_sa(flowdir_channels, gwater_dret_flowlen, "DOWNSTREAM", gwater_comb_weight_ret)
                 normalize(gwater_dret_flowlen, gwater_dret_index)
-                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
+
+            gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
 
             gp.AddMessage("\n\tCreating upslope source...")
             
@@ -1195,7 +1215,7 @@ try:
                 
             # Combined weight source
             gp.SingleOutputMapAlgebra_sa("(" + gwater_precip_annual_index + " + (1 - " + gwater_aet_index + ") + " + \
-                                         soil_texture + " + " + flgw_slope_index + " + (1 - " + flgw_index_cover + \
+                                         soil_texture + " + " + gwater_slope_index + " + (1 - " + flgw_index_cover + \
                                           ") + " + "(1 - " + flgw_index_rough + ") + " + soil_depth_index + ") / 7", gwater_comb_weight_source)
 
             ## Upslope source
