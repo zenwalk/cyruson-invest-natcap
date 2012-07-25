@@ -1172,7 +1172,6 @@ try:
             gp.AddMessage("\n\tCreating slope index...")
             if do_flood == 'true' and gp.Exists(flood_slope_index):
                 gp.CopyRaster_management(flood_slope_index, gwater_slope_index)
-                gp.AddMessage("\n\tCreated Groundwater slope index: " + gwater_slope_index)
             else:
                 gp.SingleOutputMapAlgebra_sa("CON(" + slope + " >= 10.001, 1.0, CON(" \
                                              + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", gwater_slope_index)
