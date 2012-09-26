@@ -82,7 +82,7 @@ try:
 
         # RIOS general coefficient table
         rios_coeff_table = sys.argv[9]
-        parameters.append("RIOS general coefficient table: " + lulc_general_table)
+        parameters.append("RIOS general coefficient table: " + rios_coeff_table)
         if (rios_coeff_table != "") and (rios_coeff_table != string.whitespace) and (rios_coeff_table != "#"):
             rios_coeff_table_found = True
         else:
@@ -168,8 +168,16 @@ try:
         else:
             buffer_dist_found = False
 
+        # Watershed mask
+        watershed = sys.argv[20]
+        parameters.append("Watershed: " + str(watershed))
+        if (watershed != "") and (watershed != string.whitespace) and (watershed != "#"):
+            watershed_found = True
+        else:
+            watershed_found = False
+
         # Suffix to add to end of output filenames, as <filename>_<suffix>
-        Suffix = sys.argv[20]
+        Suffix = sys.argv[21]
         parameters.append("Suffix: " + Suffix)
         
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -184,6 +192,7 @@ try:
 
         # Make sure that required inputs are provided for each objective chosen
         input_raster_list = []
+        missing_data = 0
 
         if do_erosion == 'true':
             gp.AddMessage("\nErosion Control selected, checking required inputs:")
@@ -192,52 +201,52 @@ try:
                 gp.AddMessage("\tDEM")
                 input_raster_list.append(DEM)
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, a DEM must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, a DEM must be provided.\n")
+                missing_data = 1
             if erosivity_found:
                 gp.AddMessage("\tErosivity")
                 input_raster_list.append(erosivity)
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, an Erosivity raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, an Erosivity raster must be provided.\n")
+                missing_data = 1
             if erodibility_found:
                 gp.AddMessage("\tErodibility")
                 input_raster_list.append(erodibility)
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, an Erodibility raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, an Erodibility raster must be provided.\n")
+                missing_data = 1
             if soil_depth_found:
                 gp.AddMessage("\tSoil depth")
                 input_raster_list.append(soil_depth)
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, a Soil Depth raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, a Soil Depth raster must be provided.\n")
+                missing_data = 1
             if lulc_found:
                 gp.AddMessage("\tLand use/land cover")
                 input_raster_list.append(lulc)
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, a Land use / Land cover raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, a Land use / Land cover raster must be provided.\n")
+                missing_data = 1
             if lulc_general_table_found:
                 gp.AddMessage("\tLand use/land cover general class table")
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
+                missing_data = 1
             if rios_coeff_table_found:
                 gp.AddMessage("\tRIOS general coefficient table")
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, the RIOS general coefficient table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, the RIOS general coefficient table must be provided.\n")
+                missing_data = 1
             if threshold_flowacc_found:
                 gp.AddMessage("\tThreshold flow accumulation")
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, a Threshold flow accumulation value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, a Threshold flow accumulation value must be provided.\n")
+                missing_data = 1
             if buffer_dist_found:
                 gp.AddMessage("\tRiparian buffer distance")
             else:
-                gp.AddError("\n\tError: If Erosion Control is to be processed, a Riparian buffer distance value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Erosion Control is to be processed, a Riparian buffer distance value must be provided.\n")
+                missing_data = 1
 
         if do_nutrient_p == 'true':
             gp.AddMessage("\nPhosphorus Retention selected, checking required inputs:")
@@ -247,56 +256,56 @@ try:
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a DEM must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, a DEM must be provided.\n")
+                missing_data = 1
             if erosivity_found:
                 gp.AddMessage("\tErosivity")
                 if erosivity not in input_raster_list:
                     input_raster_list.append(erosivity)
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, an Erosivity raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, an Erosivity raster must be provided.\n")
+                missing_data = 1
             if erodibility_found:
                 gp.AddMessage("\tErodibility")
                 if erodibility not in input_raster_list:
                     input_raster_list.append(erodibility)
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, an Erodibility raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, an Erodibility raster must be provided.\n")
+                missing_data = 1
             if soil_depth_found:
                 gp.AddMessage("\tSoil depth")
                 if soil_depth not in input_raster_list:
                     input_raster_list.append(soil_depth)
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Soil Depth raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, a Soil Depth raster must be provided.\n")
+                missing_data = 1
             if lulc_found:
                 gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Land use / Land cover raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, a Land use / Land cover raster must be provided.\n")
+                missing_data = 1
             if lulc_general_table_found:
                 gp.AddMessage("\tLand use/land cover general class table")
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
+                missing_data = 1
             if rios_coeff_table_found:
                 gp.AddMessage("\tRIOS general coefficient table")
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, the RIOS general coefficient table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, the RIOS general coefficient table must be provided.\n")
+                missing_data = 1
             if threshold_flowacc_found:
                 gp.AddMessage("\tThreshold flow accumulation")
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
+                missing_data = 1
             if buffer_dist_found:
                 gp.AddMessage("\tRiparian buffer distance")
             else:
-                gp.AddError("\n\tError: If Phosphorus Retention is to be processed, a Riparian buffer distance value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Phosphorus Retention is to be processed, a Riparian buffer distance value must be provided.\n")
+                missing_data = 1
 
         if do_nutrient_n == 'true':
             gp.AddMessage("\nNitrogen Retention selected, checking required inputs:")
@@ -306,42 +315,42 @@ try:
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
-                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a DEM must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Nitrogen Retention is to be processed, a DEM must be provided.\n")
+                missing_data = 1
             if soil_depth_found:
                 gp.AddMessage("\tSoil depth")
                 if soil_depth not in input_raster_list:
                     input_raster_list.append(soil_depth)
             else:
-                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Soil Depth raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Nitrogen Retention is to be processed, a Soil Depth raster must be provided.\n")
+                missing_data = 1
             if lulc_found:
                 gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
-                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Land use / Land cover raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Nitrogen Retention is to be processed, a Land use / Land cover raster must be provided.\n")
+                missing_data = 1
             if lulc_general_table_found:
                 gp.AddMessage("\tLand use/land cover general class table")
             else:
-                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Nitrogen Retention is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
+                missing_data = 1
             if rios_coeff_table_found:
                 gp.AddMessage("\tRIOS general coefficient table")
             else:
-                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, the RIOS general coefficient table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Nitrogen Retention is to be processed, the RIOS general coefficient table must be provided.\n")
+                missing_data = 1
             if threshold_flowacc_found:
                 gp.AddMessage("\tThreshold flow accumulation")
             else:
-                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Nitrogen Retention is to be processed, a Threshold flow accumulation value must be provided.\n")
+                missing_data = 1
             if buffer_dist_found:
                 gp.AddMessage("\tRiparian buffer distance")
             else:
-                gp.AddError("\n\tError: If Nitrogen Retention is to be processed, a Riparian buffer distance value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Nitrogen Retention is to be processed, a Riparian buffer distance value must be provided.\n")
+                missing_data = 1
 
         if do_flood == 'true':
             gp.AddMessage("\nFlood Mitigation selected, checking required inputs:")
@@ -351,47 +360,47 @@ try:
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a DEM must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Flood Mitigation is to be processed, a DEM must be provided.\n")
+                missing_data = 1
             if precip_month_found:
                 gp.AddMessage("\tPrecipitation depth for wettest month")
                 input_raster_list.append(precip_month)
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Precipitation depth for wettest month raster must be provided.\n")
-                raise Exception 
+                gp.AddError("\n\tMissing Data: If Flood Mitigation is to be processed, a Precipitation depth for wettest month raster must be provided.\n")
+                missing_data = 1 
             if soil_texture_found:
                 gp.AddMessage("\tSoil texture")
                 input_raster_list.append(soil_texture)
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Soil Texture raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Flood Mitigation is to be processed, a Soil Texture raster must be provided.\n")
+                missing_data = 1
             if lulc_found:
                 gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Land use / Land cover raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Flood Mitigation is to be processed, a Land use / Land cover raster must be provided.\n")
+                missing_data = 1
             if lulc_general_table_found:
                 gp.AddMessage("\tLand use/land cover general class table")
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data If Flood Mitigation is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
+                missing_data = 1
             if rios_coeff_table_found:
                 gp.AddMessage("\tRIOS general coefficient table")
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, the RIOS general coefficient table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Flood Mitigation is to be processed, the RIOS general coefficient table must be provided.\n")
+                missing_data = 1
             if threshold_flowacc_found:
                 gp.AddMessage("\tThreshold flow accumulation")
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Threshold flow accumulation value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Flood Mitigation is to be processed, a Threshold flow accumulation value must be provided.\n")
+                missing_data = 1
             if buffer_dist_found:
                 gp.AddMessage("\tRiparian buffer distance")
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Riparian buffer distance value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Flood Mitigation is to be processed, a Riparian buffer distance value must be provided.\n")
+                missing_data = 1
 
         if do_groundwater == 'true':
             gp.AddMessage("\nGroundwater Recharge selected, checking required inputs:")
@@ -401,59 +410,63 @@ try:
                 if DEM not in input_raster_list:
                     input_raster_list.append(DEM)
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a DEM must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, a DEM must be provided.\n")
+                missing_data = 1
             if precip_annual_found:
                 gp.AddMessage("\tAnnual average precipitation")
                 input_raster_list.append(precip_annual)
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, an Annual Average Precipitation raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, an Annual Average Precipitation raster must be provided.\n")
+                missing_data = 1
             if aet_found:
                 gp.AddMessage("\tActual Evapotranspiration")
                 input_raster_list.append(AET)
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, an Actual Evapotranspiration raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, an Actual Evapotranspiration raster must be provided.\n")
+                missing_data = 1
             if lulc_found:
                 gp.AddMessage("\tLand use/land cover")
                 if lulc not in input_raster_list:
                     input_raster_list.append(lulc)
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Land use / Land cover raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, a Land use / Land cover raster must be provided.\n")
+                missing_data = 1
             if lulc_general_table_found:
                 gp.AddMessage("\tLand use/land cover general class table")
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, a Land use / Land cover general class mapping table must be provided.\n")
+                missing_data = 1
             if rios_coeff_table_found:
                 gp.AddMessage("\tRIOS general coefficient table")
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, the RIOS general coefficient table must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, the RIOS general coefficient table must be provided.\n")
+                missing_data = 1
             if soil_texture_found:
                 gp.AddMessage("\tSoil texture")
                 if soil_texture not in input_raster_list:
                     input_raster_list.append(soil_texture)
             else:
-                gp.AddError("\n\tError: If Flood Mitigation is to be processed, a Soil Texture raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, a Soil Texture raster must be provided.\n")
+                missing_data = 1
             if soil_depth_found:
                 gp.AddMessage("\tSoil depth")
                 if soil_depth not in input_raster_list:
                     input_raster_list.append(soil_depth)
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Soil Depth raster must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, a Soil Depth raster must be provided.\n")
+                missing_data = 1
             if threshold_flowacc_found:
                 gp.AddMessage("\tThreshold flow accumulation")
             else:
-                gp.AddError("\n\tError: If Groundwater Recharge is to be processed, a Threshold flow accumulation value must be provided.\n")
-                raise Exception
+                gp.AddError("\n\tMissing Data: If Groundwater Recharge is to be processed, a Threshold flow accumulation value must be provided.\n")
+                missing_data = 1
+
+        if missing_data == 1:
+            gp.AddError("\n\nPlease consult the tool's Help information and enter all of the required data inputs. \n")
+            raise Exception
 
     except:
-        gp.AddError("\nError in specifying arguments: " + gp.GetMessages(2))
+        gp.AddError("\nError specifying input data: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -509,7 +522,6 @@ try:
 
         flgw_index_cover = interws + "fg_ind_c"
         flgw_index_rough = interws + "fg_ind_r"
-        flgw_slope_index = interws + "fg_slope_idx"
         flood_rainfall_depth_index = interws + "fl_rain_idx"
         flood_comb_weight_ret = interws + "fl_cwgt_r"
         flood_comb_weight_source = interws + "fl_cwgt_s"
@@ -523,10 +535,6 @@ try:
         gwater_ups_flowacc = interws + "gw_flowacc"
         gwater_dret_flowlen = interws + "gw_flowlen"
         
-
-        ### LOCATION OF COEFFICIENT MAPPING TABLE - HARD-CODED - WHAT TO DO WITH THIS?! ###
-        # HAVE INPUT FOR LOCATION OF RIOS INSTALL? #
-##        rios_coeff_table = "F:\GIS\WaterFunds\WATER_tool\general_lulc_coefficients_sw_made_up_P.csv"        
 
         # LULC coefficient table field names
         lulc_gen_field = "lulc_gen"
@@ -551,7 +559,8 @@ try:
         made_lulc_coeffs = False
         made_flowdir_channels = False
         made_slope_index = False
-        made_flgw_slope_index = False
+        made_flood_slope_index = False
+        made_gwater_slope_index = False
         made_soil_depth_index = False
         made_erosivity_index = False
         made_erodibility_index = False
@@ -577,10 +586,12 @@ try:
         flood_dret_index = outputws + "flood_downslope_retention_index" + Suffix + ".tif"
         flood_upslope_source = outputws + "flood_upslope_source" + Suffix + ".tif"
         flood_riparian_index = outputws + "flood_riparian_index" + Suffix + ".tif"
+        flood_slope_index = outputws + "flood_slope_index" + Suffix + ".tif"
 
         gwater_dret_index = outputws + "groundwater_downslope_retention_index" + Suffix + ".tif"
         gwater_upslope_source = outputws + "groundwater_upslope_source" + Suffix + ".tif"
         gwater_riparian_index = outputws + "groundwater_riparian_index" + Suffix + ".tif"
+        gwater_slope_index = outputws + "groundwater_slope_index" + Suffix + ".tif"
 
     except:
         gp.AddError( "\nError configuring local variables: " + gp.GetMessages(2))
@@ -620,6 +631,9 @@ try:
         # Make sure all outputs align with the land cover map
         gp.snapRaster = lulc
         gp.Extent = lulc
+        # If a watershed mask is provided, use it to minimize processing time
+        if watershed_found:
+            gp.Mask = watershed
 
     except:
         gp.AddError( "\nError setting geoprocessing environment: " + gp.GetMessages(2))
@@ -722,7 +736,7 @@ try:
             raster_max = gp.GetRasterProperties_management(in_raster, "MAXIMUM")
             gp.Divide_sa(in_raster, float(raster_max), out_raster)
         except:
-            gp.AddError ("\nError normalizing raster:  " + gp.GetMessages(2))
+            gp.AddError ("\nError normalizing raster " + str(in_raster) + ":  " + gp.GetMessages(2))
             raise Exception
 
 
@@ -732,16 +746,22 @@ try:
 
         try:
             gp.AddMessage("\n\tMapping coefficients to landcover...")
-            lulc_gen_join = interws + "lu_gen_join"
-            gp.MakeRasterLayer_management(lulc, "lulc_layer")
 
-            if not confirmfield(lulc_gen_field, "lulc_layer"):
-                gp.AddField("lulc_layer", lulc_gen_field, "TEXT")
+            # intermediate files
+            lulc_gen_join = interws + "lu_gen_join"
+            lulc_copy = interws + "lulc_copy"
+            
+            gp.CopyRaster_management(lulc, lulc_copy)
+
+            if not confirmfield(lulc_gen_field, lulc_copy):
+                gp.AddField(lulc_copy, lulc_gen_field, "TEXT")
 
             # Remove any fields that conflict with the coefficient table input field names
             for field in rios_fields:
-                if confirmfield(field, "lulc_layer"):
-                    gp.DeleteField("lulc_layer", field)
+                if confirmfield(field, lulc_copy):
+                    gp.DeleteField(lulc_copy, field)
+
+            gp.MakeRasterLayer_management(lulc_copy, "lulc_layer")
 
             # Map general classes to landuse table via the lucode
             gp.MakeTableView_management(lulc_general_table, "lulc_gen_layer")
@@ -1083,16 +1103,18 @@ try:
                 riparian_index(flgw_index_rough, flood_riparian_index, "flood_mosaic")
                 gp.AddMessage("\n\tCreated Flood Mitigation riparian continuity index: " + flood_riparian_index)
 
-            gp.AddMessage("\n\tCreating downslope retention index...")
-
             ## Slope index - binned, not normalized
-            if not made_flgw_slope_index:
+            gp.AddMessage("\n\tCreating slope index...")
+            if not made_flood_slope_index:
                 gp.SingleOutputMapAlgebra_sa("CON(" + slope + " >= 10.001, 1.0, CON(" \
-                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flgw_slope_index)
-                made_flgw_slope_index = True
+                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flood_slope_index)
+                made_flood_slope_index = True
+
+            gp.AddMessage("\n\tCreated Flood slope index: " + flood_slope_index)
             
             # Combined weight R
-            gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", flood_comb_weight_ret)
+            gp.AddMessage("\n\tCreating downslope retention index...")
+            gp.SingleOutputMapAlgebra_sa("((1.0 - " + flood_slope_index + " ) + " + flgw_index_rough + ") / 2", flood_comb_weight_ret)
             
             # Set flow direction raster to null where there are streams
             if not made_flowdir_channels: 
@@ -1111,7 +1133,7 @@ try:
                 
             # Combined weight source
             gp.SingleOutputMapAlgebra_sa("(" + flood_rainfall_depth_index + " + " + "(1 - " + flgw_index_cover + \
-                                         ") + " + soil_texture + " + " + flgw_slope_index + \
+                                         ") + " + soil_texture + " + " + flood_slope_index + \
                                          " + (1 - " + flgw_index_rough + ")) / 5" , flood_comb_weight_source)
 
             ## Upslope source
@@ -1146,22 +1168,25 @@ try:
                 gp.Lookup_sa(lulc_coeffs, cover_rios_field, flgw_index_rough)
                 made_flgw_index_rough = True
 
-            ## Slope index - binned, not normalized
-            if not made_flgw_slope_index:
+            ## Slope index - binned, not normalized, use Flood's slope index if it was created
+            gp.AddMessage("\n\tCreating slope index...")
+            if do_flood == 'true' and gp.Exists(flood_slope_index):
+                gp.CopyRaster_management(flood_slope_index, gwater_slope_index)
+            else:
                 gp.SingleOutputMapAlgebra_sa("CON(" + slope + " >= 10.001, 1.0, CON(" \
-                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", flgw_slope_index)
-                made_flgw_slope_index = True
+                                             + slope + " > 5.001 && " + slope + " <= 10.0, 0.66, 0.33))", gwater_slope_index)
+                made_gwater_slope_index = True
+
+            gp.AddMessage("\n\tCreated Groundwater slope index: " + gwater_slope_index)
 
             # If Flood was already done, use its outputs instead of re-calculating, since many are the same
+            gp.AddMessage("\n\tCreating downslope retention index...")
             if do_flood == 'true' and gp.Exists(flood_dret_index):
-                gp.AddMessage("\n\tCreating downslope retention index...")
                 gp.CopyRaster_management(flood_dret_index, gwater_dret_index)
-                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
             else:
                 # Combined weight R
-                gp.SingleOutputMapAlgebra_sa("((1.0 - " + flgw_slope_index + " ) + " + flgw_index_rough + ") / 2", gwater_comb_weight_ret)
+                gp.SingleOutputMapAlgebra_sa("((1.0 - " + gwater_slope_index + " ) + " + flgw_index_rough + ") / 2", gwater_comb_weight_ret)
 
-                gp.AddMessage("\n\tCreating downslope retention index...")
                 # Set flow direction raster to null where there are streams
                 if not made_flowdir_channels: 
                     define_channels()
@@ -1170,7 +1195,8 @@ try:
                 ## Downslope retention index
                 gp.FlowLength_sa(flowdir_channels, gwater_dret_flowlen, "DOWNSTREAM", gwater_comb_weight_ret)
                 normalize(gwater_dret_flowlen, gwater_dret_index)
-                gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
+
+            gp.AddMessage("\n\tCreated Groundwater downslope retention index: " + gwater_dret_index)
 
             gp.AddMessage("\n\tCreating upslope source...")
             
@@ -1188,7 +1214,7 @@ try:
                 
             # Combined weight source
             gp.SingleOutputMapAlgebra_sa("(" + gwater_precip_annual_index + " + (1 - " + gwater_aet_index + ") + " + \
-                                         soil_texture + " + " + flgw_slope_index + " + (1 - " + flgw_index_cover + \
+                                         soil_texture + " + " + gwater_slope_index + " + (1 - " + flgw_index_cover + \
                                           ") + " + "(1 - " + flgw_index_rough + ") + " + soil_depth_index + ") / 7", gwater_comb_weight_source)
 
             ## Upslope source
