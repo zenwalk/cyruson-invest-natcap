@@ -1,3 +1,7 @@
+from urllib import urlencode
+from urllib2 import Request
+from urllib2 import urlopen
+import pkg_resources
 import imp
 import os.path
 

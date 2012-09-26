@@ -1,7 +1,3 @@
-# Adding logging to ncp-dev for this script.
-import logger
-logger.log_model('CP0_FetchCalculator')
-
 # Marine InVEST: Fetch Calculator Tool
 # Authors: Gregg Verutes, Greg Guannel, Jeremy Davies 
 # Coded for ArcGIS 9.3 and 10
