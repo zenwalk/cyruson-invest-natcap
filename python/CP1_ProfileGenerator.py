@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Profile Generator)
-# Authors: Greg Guannel, Gregg Verutes
-# 12/13/11
+# Authors: Greg Guannel, Gregg Verutes, Jeremy Davies
+# 06/28/12
 
 # import libraries
 import CPf_SignalSmooth as SignalSmooth
@@ -150,7 +150,6 @@ try:
     LandPoint_Geo=interws+"LandPoint_Geo.shp"
     Shoreline=interws+"Shoreline.shp"
     Shoreline_Buff_Clip=interws+"Shoreline_Buff_Clip.shp"
-    Shoreline_Buff_Clip_Diss=interws+"Shoreline_Buff_Clip_Diss.shp"
     PtsCopy=interws+"PtsCopy.shp"
     PtsCopy2=interws+"PtsCopy2.shp"
     PtsCopyLR=interws+"PtsCopy2_lineRotate.shp"
@@ -1000,15 +999,13 @@ try:
             # create transect and read transect file
             gp.Buffer_analysis(LandPoint,LandPoint_Buff,str(BufferDist)+" Meters","FULL","ROUND","NONE","")
             gp.Extent=LandPoint_Buff
-            gp.PolygonToLine_management(LandPoly,Shoreline)
+            gp.Intersect_analysis(LandPoint_Buff+"; "+LandPoly,Shoreline_Buff_Clip,"NO_FID","","POINT")           
             gp.Extent=""
-            gp.Clip_analysis(Shoreline,LandPoint_Buff,Shoreline_Buff_Clip,"")
             # check to make sure that clipped shoreline is not empty FC
             if gp.GetCount_management(Shoreline_Buff_Clip)==0:
                 gp.AddError("Shoreline was not found within "+str(BufferDist)+" meters of 'LandPoint' input.  \
                              Either increase the buffer distance or move the 'LandPoint' input closer to the coastline.")
                 raise Exception
-            gp.Dissolve_management(Shoreline_Buff_Clip,Shoreline_Buff_Clip_Diss,"","","MULTI_PART","UNSPLIT_LINES")
 
             # set coordinate system to same projection (in meters) as the shoreline point input
             gp.outputCoordinateSystem=LandPoint
@@ -1023,7 +1020,7 @@ try:
             del cur,row
 
             # grab coordinates of the start and end of the coastline segment
-            cur=gp.SearchCursor(Shoreline_Buff_Clip_Diss)
+            cur=gp.SearchCursor(Shoreline_Buff_Clip)
             row=cur.Next()
             counter=1
             feat=row.Shape
@@ -1096,24 +1093,27 @@ try:
             gp.CreateFeatureClass_management(interws,"PT2.shp","POINT","#","#","#",spatialRef)
 
             # create two point transects, each point is 1 meter away from the previous    
+            x1,y1,x2,y2=PTCreate(PerpTransType,midx,midy,1)
+            xDelta = midx-x1
+            yDelta = midy-y1
+
+            # create two point transects, each point is 1 meter away from the previous
             cur1=gp.InsertCursor(PT1)
             cur2=gp.InsertCursor(PT2)
-            while TransectDist <= RadLineDist/2.0:
-                # call 'PTCreate' function to use the correct perpendicular transect formula based on coastline slope (m)
-                x1,y1,x2,y2=PTCreate(PerpTransType,midx,midy,TransectDist)
+            
+            for bb in range(1,25001):
                 row1=cur1.NewRow()
                 pnt=gp.CreateObject("POINT")
-                pnt.x=x1
-                pnt.y=y1
+                pnt.x=midx+(bb*(xDelta))
+                pnt.y=midy+(bb*(yDelta))
                 row1.shape=pnt
                 cur1.InsertRow(row1)
                 row2=cur2.NewRow()
                 pnt=gp.CreateObject("POINT")
-                pnt.x=x2
-                pnt.y=y2
+                pnt.x=midx-(bb*(xDelta))
+                pnt.y=midy-(bb*(yDelta))
                 row2.shape=pnt
                 cur2.InsertRow(row2)
-                TransectDist=TransectDist+1
             del cur1,row1
             del cur2,row2
 
@@ -1134,6 +1134,7 @@ try:
                 cur.UpdateRow(row)
                 row=cur.next()
             del cur,row
+       
             Dmeas2=[]
             cur=gp.UpdateCursor(PT2_Z)
             row=cur.Next()
@@ -1144,37 +1145,57 @@ try:
             del cur,row
 
             # find which point transect hits water first
-            DepthStart1=1
-            for DepthValue1 in Dmeas1:
-                if DepthValue1 < 0.0 and DepthValue1 <> -9999.0:
-                    break
-                DepthStart1=DepthStart1+1
-            DepthStart2=1
-            for DepthValue2 in Dmeas2:
-                if DepthValue2 < 0.0 and DepthValue2 <> -9999.0:
-                    break
-                DepthStart2=DepthStart2+1
-                
+            def locate(l):
+                negative=False
+                negativeID=-555555
+                positiveID=555555
+                for i in range(len(l)):
+                    if (negative==False) and (l[i] < 0) and (l[i] != -9999):
+                        negative=True
+                        negativeID=i
+                    if (negative==True) and (l[i] > 0) or (l[i] == -9999):
+                        positiveID=i
+                        break
+                if negativeID==-555555:
+                    negativeID=len(l)                     
+                if positiveID==555555:
+                    positiveID=len(l)
+                return negativeID,positiveID
+
+            neg1ID,pos1ID=locate(Dmeas1)
+            neg2ID,pos2ID=locate(Dmeas2)
+
             # create final lists of cross-shore distance (Dx) and depth (Dmeas)
             Dx=[]   
             Dmeas=[]
             counter=0
-            if DepthStart1 < DepthStart2:
-                for i in range(DepthStart1-1,len(Dmeas1)):
-                    if Dmeas1[i] < 0.0 and Dmeas1[i] <> -9999.0:
+            TransectChoice=1
+
+            if neg1ID < neg2ID:
+                for i in range(neg1ID,pos1ID):
+                    Dx.append(counter)
+                    Dmeas.append(Dmeas1[i])
+                    counter += 1
+
+            elif neg1ID > neg2ID:
+                for i in range(neg2ID,pos2ID):
+                    Dx.append(counter)
+                    Dmeas.append(Dmeas2[i])
+                    counter += 1
+                TransectChoice=2
+
+            else:
+                if pos1ID > pos2ID:
+                    for i in range(neg1ID,pos1ID):
                         Dx.append(counter)
                         Dmeas.append(Dmeas1[i])
-                        counter=counter+1
-                    else:
-                        break
-            else:
-                for j in range(DepthStart2-1,len(Dmeas2)):
-                    if Dmeas2[j] < 0.0 and Dmeas2[j] <> -9999.0:
+                        counter += 1
+                else:
+                    for i in range(neg2ID,pos2ID):
                         Dx.append(counter)
-                        Dmeas.append(Dmeas2[j])
-                        counter=counter+1
-                    else:
-                        break
+                        Dmeas.append(Dmeas2[i])
+                        counter += 1
+                    TransectChoice=2
 
             if len(Dmeas1)==0 and len(Dmeas2)==0:
                 gp.AddError("\nNeither transect overlaps the seas.  Please check the location of your 'LandPoint' and bathymetry inputs.")
@@ -1196,11 +1217,11 @@ try:
             file.close()
 
             # create final point transect file
-            if DepthStart1 < DepthStart2:
-                gp.Select_analysis(PT1_Z,Profile_Pts,"\"PT_ID\" > "+str(DepthStart1-1)+" AND \"PT_ID\" < "+str(DepthStart1+counter))
+            if TransectChoice == 1:
+                gp.Select_analysis(PT1_Z,Profile_Pts,"\"PT_ID\" > "+str(neg1ID-1)+" AND \"PT_ID\" < "+str(pos1ID))
                 if HabDirectory:
                     # add near and backshore to profile for habitat extraction
-                    gp.Select_analysis(PT1_Z,PT_Z_Near,"\"PT_ID\" <= "+str(DepthStart1-1))
+                    gp.Select_analysis(PT1_Z,PT_Z_Near,"\"PT_ID\" <= "+str(neg1ID-1))
                     PT_Z_Near=AddField(PT_Z_Near,"DEPTH","DOUBLE","","")
                     gp.CalculateField_management(PT_Z_Near,"DEPTH","!RASTERVALU!","PYTHON")
                     gp.DeleteField_management(PT_Z_Near,"RASTERVALU")
@@ -1211,10 +1232,10 @@ try:
                     gp.Select_analysis(PT2_Z,Backshore_Pts,"\"PT_ID\" < 0 AND \"PT_ID\" > -2001")
                     
             else:
-                gp.Select_analysis(PT2_Z,Profile_Pts,"\"PT_ID\" > "+str(DepthStart2-1)+" AND \"PT_ID\" < "+str(DepthStart2+counter))
+                gp.Select_analysis(PT2_Z,Profile_Pts,"\"PT_ID\" > "+str(neg2ID-1)+" AND \"PT_ID\" < "+str(pos2ID))
                 if HabDirectory:
                     # add near and backshore to profile for habitat extraction
-                    gp.Select_analysis(PT2_Z,PT_Z_Near,"\"PT_ID\" <= "+str(DepthStart2-1))
+                    gp.Select_analysis(PT2_Z,PT_Z_Near,"\"PT_ID\" <= "+str(neg2ID-1))
                     PT_Z_Near=AddField(PT_Z_Near,"DEPTH","DOUBLE","","")
                     gp.CalculateField_management(PT_Z_Near,"DEPTH","!RASTERVALU!","PYTHON")
                     gp.DeleteField_management(PT_Z_Near,"RASTERVALU")
@@ -1223,7 +1244,7 @@ try:
                     gp.DeleteField_management(PT1_Z,"RASTERVALU")
                     gp.CalculateField_management(PT1_Z,"PT_ID","!PT_ID! * -1","PYTHON")
                     gp.Select_analysis(PT1_Z,Backshore_Pts,"\"PT_ID\" < 0 AND \"PT_ID\" > -2001")
-
+                    
             # add and calculate field for "DEPTH"
             Profile_Pts=AddField(Profile_Pts,"DEPTH","DOUBLE","","")
             gp.CalculateField_management(Profile_Pts,"DEPTH","!RASTERVALU!","PYTHON")
@@ -1236,9 +1257,8 @@ try:
 
             # smooth profile and create x axis
             lx=len(Dmeas) # length of original data
-            Dx=num.array(Dx)
             Dmeas=num.array(Dmeas)# shoreline starts at x=0
-            
+           
             yd=[Dmeas[ii] for ii in range(len(Dx))]
             xd=[Dx[ii] for ii in range(len(Dx))]
             SmoothValue=(SmoothParameter/100.0)*len(Dmeas)
@@ -2414,7 +2434,7 @@ try:
     parafile.close()
 
     # delete superfluous intermediate data
-    del1=[LandPointLyr,LandPolyLyr,LandPoint_Buff,LandPoint_Buff50k,LandPoint_Geo,Shoreline,Shoreline_Buff_Clip,Shoreline_Buff_Clip_Diss]
+    del1=[LandPointLyr,LandPolyLyr,LandPoint_Buff,LandPoint_Buff50k,LandPoint_Geo,Shoreline,Shoreline_Buff_Clip]
     del2=[PT1,PT2,PT1_Z,PT2_Z,PT_Z_Near,Backshore_Pts,Profile_Pts_Merge,Profile_Pts_Lyr]
     del3=[PtsCopy,PtsCopy2,PtsCopyLR,PtsCopy3,PtsCopyLD,Fetch_AOI,UnionFC,SeaPoly,seapoly_rst,seapoly_e,PtsCopyEL,PtsCopyExp,PtsCopyExp_Lyr,LandPoint_WW3]
     del4=[]
