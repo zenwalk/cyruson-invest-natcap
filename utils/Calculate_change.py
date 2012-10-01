@@ -3,12 +3,14 @@
 #
 # Coded by Stacie Wolny
 # for the Natural Capital Project
-# 
-# Last edit: 3/8/2010 
 #
 # Calculates absolute and/or percent change between scenario outputs
 # Optionally splits the results into two rasters, one with positive
 #   values and the other with negative, to make symbolizing easier
+#
+# NOTES, REMOVE:
+# - pixel-based outputs: use old code, add mask for summarizing over whole area
+# - sub-watershed outputs: use old code, shapefile for making table
 # ---------------------------------------------------------------------------
 
 # Import system modules
@@ -50,25 +52,54 @@ try:
         scenario2 = gp.GetParameterAsText(2)
         parameters.append("Scenario 2: " + scenario2)
 
-        # Shapefile of area(s) to calculate total change for (optional)
-        zones = gp.GetParameterAsText(3)
-        parameters.append("Zones: " + zones)
-
-        # Zone field uniquely identifying each zone
-        zones_id_field = gp.GetParameterAsText(4)
-        parameters.append("Zones ID field: " + zones_id_field)
-
-        # Suffix to append to output filenames, as <filename>_<suffix>
-        Suffix = gp.GetParameterAsText(5)
-        parameters.append("Suffix: " + Suffix)
-
-        if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
-            Suffix = ""
+        # Calculate change for whole area of interest?
+        do_area = gp.GetParameterAsText(3)
+        if do_area =='true':
+            do_area = True
+            parameters.append("Calculate change for whole area of interest: Yes")
         else:
-            Suffix = "_" + Suffix
+            do_area = False
+            parameters.append("Calculate change for whole area of interest: No")
 
+        # If calculating change for whole area, need area shapefile
+        area_mask = gp.GetParameterAsText(4)
+        parameters.append("Area mask: " + area_mask)
+        if do_area and (area_mask == "") or (area_mask == string.whitespace) or (area_mask == "#"):
+            gp.AddError("\nError: If the area of interest is to be processed, a corresponding shapefile must be provided")
+            raise Exception
+
+        # Area of interest ID field - used in making output table
+        area_id_field = gp.GetParameterAsText(5)
+        parameters.append("Area of interest ID field: " + area_id_field)
+        if do_area and (area_id_field == "") or (area_id_field == string.whitespace) or (area_id_field == "#"):
+            gp.AddError("\nError: If the area of interest is to be processed, an ID field must be provided")
+            raise Exception
+
+        # Calculate output table per subwatershed?
+        do_subwshed = gp.GetParameterAsText(6)
+        if do_subwshed =='true':
+            do_subwshed = True
+            parameters.append("Calculate change for subwatersheds: Yes")
+        else:
+            do_subwshed = False
+            parameters.append("Calculate change for subwatersheds: No")
+
+        # If calculating change for subwatersheds, need shapefile
+        subwsheds = gp.GetParameterAsText(7)
+        parameters.append("Subwatersheds: " + area_mask)
+        if do_subwshed and (subwsheds == "") or (subwsheds == string.whitespace) or (subwsheds == "#"):
+            gp.AddError("\nError: If subwatersheds are to be processed, a subwatershed shapefile must be provided")
+            raise Exception
+
+        # Subwatershed ID field - used in making output table
+        subwshed_id_field = gp.GetParameterAsText(8)
+        parameters.append("Subwatershed ID field: " + subwshed_id_field)
+        if do_subwshed and (subwshed_id_field == "") or (subwshed_id_field == string.whitespace) or (subwshed_id_field == "#"):
+            gp.AddError("\nError: If subwatersheds are to be processed, a subwatershed ID field must be provided")
+            raise Exception
+            
         # Calculate change?
-        do_change = gp.GetParameterAsText(6)
+        do_change = gp.GetParameterAsText(9)
         if do_change =='true':
             do_change = True
             parameters.append("Calculate change: Yes")
@@ -77,16 +108,19 @@ try:
             parameters.append("Calculate change: No")
 
         # Calculate percent change?
-        do_percent_change = gp.GetParameterAsText(7)
+        do_percent_change = gp.GetParameterAsText(10)
         if do_percent_change =='true':
             do_percent_change = True
             parameters.append("Calculate percent change: Yes")
         else:
             do_percent_change = False
+            if not do_change:
+                gp.AddError("\nError: Nothing to do. Please select \'Calculate change\' and/or \'Calculate percent change\'.")
+                raise Exception
             parameters.append("Calculate percent change: No")
 
         # Split the results into positive and negative rasters?
-        do_split = gp.GetParameterAsText(8)
+        do_split = gp.GetParameterAsText(11)
         if do_split =='true':
             if (do_change or do_percent_change):
                 do_split = True
@@ -98,22 +132,14 @@ try:
             do_split = False
             parameters.append("Split results: No")
 
-        # Calculate change over zones?
-        do_zones = gp.GetParameterAsText(9)
-        if do_zones =='true':
-            if (zones != "") and (zones != string.whitespace) and (zones != "#"):
-                if (zones_id_field != "") and (zones_id_field != string.whitespace) and (zones_id_field != "#"):
-                    do_zones = True
-                    parameters.append("Calculate change by zones: Yes")
-                else:
-                    gp.AddError("\nError: If change is to be calculated by zones, a Zone ID field must be specified.\n")
-                    raise Exception
-            else:
-                gp.AddError("\nError: If change is to be calculated by zones, a Zones shapefile must be specified.\n")
-                raise Exception
+        # Suffix to append to output filenames, as <filename>_<suffix>
+        Suffix = gp.GetParameterAsText(12)
+        parameters.append("Suffix: " + Suffix)
+
+        if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
+            Suffix = ""
         else:
-            do_zones = False
-            parameters.append("Calculate change by zones: No")
+            Suffix = "_" + Suffix
             
     except:
         gp.AddError("Error in input arguments: " + gp.GetMessages(2))
@@ -122,7 +148,7 @@ try:
 
     # Check and create output folders
     try:
-        thefolders=["Post_Process", "Intermediate"]
+        thefolders=["Output", "Intermediate"]
         for folder in thefolders:
             if not gp.Exists(gp.workspace+folder):
                 gp.CreateFolder_management(gp.workspace, folder)
@@ -134,168 +160,115 @@ try:
     # Output files
     try:
         # Base output/working directories
-        postprocws = gp.workspace + os.sep + "Post_Process" + os.sep
+        postprocws = gp.workspace + os.sep + "Post_process" + os.sep
         interws = gp.workspace + os.sep + "Intermediate" + os.sep
         
         # Intermediate variables
         x100 = "100"
-        scen1_zstat_sum = interws + "scen1_zs_sum"
-        scen2_zstat_sum = interws + "scen2_zs_sum"
-        zone_sum_change_table = interws + "zone_sum_change.dbf"
-        zone_sum_pchange_table = interws + "zone_sum_pchange.dbf"
-        tmp_zone_output_table = interws + "tmp_zone_change.dbf"
-
-        # Output field names
-        change_sum_field = "change"
-        pchange_sum_field = "pchange"
-                
+        change_zstat_table = interws + "change_zstat.dbf"
+        pchange_zstat_table = interws + "pchange_zstat.dbf"
+        
         # Output layers
-        change = postprocws + "change"
-        percent_change =  postprocws + "pchange"
-        pchange_lt_zero = postprocws + "pch_lt0"
-        pchange_gte_zero = postprocws + "pch_gte0"
-        change_lt_zero = postprocws + "ch_lt0"
-        change_gte_zero = postprocws + "ch_gte0"
-        zone_sum_change = postprocws + "zone_ch"
-        zone_sum_pchange = postprocws + "zone_pch"
-        zone_output_table = postprocws + "zone_change" + Suffix + ".dbf"
-        zone_output_table_name = "zone_change" + Suffix + ".dbf"
+        change = postprocws + "change" + Suffix + ".tif"
+        percent_change =  postprocws + "percent_change" + Suffix + ".tif"
+        pchange_lt_zero = postprocws + "percent_change_lt0" + Suffix + ".tif"
+        pchange_gte_zero = postprocws + "percent_change_gte0" + Suffix + ".tif"
+        change_lt_zero = postprocws + "change_lt0" + Suffix + ".tif"
+        change_gte_zero = postprocws + "change_gte0" + Suffix + ".tif"
 
+
+        # Make sure all temporary files go in the Intermediate folder
+        gp.workspace = interws
         
     except:
         gp.AddError("Error configuring local variables: " + gp.GetMessages(2))
         raise Exception
 
 
-    # Add suffix to end of output filenames
-    # Constrain length of output raster filenames to 13 characters
+
+    # If requested, split percent change results into
+    # positive and negative valued rasters
+    def split(spraster):
+        try:
+            gp.AddMessage ("\nSplitting output...")
+            gp.SingleOutputMapAlgebra_sa("CON(" + spraster + " < 0, " + spraster + ")", spraster_lt_zero)
+            gp.SingleOutputMapAlgebra_sa("CON(" + spraster + " >= 0, " + spraster + ")", spraster_gte_zero)
+            return(spraster_lt_zero, spraster_gte_zero)
+
+        except:
+            gp.AddError ("Error splitting change rasters: " + gp.GetMessages(2))
+            raise Exception
+
+    # Process inputs
     try:
-        Outputnames = [change, percent_change, change_lt_zero, change_gte_zero, pchange_lt_zero, pchange_gte_zero, zone_sum_change, zone_sum_pchange]           
-        num = 0
-        for x in Outputnames:
-            y = x.split("\\")
-            z = y[-1]
-            lenz = len(z + Suffix)
-            if lenz > 13:
-                x2 = x.rstrip(z)
-                overlen = 13 - lenz 
-                newz = z[0:overlen]
-                x2 = x2 + newz
-                Outputnames[num] = x2 + Suffix
-            else:
-                Outputnames[num] = x + Suffix
-            num = num + 1
-
-        change = str(Outputnames[0])
-        percent_change = str(Outputnames[1])
-        change_lt_zero = str(Outputnames[2])
-        change_gte_zero = str(Outputnames[3])
-        pchange_lt_zero = str(Outputnames[4])
-        pchange_gte_zero = str(Outputnames[5])
-        zone_sum_change = str(Outputnames[6])
-        zone_sum_pchange = str(Outputnames[7])
-            
-    except:
-        gp.AddError ("Error validating output filenames: " + gp.GetMessages(2))
-        raise Exception
-
-
-    # Absolute change between two scenarios
-    try:
-
-        # Make sure all temporary files go in the Intermediate folder
-        gp.workspace = interws
-        
+        # Simple change (scenario1 - scenario2)
         if do_change:
             gp.AddMessage ("\nCalculating change...")
             gp.Minus_sa(scenario1, scenario2, change)
             gp.AddMessage("\tCreated change output file: \n\t" + str(change))
-    except:
-        gp.AddError ("Error calculating change: " + gp.GetMessages(2))
-        raise Exception
 
-
-    # Percent change between two scenarios
-    try:
-        if do_percent_change:
-            gp.AddMessage ("\nCalculating percent change...")
-            gp.SingleOutputMapAlgebra_sa("((" + scenario1 + " - " + scenario2 + ") / " + scenario2 + ") * 100", percent_change)
-            # %change not x100
-##            gp.SingleOutputMapAlgebra_sa("((" + scenario1 + " - " + scenario2 + ") / " + scenario2 + ")", percent_change)
-            gp.AddMessage("\tCreated percent change output file: \n\t" + str(percent_change))
-    except:
-        gp.AddError ("Error calculating percent change: " + gp.GetMessages(2))
-        raise Exception
-
-
-    # If requested, split percent change results into
-    # positive and negative valued rasters
-    try:
-        if do_split:
-            if do_change:
-                gp.AddMessage ("\nSplitting change output...")
-                gp.SingleOutputMapAlgebra_sa("CON(" + change + " < 0, " + change + ")", change_lt_zero)
-                gp.SingleOutputMapAlgebra_sa("CON(" + change + " >= 0, " + change + ")", change_gte_zero)
+            if do_split:
+                change_lt_zero, change_gte_zero = split(change)
                 gp.AddMessage("\tCreated change less than zero output file: \n\t" + str(change_lt_zero))
                 gp.AddMessage("\tCreated change greater than zero output file: \n\t" + str(change_gte_zero))
-            if do_percent_change:
-                gp.AddMessage ("\nSplitting percent change output...")
-                gp.SingleOutputMapAlgebra_sa("CON(" + percent_change + " < 0, " + percent_change + ")", pchange_lt_zero)
-                gp.SingleOutputMapAlgebra_sa("CON(" + percent_change + " >= 0, " + percent_change + ")", pchange_gte_zero)
+
+        # Percent change (((scenario1 - scenario2) / scenario2) * 100)
+        if do_percent_change:
+            gp.AddMessage("\nCalculating percent change...")
+            gp.SingleOutputMapAlgebra_sa("((" + scenario1 + " - " + scenario2 + ") / " + scenario2 + ") * 100", percent_change)
+            gp.AddMessage("\tCreated percent change output file: \n\t" + str(percent_change))
+
+            if do_split:
+                pchange_lt_zero, pchange_gte_zero = split(percent_change)
                 gp.AddMessage("\tCreated percent change less than zero output file: \n\t" + str(pchange_lt_zero))
                 gp.AddMessage("\tCreated percent change greater than zero output file: \n\t" + str(pchange_gte_zero))
-    except:
-        gp.AddError ("Error splitting change rasters: " + gp.GetMessages(2))
-        raise Exception
 
-    # Table and raster with aggregated change results
-    # Sum over whole area(s) of interest, calculate change from result
-    # User enters a polygon layer to sum over - can be whole watershed, sub-watersheds, political districts, whatever
-    try:
-        if do_zones:
-            gp.AddMessage("\nCalculating change by zones...")
-            gp.ZonalStatistics_sa(zones, zones_id_field, scenario1, scen1_zstat_sum, "SUM")
-            gp.ZonalStatistics_sa(zones, zones_id_field, scenario2, scen2_zstat_sum, "SUM")
-            # Raster of absolute change by zones
-            gp.Minus_sa(scen1_zstat_sum, scen2_zstat_sum, zone_sum_change)
-            gp.AddMessage("\tCreated change by zones raster output file: \n\t" + str(zone_sum_change))
-            # Raster of percent change by zones
-            gp.SingleOutputMapAlgebra_sa("(" + zone_sum_change + " / " + scen2_zstat_sum + ") * 100", zone_sum_pchange)
-            gp.AddMessage("\tCreated percent change by zones raster output file: \n\t" + str(zone_sum_pchange))
+        # Create table of change per subwatershed
+        if do_subwsheds:
+            gp.AddMessage("\nCreating change table for subwatersheds...")
 
-            # Turn them into a table
-            gp.AddMessage("\nCreating output tables...")
-            gp.ZonalStatisticsAsTable_sa(zones, zones_id_field, zone_sum_change, zone_sum_change_table, "DATA")
-            gp.ZonalStatisticsAsTable_sa(zones, zones_id_field, zone_sum_pchange, zone_sum_pchange_table, "DATA")
-            # Only one value per zone, so use the mean
-            gp.AddField(zone_sum_change_table, change_sum_field, "FLOAT")
-            gp.CalculateField_management(zone_sum_change_table, change_sum_field, "[MEAN]", "VB")
-            gp.AddField(zone_sum_pchange_table, pchange_sum_field, "FLOAT")
-            gp.CalculateField_management(zone_sum_pchange_table, pchange_sum_field, "[MEAN]", "VB")
-            # Join change and pchange into one table
-            gp.MakeTableView(zone_sum_change_table, "zone_sum_change_table_view")
-            gp.MakeTableView(zone_sum_pchange_table, "zone_sum_pchange_table_view")
-            gp.AddJoin("zone_sum_change_table_view", zones_id_field, "zone_sum_pchange_table_view", zones_id_field)
-            gp.CopyRows("zone_sum_change_table_view", zone_output_table)
-            # Of course, Arc has to pointlessly change my field name, so take it back
-            gp.AddField(zone_output_table, pchange_sum_field, "FLOAT")
-            gp.CalculateField_management(zone_output_table, pchange_sum_field, "[zone_sum_1]", "VB")
-            # No easy way to clean up the unwanted fields, so do a workaround
-            dropFields = ""
-            fieldList = gp.ListFields(zone_output_table)
-            field = fieldList.Next()
-            keep_list = ["OID", zones_id_field, "AREA", change_sum_field, pchange_sum_field]
-            while (field):
-                if field.Name not in keep_list:
-                    dropFields +=  field.Name + ";"
-                field = fieldList.Next()
-            dropFields = dropFields[:-1]
-            gp.DeleteField_management(zone_output_table, "\"" + dropFields + "\"")
-        
-            gp.AddMessage("\tCreated change by zones table output file: \n\t" + str(zone_output_table))           
-            
+            # Output table with change values per subwatershed
+            change_subwshed_table_name = "change_subwatershed.dbf"
+            change_subwshed_table = postprocws + change_subwshed_table_name            
+            gp.CreateTable_management(postprocws, change_subwshed_table_name)
+
+            # For subwatershed input, each subwatershed has the same value for each cell in it,
+            # so do zonal stats and take the mean
+                
+            if do_change:
+                gp.AddMessage("\n\tCalculating change per subwatershed...")
+                gp.ZonalStatisticsAsTable_sa(subwsheds, subwshed_id_field, change, change_zstat_table, "DATA")
+                gp.AddField(change_subwshed_table, "change", "double")
+                
+            if do_percent_change:
+                gp.AddMessage("\n\tCalculating change per subwatershed...")
+                gp.ZonalStatisticsAsTable_sa(subwsheds, subwshed_id_field, percent_change, pchange_zstat_table, "DATA")
+                gp.AddField(change_subwshed_table, "pchange", "float")
+
+
+        # Create table of change for whole area of interest
+        if do_area:
+            gp.AddMessage("\nCreating change table for whole area of interest...")
+
+            # If subwatersheds are entered, need to sum them for whole area of interest
+            if do_subwsheds:
+                gp.AddMessage("\n\tSumming by subwatershed...")
+
+            # If no subwatersheds, can just sum over whole area
+            else:
+                if do_change:
+                    gp.ZonalStatisticsAsTable_sa(area_mask, subwshed_id_field, change, change_zstat_table, "DATA")
+                    gp.AddField(change_subwshed_table, "change", "double")
+                
+                # Can't do zstat on pchange, need to sum over subwshed first, then get pchange
+                if do_percent_change:
+                    gp.AddField(change_subwshed_table, "pchange", "float")
+
+
+           
+
     except:
-        gp.AddError ("Error calculating change by zones: " + gp.GetMessages(2))
+        gp.AddError ("Error calculating change: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -303,26 +276,26 @@ try:
     try:
         parameters.append("Script location: " + os.path.dirname(sys.argv[0]) + "\\" + os.path.basename(sys.argv[0]))
         gp.workspace = gp.GetParameterAsText(0)
-        parafile = open(gp.workspace + "\\Post_Process\\PP_Calculate_Change_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
-        parafile.writelines("POST-PROCESSING - CALCULATE CHANGE\n")
-        parafile.writelines("__________________________________\n\n")
+        parafile = open(gp.workspace + "\\Output\\Calculate_Change_" + now.strftime("%Y-%m-%d-%H-%M") + Suffix + ".txt", "w")
+        parafile.writelines("CALCULATE CHANGE\n")
+        parafile.writelines("________________\n\n")
+
         for para in parameters:
             parafile.writelines(para + "\n")
             parafile.writelines("\n")
         parafile.close()
     except:
-        gp.AddError ("\nError creating parameter file:" + gp.GetMessages(2))
+        gp.AddError ("Error creating parameter file:" + gp.GetMessages(2))
         raise Exception
 
 
-    # Clean up temporary files
-    gp.AddMessage("\nCleaning up temporary files...\n")
-    try:
-        gp.Delete_management(interws)
-    except:
-        gp.AddError("Error cleaning up temporary files:  " + gp.GetMessages(2))
-        raise Exception
-
+##    # Clean up temporary files
+##    gp.AddMessage("\nCleaning up temporary files...\n")
+##    try:
+##        gp.Delete_management(interws)
+##    except:
+##        gp.AddError("Error cleaning up temporary files:  " + gp.GetMessages(2))
+##        raise Exception
 
 
 except:
