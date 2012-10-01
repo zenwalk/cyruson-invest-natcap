@@ -1,0 +1,29 @@
+October 1, 2012
+
+Changes in InVEST 2.4.0
+
+General:
+
+This is a major release which releases several beta versions of the
+InVEST models in the InVEST 3.0 framework.  These models run as
+standalones, but a GIS platform is needed to edit and view the data
+inputs and outputs.  This release introduces start menu shortcuts for
+all available InVEST 3.0 beta models.  The existing InVEST 2.x models
+can still be found in the included Arc toolbox.
+
+Existing InVEST models migrated to the 3.0 framework in this release
+include:
+
+################## INSERT NEW 3.0 MODELS HERE
+
+Additionally there are a handful of other minor fixes and feature
+enhancements since the previous release:
+
+################## DETAIL ENHANCEMENTS HERE
+
+-Minor bug fix to 2.x sedimentation model that now correctly
+ calculates slope exponentials.
+-Minor fixes to several chapters in the user's guide.
+-The 3.0 version of the Carbon model now can value the price of carbon
+ in metric tons of C or CO2.
+-Other minor bug fixes and runtime performance tweaks in the 3.0 framework.
