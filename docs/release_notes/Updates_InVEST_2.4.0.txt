@@ -17,7 +17,7 @@ include:
 - Biodiversity 3.0 Beta
   - Minor bug fixes and usability enhancements
   - Runtime decreased by a factor of 210
-- Overlap Analysis
+- Overlap Analysis 3.0 Beta
   - Runtime improvements
   - Minor bug fixes and usability enhancements
   - Split into two separate tools:
