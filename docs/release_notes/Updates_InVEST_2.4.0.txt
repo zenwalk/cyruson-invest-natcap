@@ -28,5 +28,9 @@ include:
 Additionally there are a handful of other minor fixes and feature
 enhancements since the previous release:
 
+- InVEST 3.0 Beta standalones (identified by a new InVEST icon) may be run 
+  from the Start Menu.
+- Bug fixes for the calculation of raster statistics.
 - Minor fixes to several chapters in the user's guide.
+- Minor bug fix to the 3.0 Carbon model: harvest maps are no longer required inputs.
 - Other minor bug fixes and runtime performance tweaks in the 3.0 framework.
