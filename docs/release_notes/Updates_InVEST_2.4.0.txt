@@ -14,7 +14,16 @@ can still be found in the included Arc toolbox.
 Existing InVEST models migrated to the 3.0 framework in this release
 include:
 
-################## INSERT NEW 3.0 MODELS HERE
+- Biodiversity 3.0 Beta
+  - Minor bug fixes and usability enhancements
+  - Runtime decreased by a factor of 210
+- Overlap Analysis
+  - Runtime improvements
+  - Minor bug fixes and usability enhancements
+  - Split into two separate tools:
+    - Overlap Analysis outputs rasters with individually-weighted pixels
+    - Overlap Analysis: Management Zones produces a shapefile output.
+  - Updated table format for input activity CSVs
 
 Additionally there are a handful of other minor fixes and feature
 enhancements since the previous release:
