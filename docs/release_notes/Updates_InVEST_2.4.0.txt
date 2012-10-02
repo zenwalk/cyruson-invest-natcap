@@ -28,11 +28,5 @@ include:
 Additionally there are a handful of other minor fixes and feature
 enhancements since the previous release:
 
-################## DETAIL ENHANCEMENTS HERE
-
--Minor bug fix to 2.x sedimentation model that now correctly
- calculates slope exponentials.
--Minor fixes to several chapters in the user's guide.
--The 3.0 version of the Carbon model now can value the price of carbon
- in metric tons of C or CO2.
--Other minor bug fixes and runtime performance tweaks in the 3.0 framework.
+- Minor fixes to several chapters in the user's guide.
+- Other minor bug fixes and runtime performance tweaks in the 3.0 framework.
