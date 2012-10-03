@@ -228,7 +228,7 @@ try:
         gp.CopyRaster_management("wsheds_tmp3", watershed_join)
         gp.Lookup_sa(watershed_join, cost_field, watershed_cost)
 
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             gp.Delete_management("wp_tmp.dbf")
             gp.Delete_management("wsheds_tmp3")
 
@@ -269,14 +269,13 @@ try:
 
             # Present Value
             try:
-
                 station_time = float(wtable_row.getValue(time_field))
                 station_discount = float(wtable_row.getValue(discount_field))
                 station_cost = float(wtable_row.getValue(cost_field))
 
                 pv = 0
 
-                for t in range (0, station_time):
+                for t in range (0, int(station_time)):
                     pv += 1 / pow(1 + (station_discount / 100), t)
                             
             except:
@@ -319,7 +318,7 @@ try:
         gp.CopyRaster_management("wshed_tmp_wq3", watershed_join3)
         gp.Lookup_sa(watershed_join3, pv_table_pv_field, watershed_pv)
 
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             gp.Delete_management("pv_tmp_wq.dbf")
             gp.Delete_management("wshed_tmp_wq3")
         
@@ -366,7 +365,7 @@ try:
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, retention_value, subws_val_zstat, "DATA")
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "Value"

@@ -328,7 +328,7 @@ try:
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, rsupply_mean, sws_rsupply_mean_zstat, "DATA")
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "Value"
@@ -436,7 +436,7 @@ try:
         gp.AddJoin_management("wsheds_sjoin_layer", subwshed_id_field, "sws_out_view", subwshed_id_field)
         gp.CopyFeatures_management("wsheds_sjoin_layer", wsheds_sjoin_copy)
 
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             gp.Delete_management("sws_out_view")
             gp.Delete_management("wsheds_sjoin_layer")
 
@@ -454,7 +454,7 @@ try:
 
             while (sj_row):
 
-                if (install_info["Version"] == "10.0"):
+                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
                     if (int(sj_row.getValue("wsheds_s_4")) == int(ws_out_table_row.getValue(wshed_id_field))):
                         # ArcMap helpfully changes the field names during CopyFeatures
                         # Differently for 10 than for 9.3 
@@ -473,7 +473,7 @@ try:
             # Get mean values for supply and consumption
 
             # Zonal stats field name changed in Arc10
-            if (install_info["Version"] == "10.0"):
+            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
                 zstat_id_field = wshed_id_field
             else:
                 zstat_id_field = "Value"
