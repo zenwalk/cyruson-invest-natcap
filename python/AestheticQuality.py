@@ -1,10 +1,10 @@
 # Marine InVEST: Aesthetic Quality (Viewshed Analysis)
 # Authors: Gregg Verutes, Mike Papenfus
 # Coded for ArcGIS 9.3 and 10
-# 07/10/12
+# 10/01/12
 
 # import modules
-import sys, string, os, datetime, shlex
+import sys, string, os, datetime
 import arcgisscripting
 from math import *
 
@@ -394,7 +394,7 @@ try:
             row = cur.Next()
             feat = row.Shape
             midpoint = feat.Centroid
-            midList = shlex.split(midpoint)
+            midList = midpoint.split(' ')
             midList = [float(s) for s in midList]
             del row, cur
             latAOI = midList[1]
