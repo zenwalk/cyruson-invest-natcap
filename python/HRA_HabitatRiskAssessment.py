@@ -1,9 +1,9 @@
 # Marine InVEST: Habitat Risk Assessment Model
 # Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
-# 05/14/12
+# 10/01/12
 
 # import modules
-import sys, string, os, datetime, shlex, csv
+import sys, string, os, datetime, csv
 import arcgisscripting
 from math import *
 
@@ -692,7 +692,7 @@ try:
     try:
         # add fields for risk calculations
         for i in range(0,StressCount):
-            GS_HQ_area = AddField(GS_HQ_area, "OLP_RNK_S"+str(i+1), "SHORT", "", "")
+            GS_HQ_area = AddField(GS_HQ_area, "OLP_RK_S"+str(i+1), "SHORT", "", "")
         for j in range(0,len(OverlapList)):
             GS_HQ_area = AddField(GS_HQ_area, "RISK_"+OverlapList[j], "DOUBLE", "8", "2")
         for k in range(0,HabCount):
@@ -719,7 +719,7 @@ try:
                                 OverlapRank = 3.0
                             else:
                                 OverlapRank = 0.0
-                            row.SetValue("OLP_RNK_S"+str(j+1), OverlapRank)
+                            row.SetValue("OLP_RK_S"+str(j+1), OverlapRank)
                             if OverlapRank > 0:
                                 OverlapCell = "yes"
                                 # calculate exposure and consequence averages                    
