@@ -1,6 +1,6 @@
 # Marine InVEST: Coastal Protection (Profile Generator)
 # Authors: Greg Guannel, Gregg Verutes, Jeremy Davies
-# 06/28/12
+# 10/02/12
 
 # import libraries
 import CPf_SignalSmooth as SignalSmooth
@@ -58,6 +58,9 @@ except:
 try:
     from matplotlib import *
     from pylab import *
+    from matplotlib.font_manager import FontProperties
+    fontP = FontProperties()
+    fontP.set_size('small')
 except:
     gp.AddError(msgMatplotlibNo)
     raise Exception
@@ -84,17 +87,19 @@ try:
         parameters.append("IF 1: Habitat Data Directory: "+HabDirectory)
         BufferDist=gp.GetParameterAsText(7)
         parameters.append("IF 1: Land Point Buffer Distance: "+BufferDist)
-        CSProfile=gp.GetParameterAsText(8)
+        RadLineDist=gp.GetParameterAsText(8)
+        parameters.append("IF 1: Length of your profile [km] "+RadLineDist)
+        CSProfile=gp.GetParameterAsText(9)
         parameters.append("IF 2: Upload Your Cross-Shore Profile: "+CSProfile)
-        SmoothParameter=float(gp.GetParameterAsText(9))
+        SmoothParameter=float(gp.GetParameterAsText(10))
         parameters.append("Smoothing Percentage (Value of '0' means no smoothing): "+str(SmoothParameter))
-        InputTable=gp.GetParameterAsText(10)
-        parameters.append("Profile Generator Excel Table: "+InputTable)
-        WW3_Pts=gp.GetParameterAsText(11)
+        InputTable=gp.GetParameterAsText(11)
+        parameters.append("Nearshore Waves Excel Table: "+InputTable)
+        WW3_Pts=gp.GetParameterAsText(12)
         parameters.append("Wave Watch III Model Data: "+WW3_Pts)
-        WW3_SearchDist=int(gp.GetParameterAsText(12))
+        WW3_SearchDist=int(gp.GetParameterAsText(13))
         parameters.append("Wave Watch III Search Distance: "+str(WW3_SearchDist))
-        FetchQuestion=gp.GetParameterAsText(13)
+        FetchQuestion=gp.GetParameterAsText(14)
         parameters.append("Do you wish to calculate fetch for LandPoint?: "+FetchQuestion)
 
     except:
@@ -150,6 +155,7 @@ try:
     LandPoint_Geo=interws+"LandPoint_Geo.shp"
     Shoreline=interws+"Shoreline.shp"
     Shoreline_Buff_Clip=interws+"Shoreline_Buff_Clip.shp"
+    Shoreline_Buff_Clip_Diss=interws+"Shoreline_Buff_Clip_Diss.shp"
     PtsCopy=interws+"PtsCopy.shp"
     PtsCopy2=interws+"PtsCopy2.shp"
     PtsCopyLR=interws+"PtsCopy2_lineRotate.shp"
@@ -292,7 +298,40 @@ try:
             gp.AddError("Projection Error: "+LandPoint+" is in a different projection from the LandPoly data.  \
                          The two inputs must be the same projection to calculate depth profile.")
             raise Exception
-
+        
+    def LocateHabitat(X,HAB):
+        # generate a vector showing location of beg. and end of patches of a certain habitat along the X axis of bathy
+        # input: X axis assigned with bathy and HAB vector of same length with 0's and 1's to locate hab
+        # output: vector with X location of beg. and end of patches
+    
+        HabPst=num.nonzero(HAB);HabPst=HabPst[0] # locate non-zero values in HAB; extent of habitation on profile
+        HabGap=num.nonzero(diff(HabPst)<>1);HabGap=HabGap[0]  # locate where there's a gap in the habitat     
+        if len(HabGap)>0:
+            # indices of where patches begin and end
+            HabPst1=num.append(HabPst[0],HabPst[HabGap],None)
+            HabPst1=num.append(HabPst1,HabPst[HabGap+1],None)
+            HabPst1=num.append(HabPst1,HabPst[-1],None)
+            HabPst1=sort(HabPst1) # even (odd) numbers indicate loc. of beg (end) of patches
+            habx=X[HabPst1]
+            
+            # empty array for X Location of beg. and end of each patch
+            begHABx=num.arange(0,len(HabGap)+1,1)*0
+            finHABx=num.arange(0,len(HabGap)+1,1)*0
+            
+            # fill in those array when there are many patches
+            for kk in range(len(habx)/2):
+                begHABx[kk]=habx[2*kk]
+                finHABx[kk]=habx[2*kk+1]
+                
+        elif len(HabPst)>0: # no patches, just ID beg and end
+            begHABx=[X[HabPst[0]]];
+            finHABx=[X[HabPst[-1]]];
+        else: # no habitat -> return empty string
+            begHABx=[];finHABx=[];
+        begHABx=num.array(begHABx);finHABx=num.array(finHABx)
+        
+        return begHABx,finHABx
+    
     def Indexed(x,value): # locates index of point in vector x that has closest value as variable value
         mylist=abs(x-value)    
         if isinstance(x,num.ndarray):
@@ -302,97 +341,47 @@ try:
         ind=ind[0]
         return ind
 
-    def SlopeModif3(X,Y,SlopeMod,OffMod,ShoreMod): # replaces/adds linear portion to profile
-        if SlopeMod <> 0:
-            m=1.0/SlopeMod # slope
-        else:
-            m=0.0
-            
-        Xend=X[-1] # last point in profile
-        if ShoreMod < Xend: # if modified portion in within profile
-            of=Indexed(X,OffMod) # locate offshore point
-            sho=Indexed(X,ShoreMod) # locate shoreward point
-                
-            # modify the slope between offshore and shoreward points
-            Y[of:sho]=m*X[of:sho]+Y[of]-m*X[of]
-        else:
-            of=Indexed(X,OffMod) # locate offshore point
-            dist=ShoreMod-OffMod
-            temp_x=num.arange(0,int(dist),1) # length of the segment modified/added
-            out=num.arange(Indexed(temp_x,dist)+1,len(temp_x),1) # remove points that are beyond shoreward limit 
-            temp_y=m*temp_x+Y[of];
-            temp_y=num.delete(temp_y,out,None);temp_x=num.delete(temp_x,out,None) # new profile
-            Y=num.append(Y[0:of-1],temp_y,None); # append depth vector
-            X=num.append(X[0:of-1],temp_x+X[of],None) # append X vector
-
-            # resample on vector with dx=1
-            F=interp1d(X,Y);X=num.arange(X[0],X[-1],1)
-            Y=F(X);X=X-X[0]
-
-            # remove NaNs        
-            temp=numpy.isnan(Y).any()
-            if str(temp)=="True":
-                keep=X*0+(-1)
-                for xx in range(len(Y)):
-                    if str(numpy.isnan(Y[xx]))=="False":
-                        keep[xx]=xx
-                keep=num.nonzero(keep > 0);keep=keep[0]
-                Y=Y[keep];X=X[keep]
-        return X,Y
-
-    def SlopeModif(X,Y,SlopeMod,Offx,Shorex): # replaces/adds linear portion to profile
-        OffMod=X[-1]-Offx;ShoreMod=X[-1]-Shorex 
+    def SlopeModif(X,Y,SlopeMod,Offx,Shorex): 
+        # this function replaces/adds linear portion to an existing profile 
+        # inputs are values of bathy profile along and X axis, as well as information for the linear approx: slope, offshore and shoreward extent
+        # outputs are a new bathy profile that includes the new linear slope
+    
+        # special case when we start with one point: make it two
+        if len(X)==1:
+            X=[X[0],X[0]+1]
+            Y=[Y[0],Y[0]-.5]
         
+        X=num.array(X)
+        Y=num.array(Y)
+        # store initial values of X and Y
+        Xo=X
+        Yo=Y
+        F=interp1d(Xo,Yo)    
+    
+        # slope 
         if SlopeMod <> 0:
-            m=1.0/SlopeMod # slope
+            m=-1.0/SlopeMod # slope
         else:
             m=0.0
+        
+        # locate footprint of change
+        ShorePos=Indexed(X,Shorex) # locate position of shoreward point for linear approx
+        if X[ShorePos]>Shorex: # if shoreward bound. outside of existing X vector, add more points
+            X=num.arange(Shorex,X[-1]+1,1)
+            ShorePos=0 # new start point of linear approx
             
-        Xend=X[-1] # last point in profile
-        if ShoreMod < Xend: # if modified portion in within profile
-            of=Indexed(X,OffMod) # locate offshore point
-            sho=Indexed(X,ShoreMod) # locate shoreward point
-                
-            # modify the slope between offshore and shoreward points
-            Y[of:sho]=m*X[of:sho]+Y[of]-m*X[of]
-        else:
-            of=Indexed(X,OffMod) # locate offshore point
-            dist=ShoreMod-OffMod
-            temp_x=num.arange(0,10000,1) # length of the segment modified/added
-            temp_y=m*temp_x+Y[of];
-            if Y[of]<0: #If first point is seaward of shoreline
-                loc=Indexed(temp_y,0)
-                out=num.arange(Indexed(temp_x,loc+abs(Shorex))+1,len(temp_x),1) # remove points that are beyond shoreward limit 
-            else:
-                out=num.arange(Indexed(temp_x,dist)+1,len(temp_x),1) # remove points that are beyond shoreward limit 
-
-            temp_y=num.delete(temp_y,out,None);temp_x=num.delete(temp_x,out,None) # new profile
-            Y=num.append(Y[0:of-1],temp_y,None); # append depth vector
-            X=num.append(X[0:of-1],temp_x+X[of],None) # append X vector
-
-            # resample on vector with dx=1
-            F=interp1d(X,Y);X=num.arange(X[0],X[-1],1)
-            Y=F(X);X=X-X[0]
-
-            # remove NaNs        
-            temp=numpy.isnan(Y).any()
-            if str(temp)=="True":
-                keep=X*0+(-1)
-                for xx in range(len(Y)):
-                    if str(numpy.isnan(Y[xx]))=="False":
-                        keep[xx]=xx
-                keep=num.nonzero(keep > 0);keep=keep[0]
-                Y=Y[keep];X=X[keep]
-        return X,Y
-
-    def DataRemove(X,Y,OffDel,ShoreDel): # remove date from transect 
-        of=Indexed(Xmod,OffDel);sho=Indexed(Xmod,ShoreDel)# locate offshore and shoreward points
-        out=num.arange(of,sho+1,1)
-        Y=num.delete(Y,out,None) # remove points from Ymod
-        X=num.delete(X,out,None) # remove points from Xmod
-        # resample on vector with dx=1
-        F=interp1d(X,Y);X=num.arange(X[0],X[-1],1)
-        Y=F(X);X=X-X[0]
+        OffPos=Indexed(X,Offx) # locate position of offshore point for linear approx
+        if X[OffPos]<Offx: # if new offshore bound. outside of existing, add more points
+            X=num.arange(X[0],Offx+1,1)
+            OffPos=len(X)-1 # new end point of linear approx
+        
+        # create new bathy profile
+        Y=X*0+Yo[-1] # new vector Y that will be used to create the linear approx
+        temp1=Indexed(X,Xo[0])
+        temp2=Indexed(X,Xo[-1])
+        Y[temp1:temp2+1]=F(X[temp1:temp2+1]) # map old values of X on new vector Y
+        Y[ShorePos:OffPos+1]=m*(X[ShorePos:OffPos+1]-X[OffPos])+Y[OffPos] # create linear approximation in range that user defined
+    
         return X,Y
 
     # wind-wave generation
@@ -406,7 +395,6 @@ try:
         T=7.69*U/g*(A*B)**0.18 # wave period
         return H,T
 
-
     ######################################           
     ###### VARIOUS CHECK TO INPUTS #######
     ######################################
@@ -416,7 +404,7 @@ try:
         SampInterval=1
         TransectDist=0
         BearingsNum=16
-        RadLineDist=50000
+        RadLineDist=2.0*int(RadLineDist)*1000
 
         # check that correct inputs were provided based on 'ProfileQuestion'
         if ProfileQuestion=="(1) Yes":
@@ -428,9 +416,21 @@ try:
             if not CSProfile:
                 gp.AddError("A cross-shore profile input is required.")
                 raise Exception
+            # provide message about not being able to calculate WW3 and fetch if user doesn't provide LandPoint 
+            if WW3_Pts or FetchQuestion=='(1) Yes':
+                gp.AddWarning("Unable to gather wind and wave statistics using Wave Watch III and/or calculate fetch because you have chosen NOT to cut a cross-shore transect in GIS.")
+                WW3_Pts=''
+                FetchQuestion='(2) No'
 
-        ckDatum(LandPoint) # check that datum is WGS84
+        # check that datum is WGS84
+        # need it to be WGS84 datum because Arc geoprocesing won't do transformations on-the-fly
+        ckDatum(LandPoint) 
 
+        # check that 'LandPoint' only has one feature in it
+        if gp.GetCount_management(LandPoint) <> 1:
+            gp.AddError("'Land Point' input should contain only one feature (point).")
+            raise Exception
+            
         # limit 'BufferDist'
         if int(BufferDist) > 500 or int(BufferDist) < 40:
             gp.AddError("Buffer distance for 'Land Point' must be greater than 40 and less than 500 meters.")
@@ -513,7 +513,7 @@ try:
     ##############################################
 
     try:
-        if WW3_Pts or FetchQuestion=='(1) Yes':
+        if (WW3_Pts or FetchQuestion=='(1) Yes') and ProfileQuestion=="(1) Yes":
             gp.AddMessage("\nPreparing inputs for Wave Watch III and/or fetch calculations...")
             # erase from 'Fetch_AOI' areas where there is land
             LandPoly=AddField(LandPoly,"ERASE","SHORT","0","0")
@@ -559,11 +559,11 @@ try:
 
             # populate list with data from closest WW3 point
             WW3_ValuesList=[]
-            SrchCondition="PT_ID="+str(WW3_PT_ID)
+            SrchCondition="PT_ID = "+str(WW3_PT_ID)
             cur=gp.SearchCursor(WW3_Pts_prj,SrchCondition,"","")
-            row=cur.Next()
+            row=cur.Next()            
             WW3_ValuesList.append(row.GetValue("LAT")) # 0
-            WW3_ValuesList.append(row.GetValue("LONG")) # 1
+            WW3_ValuesList.append(row.GetValue("LONG_")) # 1
             for i in range(0,len(dirList)):
                 WW3_ValuesList.append(row.GetValue("V10PCT_"+str(dirList[i]))) # 2-17
             for i in range(0,len(dirList)):
@@ -574,7 +574,7 @@ try:
             WW3_ValuesList.append(row.GetValue("H_10PCT")) # 51
             WW3_ValuesList.append(row.GetValue("T_10PCT")) # 52
             WW3_ValuesList.append(row.GetValue("H_25PCT")) # 53
-            WW3_ValuesList.append(row.GetValue("T_25PCT")) # 54
+            WW3_ValuesList.append(row.GetValue("T_25PCT")) # 54 
             WW3_ValuesList.append(row.GetValue("H_MAX")) # 55
             WW3_ValuesList.append(row.GetValue("T_MAX")) # 56
             WW3_ValuesList.append(row.GetValue("H_10YR")) # 57
@@ -582,7 +582,7 @@ try:
             WW3_ValuesList.append(row.GetValue("Hmod")) # 59
             WW3_ValuesList.append(row.GetValue("Tmod")) # 60
             del row, cur
-
+            
             # maximum wave height
             WavMax=[0,0];WavMax[0]=WW3_ValuesList[55];WavMax[1]=WW3_ValuesList[56]
             # top 10% wave height
@@ -686,7 +686,7 @@ try:
                 for j in range(0,len(BiSectAngList)):
                     BiSectAngFullList.append(BiSectAngList[j])
             gp.Append_management(CopyExpr,PtsCopy2,"NO_TEST","","")
-            gp.CalculateField_management(PtsCopy2,"DISTANCE",str(RadLineDist),"PYTHON","")
+            gp.CalculateField_management(PtsCopy2,"DISTANCE","50000","PYTHON","")
 
             # translate information from list into perp transect attribute table
             cur=gp.UpdateCursor(PtsCopy2,"","","BEARING; FID; BISECTANG")
@@ -739,7 +739,7 @@ try:
             row=cur.Next()    
             while row:
                 Bearing=float(row.GetValue("BEARING"))
-                if Bearing >= 350.0 and Bearing <= 10.0:
+                if Bearing >= 350.0 or Bearing <= 10.0:
                     binD1.append(row.GetValue("LENGTH_M"))
                     binBiAng1.append(row.GetValue("BiSectAng"))
                 elif Bearing >= 12.5 and Bearing <= 32.5:
@@ -813,7 +813,7 @@ try:
             for i in range(3,-1,-1):
                 FetchFinalList.append(FetchList[i])
             for i in range(len(dirList)-1,3,-1):
-                FetchFinalList.append(FetchList[i])
+                FetchFinalList.append(FetchList[i])           
 
             # copy original point add fields to third copy
             gp.CopyFeatures_management(LandPoint,PtsCopy3,"","0","0","0")
@@ -843,7 +843,7 @@ try:
             # select fetch lines where "DISTANCE > 0"
             gp.Select_analysis(PtsCopyLD,Fetch_Distances,"\"DISTANCE\" > 0")
             
-            # Save fetch distances as text
+            # save fetch distances as text
             file=open(FetchDistances,"w")
             for i in range(0,16):
                 file.writelines(str(AngleList[i])+"\t"+str(FetchFinalList[i])+"\n")
@@ -879,67 +879,54 @@ try:
                 
     try:
         # read Excel file inputs
-        gp.AddMessage("\nReading Excel file inputs...")
+        gp.AddMessage("\nReading Nearshore Waves Excel file inputs...")
         xlApp=Dispatch("Excel.Application")
         xlApp.Visible=0
         xlApp.DisplayAlerts=0
         xlApp.Workbooks.Open(InputTable)
-        cell=xlApp.Worksheets("ProfileGeneratorInput")
+        cell=xlApp.Worksheets("ModelInput")
         # sediment
-        Diam=cell.Range("e8").Value # sediment diam (mm)
-        A=cell.Range("e70").Value # sediment scale factor
+        Diam=cell.Range("e15").Value # sediment diameter (mm)
+        A=cell.Range("e17").Value # sediment scale factor
         # tide         
-        MSL=cell.Range("d14").Value # mean sea level
-        HT=cell.Range("e14").Value # high tide elevation
+        MSL=cell.Range("f5").Value # mean sea level
+        HT=cell.Range("g5").Value # high tide elevation
 
-        # read in habitat IDs
-        if HabDirectory: 
-            ExcelHabIDList=[]
-            HabAbbrevList=[]
-            temp=["e","f","g","h","i","j"]
-            for i in range(len(temp)):
-                if cell.Range(temp[i]+"18").Value not in [None,'']:
-                    ExcelHabIDList.append(int(cell.Range(temp[i]+"18").Value)) # input must be an integer
-                    ExcelHabName = str(cell.Range(temp[i]+"19").Value).replace(" ", "")
-                    HabAbbrevList.append(ExcelHabName[:9])
-
-            Hab1Zip=zip(ExcelHabIDList,HabAbbrevList)
-            Hab1Zip.sort()
-            ExcelHabIDList,HabAbbrevList=zip(*Hab1Zip)
-            HabAbbrevList = list(HabAbbrevList) # convert from tuple to list
-
-        # check if user needs backshore help
-        BackHelp=cell.Range("e66").Value # 1) beach, 2) mangroves/marshes, 3) modifies, 4) no change
+        # backshore type
+        BackHelp=cell.Range("i10").Value # 1) beach, 2) mangroves/marshes,
         if BackHelp==1: # read ProfileGenerator information
             # foreshore    
-            Slope=cell.Range("h34").Value # foreshore slope=1/Slope
+            Slope=cell.Range("j18").Value # foreshore slope=1/Slope
+            BermCrest=cell.Range("j17").Value
+            BermLength=cell.Range("j16").Value
+            DuneCrest=cell.Range("j15").Value # 1) yes,2) no,3) don't know
+            
+            if Slope==0 :  # user didn't enter enough data
+                xlApp.ActiveWorkbook.Close(SaveChanges=0)
+                xlApp.Quit()
+                gp.AddError('You did not enter beach information')
+                raise Exception
+            if BermCrest==0  and DuneCrest==0:  # user didn't enter enough data
+                xlApp.ActiveWorkbook.Close(SaveChanges=0)
+                xlApp.Quit()
+                gp.AddError('You did not enter beach information')
+                raise Exception
             m=1.0/Slope # bed slope
-        
-            # read 'HelpCreatingBackshoreProfile' sheet
-            BermCrest=cell.Range("d40").Value
-            BermLength=cell.Range("e40").Value
-        
+            
             # estimate dune size from Short and Hesp
-            DuneCheck=cell.Range("e67").Value # 1) yes,2) no,3) don't know
-            if DuneCheck==1: # user has data
-                DuneCrest=cell.Range("g45").Value
-            elif DuneCheck==2: # no dunes
-                DuneCrest=0;BermLength=50 # beach has no dune and infinitely long berm
-            elif DuneCheck==3: 
+            if DuneCrest==-1:  #User doesn't know
                 # wave climate data
-                Hm=max(Hm,cell.Range("h45").Value) # modal wave height
-                Tm=max(Tm,cell.Range("i45").Value) # modal wave period
                 if Tm+Hm==0 and WW3_Pts:    Hm=Hmww3;Tm=Tmww3;   #User doesn't know dune height
                      
-                if Tm > 0: #Estimate dune height for user
+                if Tm > 0: # estimate dune height for user
                     Hb=0.39*9.81**(1.0/5)*(Tm*Hm**2)**(2.0/5)
                     a=0.00000126
                     b=num.sqrt(3.61**2+1.18*(1.56*9.81*(Diam/1000.0)**3/a**2)**(1.0/1.53))-3.61
                     ws=(a*b**1.53)/(0.0001*Diam) # fall velocity
                     RTR=HT/Hb
                     if RTR > 3: # in this case, beach is not wave dominated, can't know value, so take zero
-                        DuneCrest=0;BermLength=50
-                    else: # else,beach is wave dominated, we read Short and Hesp
+                        DuneCrest=0;
+                    else: # else, beach is wave dominated (we read Short and Hesp)
                         Type=Hb/(ws*Tm)
                         if Type < 3:
                             DuneCrest=5
@@ -949,38 +936,44 @@ try:
                             DuneCrest=20 
                 else:
                     Tm=-1;RTR=0
-                    DuneCrest=2;BermLength=50 # beach has no dune and infinitely long berm
-                        
-        elif BackHelp==2:  # read marsh/mangrove parameters
-            SlopeM=num.array([0,0,0,0])
-            OffX=num.array([0,0,0,0])
-            ShoreX=num.array([0,0,0,0])
-            SlopeM[0]=cell.Range("e50").Value
-            SlopeM[1]=cell.Range("e51").Value
-            SlopeM[2]=cell.Range("e52").Value
-            OffX[0]=cell.Range("f50").Value
-            OffX[1]=cell.Range("f51").Value
-            OffX[2]=cell.Range("f52").Value
-            ShoreX[0]=cell.Range("g50").Value
-            ShoreX[1]=cell.Range("g51").Value
-            ShoreX[2]=cell.Range("g52").Value
+                    DuneCrest=0; # beach has no dune and infinitely long berm
+
+        # profile modification information        
+        SlopeM=num.array([0,0,0])
+        OffX=num.array([0,0,0])
+        ShoreX=num.array([0,0,0])
+        ModifInfo=cell.Range("e33:g35").Value
+        # Modif1
+        temp=ModifInfo[0]
+        SlopeM[0]=temp[0]
+        OffX[0]=temp[1]
+        ShoreX[0]=temp[2]
+        # Modif2
+        temp=ModifInfo[1]
+        SlopeM[1]=temp[0]
+        OffX[1]=temp[1]
+        ShoreX[1]=temp[2]
+        # Modif3
+        temp=ModifInfo[2]
+        SlopeM[2]=temp[0]
+        OffX[2]=temp[1]
+        ShoreX[2]=temp[2]
         
-        elif BackHelp==3: # read profile modification parameters
-            SlopeMod=num.array([0,0,0,0])
-            OffMod=num.array([0,0,0,0])
-            ShoreMod=num.array([0,0,0,0])
-            SlopeMod[0]=cell.Range("e57").Value
-            SlopeMod[1]=cell.Range("e58").Value
-            SlopeMod[2]=cell.Range("e59").Value
-            SlopeMod[3]=cell.Range("e60").Value
-            OffMod[0]=cell.Range("g57").Value
-            OffMod[1]=cell.Range("g58").Value
-            OffMod[2]=cell.Range("g59").Value
-            OffMod[3]=cell.Range("g60").Value
-            ShoreMod[0]=cell.Range("f57").Value
-            ShoreMod[1]=cell.Range("f58").Value
-            ShoreMod[2]=cell.Range("f59").Value
-            ShoreMod[3]=cell.Range("f60").Value
+        # read in habitat IDs
+        if HabDirectory: 
+            ExcelHabIDList=[]
+            HabAbbrevList=[]
+            temp=["e","f","g","h","i","j"]
+            for i in range(len(temp)):
+                if cell.Range(temp[i]+"39").Value not in [None,'']:
+                    ExcelHabIDList.append(int(cell.Range(temp[i]+"39").Value)) # input must be an integer
+                    ExcelHabName = str(cell.Range(temp[i]+"40").Value).replace(" ", "")
+                    HabAbbrevList.append(ExcelHabName[:9])
+
+            Hab1Zip=zip(ExcelHabIDList,HabAbbrevList)
+            Hab1Zip.sort()
+            ExcelHabIDList,HabAbbrevList=zip(*Hab1Zip)
+            HabAbbrevList = list(HabAbbrevList) # convert from tuple to list        
         
         # save changes and close Excel file
         xlApp.ActiveWorkbook.Close(SaveChanges=0) # don't save changes
@@ -999,21 +992,21 @@ try:
             # create transect and read transect file
             gp.Buffer_analysis(LandPoint,LandPoint_Buff,str(BufferDist)+" Meters","FULL","ROUND","NONE","")
             gp.Extent=LandPoint_Buff
-            gp.Intersect_analysis(LandPoint_Buff+"; "+LandPoly,Shoreline_Buff_Clip,"NO_FID","","POINT")           
+            gp.Intersect_analysis(LandPoint_Buff+"; "+LandPoly,Shoreline_Buff_Clip,"NO_FID","","POINT")
             gp.Extent=""
             # check to make sure that clipped shoreline is not empty FC
             if gp.GetCount_management(Shoreline_Buff_Clip)==0:
                 gp.AddError("Shoreline was not found within "+str(BufferDist)+" meters of 'LandPoint' input.  \
                              Either increase the buffer distance or move the 'LandPoint' input closer to the coastline.")
                 raise Exception
-
+            
             # set coordinate system to same projection (in meters) as the shoreline point input
             gp.outputCoordinateSystem=LandPoint
             cur=gp.UpdateCursor(LandPoint)
             row=cur.Next()
             feat=row.Shape
             midpoint=feat.Centroid
-            midList=shlex.split(midpoint)
+            midList = midpoint.split(' ')
             midList=[float(s) for s in midList]
             midx=midList[0]
             midy=midList[1]
@@ -1026,8 +1019,8 @@ try:
             feat=row.Shape
             firstpoint=feat.FirstPoint
             lastpoint=feat.LastPoint
-            startList=shlex.split(firstpoint)
-            endList=shlex.split(lastpoint)
+            startList = firstpoint.split(' ')
+            endList = lastpoint.split(' ')
             startx=float(startList[0])
             starty=float(startList[1])
             endx=float(endList[0])
@@ -1092,16 +1085,15 @@ try:
             gp.CreateFeatureClass_management(interws,"PT1.shp","POINT","#","#","#",spatialRef)
             gp.CreateFeatureClass_management(interws,"PT2.shp","POINT","#","#","#",spatialRef)
 
-            # create two point transects, each point is 1 meter away from the previous    
             x1,y1,x2,y2=PTCreate(PerpTransType,midx,midy,1)
             xDelta = midx-x1
             yDelta = midy-y1
 
-            # create two point transects, each point is 1 meter away from the previous
+            # create two point transects, each point is 1 meter away from the previous    
             cur1=gp.InsertCursor(PT1)
             cur2=gp.InsertCursor(PT2)
-            
-            for bb in range(1,25001):
+
+            for bb in range(1,((RadLineDist/2.0)+1)):
                 row1=cur1.NewRow()
                 pnt=gp.CreateObject("POINT")
                 pnt.x=midx+(bb*(xDelta))
@@ -1115,7 +1107,7 @@ try:
                 row2.shape=pnt
                 cur2.InsertRow(row2)
             del cur1,row1
-            del cur2,row2
+            del cur2,row2            
 
             # extract depth values from 'BathyGrid' to point transects
             gp.ExtractValuesToPoints_sa(PT1,BathyGrid,PT1_Z,"INTERPOLATE")
@@ -1134,7 +1126,7 @@ try:
                 cur.UpdateRow(row)
                 row=cur.next()
             del cur,row
-       
+            
             Dmeas2=[]
             cur=gp.UpdateCursor(PT2_Z)
             row=cur.Next()
@@ -1143,6 +1135,10 @@ try:
                 cur.UpdateRow(row)
                 row=cur.next()
             del cur,row
+
+            if len(Dmeas1)==0 and len(Dmeas2)==0:
+                gp.AddError("\nNeither transect overlaps the seas.  Please check the location of your 'LandPoint' and bathymetry inputs.")
+                raise Exception
 
             # find which point transect hits water first
             def locate(l):
@@ -1165,19 +1161,27 @@ try:
             neg1ID,pos1ID=locate(Dmeas1)
             neg2ID,pos2ID=locate(Dmeas2)
 
-            # create final lists of cross-shore distance (Dx) and depth (Dmeas)
+            # create final lists of cross-shore distance (Dx) and depth (Dmeas) 
             Dx=[]   
             Dmeas=[]
             counter=0
             TransectChoice=1
-
+       
             if neg1ID < neg2ID:
+                # need to add this shift b/c profile used can be offset from cut profile because of the location of the point shapefile on the shoreline
+                # this shift value will be used to correct location of the vegetation so it matches profile used x-axis
+                shift=neg1ID
+                Xorig=[-len(Dmeas2)+ii for ii in range(len(Dmeas2)+len(Dmeas1))]
+                Dorig=[Dmeas2[ii] for ii in range(len(Dmeas2))];Dorig.extend(Dmeas1)
                 for i in range(neg1ID,pos1ID):
                     Dx.append(counter)
                     Dmeas.append(Dmeas1[i])
                     counter += 1
 
             elif neg1ID > neg2ID:
+                shift=neg2ID
+                Xorig=[-len(Dmeas1)+ii for ii in range(len(Dmeas1)+len(Dmeas2))]
+                Dorig=[Dmeas1[ii] for ii in range(len(Dmeas1))];Dorig.extend(Dmeas2)
                 for i in range(neg2ID,pos2ID):
                     Dx.append(counter)
                     Dmeas.append(Dmeas2[i])
@@ -1186,30 +1190,33 @@ try:
 
             else:
                 if pos1ID > pos2ID:
+                    shift=neg1ID
+                    Xorig=[-len(Dmeas2)+ii for ii in range(len(Dmeas2)+len(Dmeas1))]
+                    Dorig=[Dmeas2[ii] for ii in range(len(Dmeas2))];Dorig.extend(Dmeas1)
                     for i in range(neg1ID,pos1ID):
                         Dx.append(counter)
                         Dmeas.append(Dmeas1[i])
                         counter += 1
                 else:
+                    shift=neg2ID
+                    Xorig=[-len(Dmeas1)+ii for ii in range(len(Dmeas1)+len(Dmeas2))]
+                    Dorig=[Dmeas1[ii] for ii in range(len(Dmeas1))];Dorig.extend(Dmeas2)
                     for i in range(neg2ID,pos2ID):
                         Dx.append(counter)
                         Dmeas.append(Dmeas2[i])
                         counter += 1
                     TransectChoice=2
 
-            if len(Dmeas1)==0 and len(Dmeas2)==0:
-                gp.AddError("\nNeither transect overlaps the seas.  Please check the location of your 'LandPoint' and bathymetry inputs.")
-                raise Exception
-            else: # save cut profile
-                Dorig=Dmeas1[:]
-                Dorig.extend(Dmeas2)
-                Xorig=[ii for ii in range(len(Dorig))]
-
-                file=open(ProfileCutGIS,"w")
-                for i in range(0,len(Dorig)):
-                    file.writelines(str(Xorig[i])+"\t"+str(Dorig[i])+"\n")
-                file.close()
-
+            # save original profile
+            Dorig=num.array(Dorig)
+            for kk in range(len(Dorig)):
+                if abs(Dorig[kk]) > 100:
+                    Dorig[kk]=0
+            file=open(ProfileCutGIS,"w")
+            for i in range(0,len(Dorig)):
+                file.writelines(str(Xorig[i])+"\t"+str(Dorig[i])+"\n")
+            file.close()
+            
             # create txt for bathy portion
             file=open(BathyProfile,"w")
             for i in range(0,len(Dmeas)):
@@ -1257,18 +1264,19 @@ try:
 
             # smooth profile and create x axis
             lx=len(Dmeas) # length of original data
-            Dmeas=num.array(Dmeas)# shoreline starts at x=0
-           
+            Dx=num.array(Dx)
+            Dmeas=num.array(Dmeas) # shoreline starts at x=0
+            
             yd=[Dmeas[ii] for ii in range(len(Dx))]
             xd=[Dx[ii] for ii in range(len(Dx))]
             SmoothValue=(SmoothParameter/100.0)*len(Dmeas)
             TempY=SignalSmooth.smooth(Dmeas,round(SmoothValue,2),'flat') # smooth function
             TempX=num.array(Dx)
 
-            # remove portions offshore that are shallower than average depth abv deepest point
-            LocDeep=Indexed(TempY,min(TempY)) #Locate deepest point
+            # remove portions offshore that are shallower than average depth above deepest point
+            LocDeep=Indexed(TempY,min(TempY)) # locate deepest point
             davg=mean(TempY);davg=average([davg,min(TempY)])
-            out=num.nonzero(TempY<davg);out=out[0] #Locate points deeper than avg depth
+            out=num.nonzero(TempY<davg);out=out[0] # locate points deeper than average depth
 
             loc=out[-1]
             if loc>LocDeep: # if point is offshore of deepest point
@@ -1278,6 +1286,7 @@ try:
                 TempY[out]=0
                 TempX[out]=-1         
             lx=len(xd) 
+            yd=num.array(yd);xd=num.array(xd)
             
             # insert 'TempY' and 'TempX' in shapefile output
             Profile_Pts=AddField(Profile_Pts,"SM_BATHY_X","DOUBLE","","")
@@ -1382,7 +1391,8 @@ try:
                     for i in range(0,len(DeleteFieldList)):
                         DelExpr=DelExpr+DeleteFieldList[i]+";"
                     DelExpr=DelExpr[:-1]
-                    gp.DeleteField_management(Profile_Pts_Hab,DelExpr)
+                    if len(DelExpr) > 0:                    
+                        gp.DeleteField_management(Profile_Pts_Hab,DelExpr)
 
                     # add all habitat abbreviation fields, even if not part of inputs
                     for k in range(0,len(AbbrevList)):
@@ -1418,118 +1428,56 @@ try:
                         TextData.write("\n")
                     TextData.close() 
                     
+                    # locate the Xbeg and Xend of each patch
                     temp=transpose(ProfileHabArray)
                     TempX=temp[0]
                     TempY=temp[1]
-                    MG=temp[2];MR=temp[3];SG=temp[4];DN=temp[5];CR=temp[6];OT=temp[7]
-                    MG[find(MG==-999)]=0;SG[find(SG==-999)]=0;MR[find(MR==-999)]=0
-                    DN[find(DN==-999)]=0;CR[find(CR==-999)]=0;OT[find(OT==-999)]=0
+                    MG1=temp[2];MR1=temp[3];SG1=temp[4];DN1=temp[5];CR1=temp[6];OT1=temp[7]
+                    MG1[find(MG1==-999)]=0;SG1[find(SG1==-999)]=0;MR1[find(MR1==-999)]=0
+                    DN1[find(DN1==-999)]=0;CR1[find(CR1==-999)]=0;OT1[find(OT1==-999)]=0
+                    MG2=MG1*0;MR2=MR1*0;SG2=SG1*0;DN2=DN1*0;CR2=CR1*0;OT2=OT1*0;
                     
-                    temp=num.nonzero(MG);temp=temp[0]
-                    la=num.nonzero(diff(temp)<>1);la=la[0]       
-                    if len(la)>0:
-                        begMGx=num.arange(0,len(la)+1,1)*0;finMGx=num.array(begMGx)
-                        begMGy=num.array(begMGx);finMGy=num.array(begMGx)
-                        temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None)
-                        temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
-                        for kk in range(len(temp1)/2):
-                            begMGx[kk]=TempX[temp1[2*kk]];begMGy[kk]=TempY[temp1[2*kk]]
-                            finMGx[kk]=TempX[temp1[2*kk+1]];finMGy[kk]=TempY[temp1[2*kk+1]]
-                    elif len(temp)>0:
-                        begMGx=[TempX[temp[0]]];begMGy=[TempY[temp[0]]]
-                        finMGx=[TempX[temp[-1]]];finMGy=[TempY[temp[-1]]]
-                    else:
-                        begMGx=[];finMGx=[];begMGy=[];finMGy=[];
-                    begMGx=num.array(begMGx);finMGx=num.array(finMGx)
-
-                    temp=num.nonzero(SG);temp=temp[0]
-                    la=num.nonzero(diff(temp)<>1);la=la[0]       
-                    if len(la)>0:
-                        begSGx=num.arange(0,len(la)+1,1)*0;finSGx=num.array(begSGx)
-                        begSGy=num.array(begSGx);finSGy=num.array(begSGx)
-                        temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None)
-                        temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
-                        for kk in range(len(temp1)/2):
-                            begSGx[kk]=TempX[temp1[2*kk]];begSGy[kk]=TempY[temp1[2*kk]]
-                            finSGx[kk]=TempX[temp1[2*kk+1]];finSGy[kk]=TempY[temp1[2*kk+1]]
-                    elif len(temp)>0:
-                        begSGx=[TempX[temp[0]]];begSGy=[TempY[temp[0]]]
-                        finSGx=[TempX[temp[-1]]];finSGy=[TempY[temp[-1]]]
-                    else:
-                        begSGx=[];finSGx=[];begSGy=[];finSGy=[]
-                    begSGx=num.array(begSGx);finSGx=num.array(finSGx)
-
-                    temp=num.nonzero(MR);temp=temp[0]
-                    la=num.nonzero(diff(temp)<>1);la=la[0]       
-                    if len(la)>0:
-                        begMRx=num.arange(0,len(la)+1,1)*0;finMRx=num.array(begMRx)
-                        begMRy=num.array(begMRx);finMRy=num.array(begMRx)
-                        temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None)
-                        temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
-                        for kk in range(len(temp1)/2):
-                            begMRx[kk]=TempX[temp1[2*kk]];begMRy[kk]=TempY[temp1[2*kk]]
-                            finMRx[kk]=TempX[temp1[2*kk+1]];finMRy[kk]=TempY[temp1[2*kk+1]]
-                    elif len(temp)>0:
-                        begMRx=[TempX[temp[0]]];begMRy=[TempY[temp[0]]]
-                        finMRx=[TempX[temp[-1]]];finMRy=[TempY[temp[-1]]]
-                    else:
-                        begMRx=[];finMRx=[];begMRy=[];finMRy=[]
-                    begMRx=num.array(begMRx);finMRx=num.array(finMRx)
-
-                    temp=num.nonzero(CR);temp=temp[0]
-                    la=num.nonzero(diff(temp)<>1);la=la[0]       
-                    if len(la)>0:
-                        begCRx=num.arange(0,len(la)+1,1)*0;finCRx=num.array(begCRx)
-                        begCRy=num.array(begCRx);finCRy=num.array(begCRx)
-                        temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None)
-                        temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
-                        for kk in range(len(temp1)/2):
-                            begCRx[kk]=TempX[temp1[2*kk]];begCRy[kk]=TempY[temp1[2*kk]]
-                            finCRx[kk]=TempX[temp1[2*kk+1]];finCRy[kk]=TempY[temp1[2*kk+1]]
-                    elif len(temp)>0:
-                        begCRx=[TempX[temp[0]]];begCRy=[TempY[temp[0]]]
-                        finCRx=[TempX[temp[-1]]];finCRy=[TempY[temp[-1]]]
-                    else:
-                        begCRx=[];finCRx=[];begCRy=[];finCRy=[]
-                    begCRx=num.array(begCRx);finCRx=num.array(finCRx)
-
-                    temp=num.nonzero(DN);temp=temp[0]
-                    la=num.nonzero(diff(temp)<>1);la=la[0]       
-                    if len(la)>0:
-                        begDNx=num.arange(0,len(la)+1,1)*0;finDNx=num.array(begDNx)
-                        begDNy=num.array(begDNx);finDNy=num.array(begDNx)
-                        temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None)
-                        temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
-                        for kk in range(len(temp1)/2):
-                            begDNx[kk]=TempX[temp1[2*kk]];begDNy[kk]=TempY[temp1[2*kk]]
-                            finDNx[kk]=TempX[temp1[2*kk+1]];finDNy[kk]=TempY[temp1[2*kk+1]]
-                    elif len(temp)>0:
-                        begDNx=[TempX[temp[0]]];begDNy=[TempY[temp[0]]]
-                        finDNx=[TempX[temp[-1]]];finDNy=[TempY[temp[-1]]]
-                    else:
-                        begDNx=[];finDNx=[];begDNy=[];finDNy=[]
-                    begDNx=num.array(begDNx);finDNx=num.array(finDNx)
+                    # mangrove, marsh and dune: switch beginning and end indices b/c they're on land
+                    finMGx1,begMGx1=LocateHabitat(TempX,MG1);begMGx2=num.array([]);finMGx2=num.array([]);
+                    finMGx1=finMGx1[::-1];begMGx1=begMGx1[::-1]; # switch order to go sea to land
+                    temp1=find(finMGx1>0);temp2=find(begMGx1>0); # if there are points in the water, make a note
+                    if len(temp1)+len(temp2):
+                        gp.AddWarning("......you have mangrove in subtidal areas.  Please double check your habitat input layer.");mangwater=1;
+                    del temp1,temp2
                     
-                    temp=num.nonzero(OT);temp=temp[0]
-                    la=num.nonzero(diff(temp)<>1);la=la[0]       
-                    if len(la)>0:
-                        begOTx=num.arange(0,len(la)+1,1)*0;finOTx=num.array(begOTx)
-                        begOTy=num.array(begOTx);finOTy=num.array(begOTx)
-                        temp1=num.append(temp[0],temp[la],None);temp1=num.append(temp1,temp[la+1],None)
-                        temp1=num.append(temp1,temp[-1],None);temp1=sort(temp1)
-                        for kk in range(len(temp1)/2):
-                            begOTx[kk]=TempX[temp1[2*kk]];begOTy[kk]=TempY[temp1[2*kk]]
-                            finOTx[kk]=TempX[temp1[2*kk+1]];finOTy[kk]=TempY[temp1[2*kk+1]]
-                    elif len(temp)>0:
-                        begOTx=[TempX[temp[0]]];begOTy=[TempY[temp[0]]]
-                        finOTx=[TempX[temp[-1]]];finOTy=[TempY[temp[-1]]]
-                    else:
-                        begOTx=[];finOTx=[];begOTy=[];finOTy=[];
-                    begOTx=num.array(begOTx);finOTx=num.array(finOTx)
+                    finMRx1,begMRx1=LocateHabitat(TempX,MR1);begMRx2=num.array([]);finMRx2=num.array([]);
+                    finMRx1=finMRx1[::-1];begMRx1=begMRx1[::-1]; # switch order to go sea to land
+                    temp1=find(finMRx1>0);temp2=find(begMRx1>0); # if there are points in the water, make a note
+                    if len(temp1)+len(temp2):
+                        gp.AddWarning("......you have marsh in subtidal areas.  Please double check your habitat input layer.");marwater=1;
+                    del temp1,temp2
+
+                    begDNx1,finDNx1=LocateHabitat(TempX,DN1);begDNx2=num.array([]);finDNx2=num.array([]);
+                    finDNx1=finDNx1[::-1];begDNx1=begDNx1[::-1]; # switch order to go sea to land
+                    temp1=find(finDNx1>0);temp2=find(begDNx1>0); # if there are points in the water, make a note
+                    if len(temp1)+len(temp2):
+                        gp.AddWarning("......you have a dune in subtidal areas.  Please double check your habitat input layer.");dunewater=1;
+                    del temp1,temp2
+                    
+                    # seagrass and corals are in subtidal areas
+                    begSGx1,finSGx1=LocateHabitat(TempX,SG1);begSGx2=num.array([]);finSGx2=num.array([]);
+                    temp1=find(finSGx1<0);temp2=find(begSGx1<0); # if there are points on land, make a note
+                    if len(temp1)+len(temp2):
+                        gp.AddWarning("......you have seagrass on land.  Please double check your habitat input layer.");seagwater=1;
+                    del temp1,temp2
+                    
+                    begCRx1,finCRx1=LocateHabitat(TempX,CR1);begCRx2=num.array([]);finCRx2=num.array([]);
+                    temp1=find(finCRx1<0);temp2=find(begCRx1<0); # if there are points on land, make a note
+                    if len(temp1)+len(temp2):
+                        gp.AddWarning("......you have a coral reef on land.  Please double check your habitat input layer.");coralwater=1;
+                    del temp1,temp2
+                     
+                    # can't say much about other
+                    begOTx1,finOTx1=LocateHabitat(TempX,OT1);begOTx2=num.array([]);finOTx2=num.array([]);
+                    
+                    del ProfileHabArray
                 else:
-                    gp.AddWarning("......no habitat was found to be within the area of your profile")
-                    
-            yd=num.array(yd);xd=num.array(xd)
+                    gp.AddWarning(".....no habitat was found to be within the area of your profile.")
 
 
         # upload user's profile
@@ -1543,66 +1491,28 @@ try:
                 Dx.append(linelist[0])
                 Dmeas.append(linelist[1])
             TextData.close()
-              
-            Dmeas=num.array(Dmeas);Dx=num.array(Dx);Lx=len(Dx)
-            if len(Dx) > 5:
+
+            Dmeas=num.array(Dmeas)
+            Dx=num.array(Dx)
+            Lx=len(Dx)
+            if Lx > 5:
                 F=interp1d(Dx,Dmeas);
                 xd=num.arange(Dx[0],Dx[-1],1)
-                temp=F(xd);xd=xd-xd[0];lx=len(xd)
+                lx=len(xd)
+                temp=F(xd)
                 yd=num.array(temp)
             else:
-                xd=[Dx[xx] for xx in range(Lx)]
-                yd=[Dmeas[xx] for xx in range(Lx)];lx=len(yd)
+                xd=num.array(Dx)
+                yd=num.array(Dmeas)
+                lx=len(yd)
 
             if BackHelp==1:
                 keep=num.nonzero(yd<=0);keep=keep[0]
                 xd=xd[keep];yd=yd[keep]
                 if len(keep)<len(yd):
                     gp.AddMessage("\nA portion of your uploaded profile above 'Mean Lower Low Water' was removed so we can build your backshore profile.")
-
-            # grab projection spatial reference and x,y from 'LandPoint'
-            gp.outputCoordinateSystem=LandPoint
-            cur=gp.UpdateCursor(LandPoint)
-            row=cur.Next()
-            feat=row.Shape
-            midpoint=feat.Centroid
-            midList=shlex.split(midpoint)
-            midList=[float(s) for s in midList]
-            midx=midList[0]
-            midy=midList[1]
-            del cur,row
-
-            dataDesc=gp.describe(LandPoint)
-            spatialRef=dataDesc.SpatialReference
-            # add values from uploaded profile to shapefile of multiple points overlapping 'LandPoint'
-            gp.CreateFeatureClass_management(maps,"UploadedProfile.shp","POINT","#","#","#",spatialRef)
-            cur=gp.InsertCursor(UploadedProfile)
-            PtID=0
-            while PtID < len(Dx):
-                row=cur.NewRow()
-                pnt=gp.CreateObject("POINT")
-                pnt.x=float(midx)
-                pnt.y=float(midy)
-                row.shape=pnt
-                cur.InsertRow(row)
-                PtID+=1
-            del cur,row
-
-            UploadedProfile=AddField(UploadedProfile,"XSHOREDIST","LONG","8","")
-            UploadedProfile=AddField(UploadedProfile,"DEPTH","DOUBLE","","")
-            cur=gp.UpdateCursor(UploadedProfile)
-            row=cur.Next()
-            i=0
-            while row:
-                row.SetValue("XSHOREDIST",Dx[i])
-                row.SetValue("DEPTH",Dmeas[i])
-                cur.UpdateRow(row)
-                row=cur.Next()
-                i+=1
-            del cur,row
-            
             yd=num.array(yd);xd=num.array(xd)    
-              
+             
         # equilibrium beach profile,in case we don't have nearshore bathy
         elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
             if Diam < 0.1:
@@ -1622,154 +1532,56 @@ try:
             Dx=num.delete(x,out,None);lx=len(Dx)
             yd=num.array(Dmeas);xd=num.array(Dx)
 
-        xd2=[xd[ii] for ii in range(len(xd))]
-        SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
-        yd2=SignalSmooth.smooth((yd),SmoothValue,'flat')
-
-        # make sure that deepest point is at X=0
-        if yd[-1]<0:
-            yd=yd[::-1]
-        if yd[0]>yd[-1]:
-            yd=yd[::-1] 
-
-        # estimate scale factor
-        if ProfileQuestion=="(1) Yes":
-            temp=argmin(abs(-yd2-25)); # assume 25 is closure depth
-            temp1=-yd2[0:temp];temp1=temp1-temp1[0]
-            temp2=xd2[0:temp];temp2=temp2-temp2[0] # profile used to estimate sediment scale factor
-            fitfunc=lambda p, ix: p[0]*(ix)**(2.0/3) # target function
-            errfunc=lambda p, ix, iy: fitfunc(p, ix) - iy # distance to the target function
-            p0=[0.1] # initial guess for the parameters
-            p1, success=optimize.leastsq(errfunc, p0[:], args=(temp2,temp1))
-            Afit=abs(p1[0]) # sediment scale factor
-
     except:
         gp.AddError(msgCreateProfile)
         raise Exception
 
-
     try:
         # profile modification
         gp.AddMessage("...customizing depth profile")
+        yd=yd-MSL # yd is referenced to MLLW; need to reference to MSL
+        
+        # smooth the signal
+        SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
+        yd=SignalSmooth.smooth(num.array(yd),SmoothValue,'flat')
+
         if BackHelp==1: # create backshore profile for beach systems 
-            # smooth the signal
-            SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
-            yd=SignalSmooth.smooth(num.array(yd),SmoothValue,'flat')
+            # add foreshore from MLLW to Berm Elevation
+            MLLW_loc=Indexed(yd,-MSL) #Locate MLLW on profile
+            x,y=SlopeModif(xd,yd,Slope,xd[MLLW_loc],-2000)
+            AbvBerm=num.nonzero(y> BermCrest)
+            x=num.delete(x,AbvBerm[0],None)
+            y=num.delete(y,AbvBerm[0],None) # remove values that are above BermCrest
             
-            x=num.arange(0.0,10001.0,1.0) # long axis
-            BermCrest=BermCrest+MSL; # yd is referenced to MLLW; Need to reference all to MSL
-            # add foreshore
-            yf=1.0/Slope*x+yd[-1]
-            Above=num.nonzero(yf > BermCrest)
-            xf=num.delete(x,Above[0],None)
-            yf=num.delete(yf,Above[0],None) # remove values that are above BermCrest
-
-            # berm and dune
-            if DuneCheck==2: # no dunes are present, just berm (1=Yes, 2=No, 3=Dont Know)
-                xb=num.arange(0,100,1)
-                yb=num.array(len(xb)*[0.0])+BermCrest # horizontal berm 100m long
-            elif DuneCheck==3 and RTR > 3: # user doesn't know,and not wave Dominated: no dunes, just berm
-                xb=num.arange(0,100,1)
-                yb=num.array(len(xb)*[0.0])+BermCrest # horizontal berm 100m long
-            else: # dune exists...we'll create it as sinusoid for representation
-                xb=num.arange(0,1000.1,1)
-                yb=num.array(len(xb)*[0.0])+BermCrest # berm profile
-                if BermLength <> 0: # berm width in front of dune
-                    Toe=abs(xb-BermLength).argmin()# locate toe to separate berm and dune
-                else: Toe=0
-                
-                # dune profile
-                DuneWidth=3.0*DuneCrest # width of sinusoid....won't use...for plotting purposes only
-                yb[Toe:-1]=float(DuneCrest)*num.sin(2.0*pi*(xb[Toe:-1]-xb[Toe])/float(DuneWidth))+(BermCrest)
-                DunePlotEnd=xb[Toe]+3.0*DuneWidth
-                DunePlotSmall=xb[Toe]+DuneCrest
-
-                out=num.arange(DunePlotEnd,len(yb),1)
-                yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]/10.0
-                yb[DunePlotSmall:-1]=yb[DunePlotSmall:-1]+yb[DunePlotSmall-1]-yb[DunePlotSmall]
-
-                xb=num.delete(xb,out,None)
-                yb=num.delete(yb,out,None)
-                yb[-1]=yb[-2]
-                if DuneCrest>0:
-                    temp1=num.array(yb)
-                    temp2=temp1[0]
-                    temp1=temp1-temp2;temp1=temp1/max(temp1)*(DuneCrest)
-                    yb=temp1+temp2;
-          
-            # combine all vectors together
-            xf=xf+xd[-1];xb=xb+xf[-1] # make one long x-axis
-            xd=xd.tolist();yd=yd.tolist() # transform into lists
-            xf=xf.tolist();yf=yf.tolist()
-            xb=xb.tolist();yb=yb.tolist()
-          
-            yd.extend(yf);xd.extend(xf) # make one y-axis
-            xd.extend(xb);yd.extend(yb)
-            yd=num.array(yd);xd=num.array(xd)
+            # Add Berm and Dune
+            if BermLength <>0:
+                x,y=SlopeModif(x,y,0,x[0],x[0]-BermLength-1)    
+            if DuneCrest<>0:
+                y[0]=DuneCrest+BermCrest
+                x,y=SlopeModif(x,y,0,x[0],x[0]-50)
             
-        elif BackHelp==2: # modify profile for mangroves/marshes
-            Xmod=[xd[i] for i in range(lx)];Xmod=num.array(Xmod)
-            Ymod=[yd[i] for i in range(lx)];Ymod=num.array(Ymod)
-            out=num.nonzero(SlopeM < 0);out=out[0]
-            Slopem=num.delete(SlopeM,out,None)
+            xd=num.array(x)
+            yd=num.array(y)
             
-            # modify existing profile
-            for oo in range(len(Slopem)):
+        # slope modification
+        if sum(SlopeM)<>0:
+            for oo in range(len(SlopeM)):
                 if OffX[oo]-ShoreX[oo]<>0:
-                    Xmod,Ymod=SlopeModif(Xmod,Ymod,Slopem[oo],OffX[oo],ShoreX[oo])
-            
-            # resample on vector with dx=1
-            F=interp1d(Xmod,Ymod);Xmod=num.arange(Xmod[0],Xmod[0]+len(Xmod),1)
-            Ymod=F(Xmod);yd=Ymod;xd=Xmod
-          
-        elif BackHelp==3: # modify profile with straight lines 
-            Xmod=[xd[i] for i in range(lx)];Xmod=num.array(Xmod)
-            Ymod=[yd[i] for i in range(lx)];Ymod=num.array(Ymod)
-            loc=num.nonzero(SlopeMod < 0);loc=loc[0]
-            SlopeMod=num.delete(SlopeMod,loc,None)
-
-            # remove portions of existing profile
-            out=[]
-            for oo in range(len(loc)):
-                OffDel=Xmod[-1]-OffMod[loc[oo]]
-                ShoreDel=Xmod[-1]-ShoreMod[loc[oo]]
-
-                of1=Indexed(Xmod,OffDel);sho1=Indexed(Xmod,ShoreDel) # locate offshore and shoreward points
-                temp=num.arange(of1,sho1+1,1);out=num.append(out,temp,None)
-            out=[int(out[ii]) for ii in range(len(out))]
-
-            Ymod=num.delete(Ymod,out,None) # remove points from Ymod
-            Xmod=num.delete(Xmod,out,None) # remove points from Xmod
-            if len(Ymod) < 4:
-                gp.AddError("Too many points removed,the profile no longer exists")
-                raise Exception
-
-             # modify existing profile
-            for oo in range(len(SlopeMod)):
-                OffMod1=Xmod[-1]-OffMod[oo];ShoreMod1=Xmod[-1]-ShoreMod[oo]
-
-                if ShoreMod1 < OffMod1:
-                    gp.AddError("In Modification " +str(oo+1) +",XInshore should be larger than XOffshore.")
-                    raise Exception
-                if ShoreMod1-OffMod1<>0:
-                    SlopeMod1=SlopeMod[oo]
-                    Xmod,Ymod=SlopeModif3(Xmod,Ymod,SlopeMod1,OffMod1,ShoreMod1)
-            
-            # resample on vector with dx=1
-            F=interp1d(Xmod,Ymod);Xmod=num.arange(Xmod[0],Xmod[0]+len(Xmod),1)
-            Ymod=F(Xmod);yd=Ymod;xd=Xmod
-
-        # flip profile so that shoreline point is at X=0
-        if BackHelp<>1:# smooth the signal
-            SmoothValue=round((SmoothParameter/100.0)*len(xd),2)
-            yd=SignalSmooth.smooth(num.array(yd),SmoothValue,'flat');
-        if yd[-1]>0:    yd=yd[::-1]
-        if yd[0]<yd[-1]:    yd=yd[::-1] 
-        loc=Indexed(yd,0.0);xd=xd-xd[loc] # have X=0 at the shoreline
-
+                    xd,yd=SlopeModif(xd,yd,SlopeM[oo],OffX[oo],ShoreX[oo])
+            # smooth signal again
+            SmoothValue=round((2./100.)*len(xd),2)
+            yd=SignalSmooth.smooth(num.array(yd),SmoothValue,'flat')
+        
+        if BackHelp==1 and any(SlopeM):
+            gp.AddWarning("......you have asked us to create a sand dune AND modify your profile.  Make sure those demands are not contradictory.")
+                
     except:
         gp.AddError(msgModifyProfile)
         raise Exception
+    
+    # locate X=0 at y=0
+    DistZero=xd[Indexed(yd,0)]
+    xd=xd-DistZero # x=0 is now located at y=0
 
 
     ###################################          
@@ -1778,195 +1590,170 @@ try:
 
     try:
         gp.AddMessage("...plotting profile and creating outputs\n")
-        # depth limits for plotting
-        DeepLoc=argmin(abs(yd-(-3)))
-
-        Fig3=1;Fig2=1;Fig6=0
+        Fig3=0;Fig2=0;Fig6=0
         # plot and save
-        if BackHelp==1:
-            if ProfileQuestion=="(1) Yes":
-                Dorig=num.array(Dorig);Xorig=num.array(Xorig)
-                figure(2)
-                ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-                box=ax.get_position();
-                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-                ax.legend(('Elevation','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
-                ylabel('Depth [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                title('Created Profile',size='large',weight='bold')
-                savefig(html_txt+"ProfilePlot1.png",dpi=(640/8));Fig2=1
-                figure(3)
-                plot(Xorig,Dorig[::-1],Xorig,Dorig*0,'k',linewidth=2);grid()
-                title('Elevation seaward and landward of chosen location',size='large',weight='bold')
-                ylabel('Elevation [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                savefig(html_txt+"ProfilePlot3.png",dpi=(640/8))
-                        
-            elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
-                figure(2)
-                keep=num.nonzero(yd <= 0);keep=keep[0]
-                temp1=xd[keep];temp2=yd[keep]
-                ax=subplot(111);plot(Dx,Dmeas,'r',temp1,temp2,'b',Dx,Dmeas*0,'k',linewidth=2);grid()
-                box=ax.get_position();
-                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-                ax.legend(('Initial Profile','Smoothed Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
-                ylabel('Depth [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                title('Bathymetry Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
-                savefig(html_txt+"ProfilePlot3.png",dpi=(640/8))
-                figure(3)
-                plot(xd,yd,xd,yd*0,'k',linewidth=2);grid()
-                ylabel('Depth [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                title('Created Profile',size='large',weight='bold')
-                savefig(html_txt+"ProfilePlot1.png",dpi=(640/8))
+        figure(1)
+        ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
+        box=ax.get_position();
+        ax.set_position([box.x0, box.y0, box.width*1, box.height])
+        ax.legend(('Created Profile','Mean Sea Level','Mean Low Water','Mean High Water'),prop=fontP,loc='upper left',ncol=2)
+        ylabel('Depth [m]',size='large',weight='bold')
+        xlabel('Cross-Shore Distance [m]',size='large',weight='bold')
+        axvline(x=0, linewidth=1, color='k')
+        xlim(xd[-1],xd[0])
+        title('Created Profile',size='large',weight='bold')
+        savefig(html_txt+"CreatedProfile.png",dpi=(640/8));
 
-            elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
-                figure(2)
-                plot(xd,yd,xd,yd*0,'k',linewidth=2);grid()
-                ylabel('Depth [m]',weight='bold')
-                title('Created Profile',size='large',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                savefig(html_txt+"ProfilePlot1.png",dpi=(640/8))
-                Fig3=0
-                
-            figure(4)
-            ax=subplot(211);plot(Dx,Dmeas,'r',xd2,yd2,'b',linewidth=2);grid()
+        Xzoom=Indexed(yd,1) # locate point 1m abv MSL
+        figure(2)
+        if ProfileQuestion=="(1) Yes": # profile was cut with GIS
+            # zoom on nearshore area
+            ax=subplot(211);plot(Dx-DistZero,Dmeas-MSL,'b',xd,yd,'r',linewidth=2);grid()
             box=ax.get_position();
-            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-            ax.legend(('Initial Profile','Smoothed Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
+            ax.set_position([box.x0, box.y0, box.width*1, box.height])
+            ax.legend(('Initial Profile','Created Profile'), prop=fontP,loc='upper left',ncol=2)
             title('Bathymetry-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
-            ylabel('Depth [m]',weight='bold')
-            ax=subplot(212);plot(xd[0:DeepLoc],yd[0:DeepLoc],xd[0:DeepLoc],yd[0:DeepLoc]*0,'k',xd[0:DeepLoc],yd[0:DeepLoc]*0+HT-MSL,'-.k',linewidth=2);grid()
-            box=ax.get_position();
-            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-            xlabel('Cross-Shore Distance [m]',weight='bold')
-            ylabel('Elevation [m]',size='large')
-            title('Foreshore and Backshore',size='large',weight='bold')
-            savefig(html_txt+"ProfilePlot2.png",dpi=(640/8))
+            xlim(Dx[-1],-MSL)
+            ylabel('Depth [m]',size='large',weight='bold')
             
-        elif BackHelp==2 or BackHelp==3:
-            figure(2)
-            ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
+        elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
+            # zoom on nearshore area
+            ax=subplot(211);plot(Dx,Dmeas-MSL,'b',xd,yd,'r',linewidth=2);grid()
             box=ax.get_position();
-            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-            ax.legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
-            ylabel('Depth [m]',weight='bold')
-            xlabel('Cross-Shore Distance [m]',weight='bold')
-            title('Created Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')   
-            savefig(html_txt+"ProfilePlot1.png",dpi=(640/8))
-            
-            figure(3)
-            ax=subplot(111);plot(Dx,Dmeas,'r',xd,yd,'b',linewidth=2);grid()
+            ax.set_position([box.x0, box.y0, box.width*1, box.height])
+            ax.legend(('Initial Profile','Created Profile'), prop=fontP,loc='upper left',ncol=2)
+            title('Bathymetry-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
+            xlim(max(Dx[-1],xd[-1]),0);ylim(Dmeas[0]*1.1,MSL)
+            ylabel('Depth [m]',size='large',weight='bold')
+    
+        elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
+            # zoom on nearshore area
+            ax=subplot(211);plot(xd,yd,'r',linewidth=2);grid()
             box=ax.get_position();
-            ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-            ax.legend(('Initial Profile','Modified Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
-            ylabel('Elevation [m]',weight='bold')
+            ax.set_position([box.x0, box.y0, box.width*1, box.height])
+            ax.legend(('Created Profile'), prop=fontP,loc='upper left',ncol=2)
+            title('Bathymetry-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
+            xlim(Dx[-1],-MSL)
+            ylabel('Depth [m]',weight='bold',size='large')
+                 
+        if (any(SlopeM+OffX+ShoreX) or BackHelp==1) and Xzoom>0: # plot point abv MLLW
+            Xzoom=Indexed(yd,-MSL-5) # locate point 5m below MLLW                
+            ax=subplot(212);plot(xd[0:Xzoom],yd[0:Xzoom],xd[0:Xzoom],yd[0:Xzoom]*0,'k',xd[0:Xzoom],yd[0:Xzoom]*0-MSL,'--k',xd[0:Xzoom],yd[0:Xzoom]*0+HT-MSL,'-.k',linewidth=2);grid()
+            ax.legend(('Created Profile','Mean Sea Level','Mean Low Water','Mean High Water'),prop=fontP,loc='upper left',ncol=2)
+            box=ax.get_position();
+            ax.set_position([box.x0, box.y0, box.width*1, box.height])
             xlabel('Cross-Shore Distance [m]',weight='bold')
-            savefig(html_txt+"ProfilePlot2.png",dpi=(640/8))
-            Fig3=0
+            ylabel('Elevation [m]',size='large',weight='bold')
+            xlim(xd[Xzoom],xd[0]);ylim(yd[0]*1.1,yd[Xzoom]*1.1)
+            axvline(x=0, linewidth=1, color='k')
+            title('Foreshore and Backshore Areas',size='large',weight='bold')
+        savefig(html_txt+"ZoomIns.png",dpi=(640/8))
+ 
+        if ProfileQuestion=="(1) Yes": # profile was cut with GIS
+            Dorig=num.array(Dorig);
+            Xorig=num.array(Xorig)
+            fig=figure(3)
+            ax=subplot(211);plot(Xorig-shift+1,Dorig,Dx,Dmeas,'r',Xorig,Dorig*0,'k',linewidth=2);grid()
+            ax.legend(('Raw Profile','Extracted Bathy'), prop=fontP,loc='upper left',ncol=2)            
+            box=ax.get_position();
 
-        elif BackHelp==4:
-            if ProfileQuestion=="(1) Yes":
-                Dorig=num.array(Dorig);Xorig=num.array(Xorig)
-                figure(2)
-                plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-                ylabel('Depth [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                title('Created Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
-                savefig(html_txt+"ProfilePlot1.png",dpi=(640/8));Fig2=1
-                figure(3)
-                ax=subplot(211);plot(Dx,Dmeas,'r',xd2,yd,'b',linewidth=2);grid()
-                box=ax.get_position();
-                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-                ax.legend(('Initial Profile','Smoothed Profile'),loc='center left', bbox_to_anchor=(.9, 0.8))
-                title('Bathymetry',size='large',weight='bold')
-                ylabel('Depth [m]',weight='bold')
-                ax=subplot(212);plot(Xorig,Dorig[::-1],Xorig,Dorig*0,'k',linewidth=2);grid()
-                box=ax.get_position();
-                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])               
-                ylabel('Elevation [m]',size='large',weight='bold')
-                title('Elevation seaward and landward of chosen location',size='large',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                savefig(html_txt+"ProfilePlot2.png",dpi=(640/8));Fig2=1
-                Fig3=0 
-                
-            elif ProfileQuestion=="(2) No, but I will upload a cross-shore profile":
-                figure(2)
-                ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-                box=ax.get_position();
-                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-                ax.legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
-                ylabel('Depth [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                title('Created Profile-Smoothing Factor='+str(SmoothParameter),size='large',weight='bold')
-                savefig(html_txt+"ProfilePlot1.png",dpi=(640/8));Fig2=1
-                figure(3)
-                plot(Dx,Dmeas,xd,yd,xd,yd*0,'k',linewidth=2);grid()
-                ylabel('Elevation [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                savefig(html_txt+"ProfilePlot2.png",dpi=(640/8))
-                Fig3=0
+            ax.set_position([box.x0, box.y0, box.width*1, box.height])
+            title('DEM Profile',size='large',weight='bold')
+            ylabel('Elevation [m]',size='large',weight='bold')
+            xlabel('Cross-Shore Distance [m]',size='large',weight='bold')
+            xlim(Xorig[-1],Xorig[0])
+            axvline(x=0, linewidth=1, color='k')
+            extent = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted()) # save subplot
+            savefig(html_txt+"GISProfile.png", bbox_inches=extent.expanded(1.8, 1.4),dpi=(640/8))
 
-            elif ProfileQuestion=="(3) No, but please create a theoretical profile for me":
-                figure(3)
-                ax=subplot(111);plot(xd,yd,xd,yd*0,'k',xd,yd*0-MSL,'--k',xd,yd*0+HT-MSL,'-.k',linewidth=2);grid()
-                box=ax.get_position();
-                ax.set_position([box.x0, box.y0, box.width*0.8, box.height])
-                ax.legend(('Bathymetry Profile','Mean Sea Level','Mean Low Water','Mean High Water'),loc='center left', bbox_to_anchor=(.85, 0.8))
-                ylabel('Depth [m]',weight='bold')
-                xlabel('Cross-Shore Distance [m]',weight='bold')
-                title('Created Profile',size='large',weight='bold')
-                savefig(html_txt+"ProfilePlot1.png",dpi=(640/8))
-                Fig2=0; Fig3=0
-
+        # plot vegetation 
         if ProfileQuestion=="(1) Yes":
-            def pst(a):
-                if sum(a)<>0:
-                    b=1
-                else:
-                    b=0
-                return b
             try:
-                temp=pst(begMGx)+pst(begMRx)+pst(begCRx)+pst(begDNx)+pst(begSGx)+pst(begOTx);temp=sum(temp)
+                HabPrst=int(any(MG1))+int(any(MR1))+int(any(CR1))+int(any(DN1))+int(any(SG1))+int(any(OT1));
             except:
-                temp=0
+                HabPrst=0
                 
-            if temp<>0:
-                figure(6);j=1
-                if pst(begMGx)<>0:
-                    subplot(temp,1,j); temp1=TempY+nan
-                    la=num.nonzero(MG);temp1[la]=TempY[la]
-                    plot(TempX,TempY,TempX,temp1,'xg');grid()
-                    ylabel('Mangrove Field');j=j+1
-                if pst(begDNx)<>0:
-                    subplot(temp,1,j);temp1=TempY+nan
-                    la=num.nonzero(DN);temp1[la]=TempY[la]
-                    plot(TempX,TempY,TempX,temp1,'xg');grid()
-                    ylabel('Sand Dunes');j=j+1
-                if pst(begMRx)<>0:
-                    subplot(temp,1,j);temp1=TempY+nan
-                    la=num.nonzero(MR);temp1[la]=TempY[la]
-                    plot(TempX,TempY,TempX,temp1,'xg');grid()
-                    ylabel('Marsh');j=j+1
-                if pst(begSGx)<>0:
-                    subplot(temp,1,j);temp1=TempY+nan
-                    la=num.nonzero(SG);temp1[la]=TempY[la]
-                    plot(TempX,TempY,TempX,temp1,'xg');grid()
-                    ylabel('Seagrass Bed');j=j+1
-                if pst(begCRx)<>0:
-                    subplot(temp,1,j);temp1=TempY+nan
-                    la=num.nonzero(CR);temp1[la]=TempY[la]
-                    plot(TempX,TempY,TempX,temp1,'xg');grid()
-                    ylabel('Coral Reef');j=j+1
-                if pst(begOTx)<>0:
-                    subplot(temp,1,j); temp1=TempY+nan
-                    la=num.nonzero(OT);temp1[la]=TempY[la]
-                    plot(TempX,TempY,TempX,temp1,'xg');grid()
-                    ylabel('Other Habitat');j=j+1
+            if HabPrst<>0:
+                TempY=TempY-MSL # zero is at MSL
+                
+                # remove points that are too deep (mostly lack of data) and resample to dx=1
+                out=num.nonzero(TempY<-500);out=out[0] # points that are in ok water depths
+                TempY[out]=0
+                leg=1; # only one legend
+                
+                fig=figure(4);HabCount=1
+                if any(MG1):
+                    ax=subplot(HabPrst,1,HabCount); temp1=TempY+nan;temp2=TempY+nan
+                    la=num.nonzero(MG1);temp1[la]=TempY[la]
+                    la=num.nonzero(MG2);temp2[la]=TempY[la]
+                    plot(TempX,TempY,xd,yd,'r');plot(TempX-shift,temp1,'or',markersize=15);grid()
+                    xlim(TempX[-1],TempX[0])     
+                    if leg:
+                        ax.legend(('Raw Profile (GIS)','Created Profile','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
+                    ylabel('Mangrove',size='large',weight='bold');HabCount=HabCount+1
+                    axvline(x=0, linewidth=1, color='k')
+                if any(DN1):
+                    ax=subplot(HabPrst,1,HabCount); temp1=TempY+nan;temp2=TempY+nan
+                    la=num.nonzero(DN1);temp1[la]=TempY[la]
+                    la=num.nonzero(DN2);temp2[la]=TempY[la]
+                    plot(TempX,TempY,xd,yd,'r');plot(TempX-shift,temp1,'or',markersize=15);grid()
+                    xlim(TempX[-1],TempX[0])                    
+                    if leg:
+                        ax.legend(('Raw Profile (GIS)','Created Profile','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
+                    box=ax.get_position();
+                    ax.set_position([box.x0, box.y0, box.width*1, box.height])
+                    ylabel('Dunes',size='large',weight='bold');HabCount=HabCount+1
+                    axvline(x=0, linewidth=1, color='k')
+                if any(MR1):
+                    ax=subplot(HabPrst,1,HabCount); temp1=TempY+nan;temp2=TempY+nan
+                    la=num.nonzero(MR1);temp1[la]=TempY[la]
+                    la=num.nonzero(MR2);temp2[la]=TempY[la]
+                    plot(TempX,TempY,xd,yd,'r');plot(TempX-shift,temp1,'or',markersize=15);grid()
+                    xlim(TempX[-1],TempX[0])                    
+                    if leg:
+                        ax.legend(('Raw Profile (GIS)','Created Profile','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
+                    ylabel('Marsh',size='large',weight='bold');HabCount=HabCount+1
+                    box=ax.get_position();
+                    ax.set_position([box.x0, box.y0, box.width*1, box.height])
+                    axvline(x=0, linewidth=1, color='k')
+                if any(SG1):
+                    ax=subplot(HabPrst,1,HabCount); temp1=TempY+nan;temp2=TempY+nan
+                    la=num.nonzero(SG1);temp1[la]=TempY[la]
+                    la=num.nonzero(SG2);temp2[la]=TempY[la]
+                    plot(TempX,TempY,xd,yd,'r');plot(TempX,temp1,'or',markersize=15);grid()
+                    xlim(TempX[-1],TempX[0])                    
+                    if leg:
+                        ax.legend(('Raw Profile (GIS)','Created Profile','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
+                    ylabel('Seagrass',size='large',weight='bold');HabCount=HabCount+1
+                    box=ax.get_position();
+                    ax.set_position([box.x0, box.y0, box.width*1, box.height])
+                    axvline(x=0, linewidth=1, color='k')
+                if any(CR1):
+                    ax=subplot(HabPrst,1,HabCount); temp1=TempY+nan;temp2=TempY+nan
+                    la=num.nonzero(CR1);temp1[la]=TempY[la]
+                    la=num.nonzero(CR2);temp2[la]=TempY[la]
+                    plot(TempX,TempY,xd,yd,'r');plot(TempX-shift,temp1,'or',markersize=15);grid()
+                    xlim(TempX[-1],TempX[0])                    
+                    if leg:
+                        ax.legend(('Raw Profile (GIS)','Created Profile','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
+                    ylabel('Coral',size='large',weight='bold');HabCount=HabCount+1
+                    box=ax.get_position();
+                    ax.set_position([box.x0, box.y0, box.width*1, box.height])
+                    axvline(x=0, linewidth=1, color='k')
+                if any(OT1):
+                    ax=subplot(HabPrst,1,HabCount); temp1=TempY+nan;temp2=TempY+nan
+                    la=num.nonzero(OT1);temp1[la]=TempY[la]
+                    la=num.nonzero(OT2);temp2[la]=TempY[la]
+                    plot(TempX,TempY,xd,yd,'r');plot(TempX-shift,temp1,'or',markersize=15);grid()
+                    xlim(TempX[-1],TempX[0])                    
+                    if leg:
+                        ax.legend(('Raw Profile (GIS)','Created Profile','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
+                    ylabel('Other',size='large',weight='bold');HabCount=HabCount+1
+                    box=ax.get_position();
+                    ax.set_position([box.x0, box.y0, box.width*1, box.height])
                 xlabel('Cross-Shore Distance [m]',weight='bold')
-                savefig(html_txt+"ProfilePlot6.png",dpi=(640/8))
-                Fig6=1               
+                axvline(x=0, linewidth=1, color='k')
+                savefig(html_txt+"HabFigure.png",dpi=(640/8))
 
         # fetch and wind rose plots
         if FetchQuestion=='(1) Yes':
@@ -2036,7 +1823,7 @@ try:
         row=cur.Next()
         feat=row.Shape
         midpoint1=feat.Centroid
-        midList1=shlex.split(midpoint1)
+        midList1=midpoint1.split(' ')
         midList1=[float(s) for s in midList1]
         del cur,row
         PtLat=str(round(midList1[1],4))
@@ -2057,7 +1844,8 @@ try:
     try:
         htmlfile=open(Profile_HTML,"w")
         htmlfile.write("<html><title>Marine InVEST - Profile Generator</title><CENTER><H1>Coastal Protection - Tier 1</H1><H2>Profile Generator Results ("+subwsStr+")<br></H2><p>")
-        htmlfile.write("[ PROFILE INFO ]<br><a href=\"fetchwindwave.html\">[ FETCH, WAVE, AND WIND INFO ]</a><br>")
+        if ProfileQuestion=="(1) Yes":
+            htmlfile.write("[ PROFILE INFO ]<br><a href=\"fetchwindwave.html\">[ FETCH, WAVE, AND WIND INFO ]</a><br>")
         htmlfile.write("<CENTER><br><HR>")
         htmlfile.write("<table border=\"0\" width=\"800\" cellpadding=\"5\" cellspacing=\"20\"><tr><td>")
         htmlfile.write("<iframe width=\"350\" height=\"325\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"")
@@ -2069,20 +1857,6 @@ try:
         htmlfile.write("</td><td>")
         htmlfile.write("<H2><u>Site Information</u></H2>")
         htmlfile.write("The site is located at:<br><li> latitude = "+PtLat+"<br><li> longitude = "+PtLong+"<p>")
-        htmlfile.write("The average sediment size is: "+str(Diam)+"mm<br><p>")
-        if Diam > 1.1:
-            htmlfile.write("<i>Your beach has coarse sand/gravel. It won't be eroded during a storm</i><p>")
-        elif Diam >= 0.1:
-            htmlfile.write("<i>You have a sandy system.  It can be eroded during a storm</i><p>")
-            if ProfileQuestion=="(1) Yes":
-                htmlfile.write("Based on your bathymetry, we estimated that the sediment scale factor Afit that best fits the profile we cut for you is Afit=" +str(round(Afit,3)) +"m^(1/3).  Based on the sediment size you entered, we computed a sediment scale factor of A=" +str(A) +"m^(1/3).<p>")
-                if Afit>A:
-                    htmlfile.write("This value of Afit is greater than the one we computed for you based on the sediment size you entered, and corresponds to a larger sediment size than the one you entered.  Please use this information lightly as our estimate can be biased by the quality of your bathymetry and the time it was measured. <p>")
-                else:
-                    htmlfile.write("This value of Afit is smaller than the one we computed for you based on the sediment size you entered, and corresponds to a smaller sediment size than the one you entered.  Please use this information lightly as our estimate can be biased by the quality of your bathymetry and the time it was measured. <p>")
-            
-        else:
-            htmlfile.write("<i>Your systems has a lots of fines/consolidated sediments. It is not an erodible beach</i><p>")
         htmlfile.write("The tidal range is: "+TR+"m (high tide value)<br>")
         if HT < 2:
             htmlfile.write("Your site is microtidal (Tidal Range < 2m)<br>")
@@ -2091,332 +1865,362 @@ try:
         else:
             htmlfile.write("Your site is macro-tidal (Tidal Range > 4m)<br>")
         htmlfile.write("</td></tr></table>")
-
+        htmlfile.write("Your average backshore sediment size is: "+str(Diam)+"mm<br><p>")
+        if Diam > 1.1:
+            htmlfile.write("<i>Your beach is composed of coarse sand/gravel. It won't be eroded during a storm</i><p>")
+        elif Diam >= 0.1:
+            htmlfile.write("<i>You have a sandy beach.  It can be eroded during a storm</i><p>")
+        else:
+            htmlfile.write("<i>Your backshore is composed of fines/consolidated sediments. It is not an erodible beach</i><p>")
+        
         # backshore information
         if BackHelp==1:
-            htmlfile.write("<HR><H2><u>Backshore Information for a Sandy Beach System</u></H2>")
-            htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
-            htmlfile.write("<tr><td>The figure below shows the entire smoothed profile that was created for you.<br>")
-            htmlfile.write("<img src=\"ProfilePlot1.png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
-            htmlfile.write("<td>The figure below shows a zoom-in on the bathymetry and inter- to supratidal portions.<br>")
+            htmlfile.write("<HR><H2><u>Bathymetry and Backshore Profiles for a Sandy Beach System</u></H2>")
+        elif BackHelp==2:
+            htmlfile.write("<HR><H2><u>Bathymetry and Backshore Profiles for a Mangrove or Marsh System</u></H2>")
+            
+        if BackHelp==1 and any(SlopeM):
+            htmlfile.write("<b>You have asked us to create a sand dune AND modify your profile.  Make sure those demands are not contradictory.</b>");
+            
+        htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
+        htmlfile.write("<tr><td>The figure below shows the entire smoothed profile that was created for you.<br>")
+        htmlfile.write("<img src=\"CreatedProfile.png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
+            
+        if Xzoom>0:
             htmlfile.write("<li> The top subplot shows original and smoothed bathymetry.<br><li> The bottom subplot shows a zoom-in on intertidal and backshore profiles.<br>")
-            htmlfile.write("<img src=\"ProfilePlot2.png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\"></td></tr></table><br>")
-            htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
+            htmlfile.write("<td>The figure below shows a zoom-in on the bathymetry and inter- to supratidal portions.<br>")
+            htmlfile.write("<img src=\"ZoomIns.png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\"></td></tr></table><br>")
+            
+        htmlfile.write("<u><td>Additional information about your site from your inputs:<br></u>")
+        if BackHelp==1:
             Foreshore=str(int(Slope))
             DuneH=str(round(DuneCrest,1))
             BermH=str(round(BermCrest,1))
             BermW=str(round(BermLength,1))
-            htmlfile.write("<tr><td>Additional information about your site from your inputs:<br>")
             htmlfile.write("<li> The foreshore slope is: 1/"+Foreshore+"<br>")
-            htmlfile.write("<li> The berm at your site is is: "+BermH+"m high and "+BermW+"m long<br>")
-            if Tm==-1:
-                htmlfile.write("<li> We couldn't estimate a default value for dune height at your site.  We assumed a default value of 2m for plotting purposes, but again we don't know if this is true at your site.<br>")
-            else:
-                htmlfile.write("<li> The dune at your site is is: "+DuneH+"m high<br>")
-            if Fig3==1:
-                htmlfile.write("</td>")  
-                htmlfile.write("<td>")
-                htmlfile.write("The figure below shows the profile that was cut from GIS,<br>including the bathymetry and topography at your location of interest.<br>")
-                htmlfile.write("<img src=\"ProfilePlot3.png\" alt=\"Profile Plot #3\" width=\"640\" height=\"480\">")
-                htmlfile.write("</td></tr></table><br>")
-            else:
-                htmlfile.write("</td><td></td></tr></table><br>")
-            
-        elif BackHelp==2:
-            htmlfile.write("<HR><H2><u>Backshore Information for a Mangrove/Marsh System</u></H2>")
-            htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
-            htmlfile.write("<tr><td>The figure below shows the whole smoothed profile that was created for you.<br>")
-            htmlfile.write("<img src=\"ProfilePlot1.png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\"></td>")
-            htmlfile.write("<td>The figure below shows a zoom-in on the bathymetry and inter- to supratidal portions.<br>")
-            htmlfile.write("<li> The figure below shows your original and modified bathymetry.<br>")
-            htmlfile.write("<img src=\"ProfilePlot2.png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\"></td></tr></table><br>")
-            htmlfile.write("Additional information about your site from your inputs:<br>")
+            htmlfile.write("<li> The dune at your site is is: "+DuneH+"m high<br>")
+        
+        if any(SlopeM+OffX+ShoreX):
+            htmlfile.write("<td>Slope Modifications:<br>")
             if abs(OffX[0]+ShoreX[0])<>0:
-                htmlfile.write("<li> You have a slope of 1:"+str(SlopeM[0])+" for "+str(ShoreX[0]-OffX[0])+"m, from "+str(OffX[0])+" to "+str(ShoreX[0])+"m<br>")
+                htmlfile.write("<li>     You have a slope of 1:"+str(SlopeM[0])+" for "+str(abs(ShoreX[0]-OffX[0]))+"m, from "+str(OffX[0])+" to "+str(ShoreX[0])+"m<br>")
             if abs(OffX[1]+ShoreX[1])<>0:
-                htmlfile.write("<li> You have a slope of 1:"+str(SlopeM[1])+" for "+str(ShoreX[1]-OffX[1])+"m, from "+str(OffX[1])+" to "+str(ShoreX[1])+"m<br>")
+                htmlfile.write("<li>     You have a slope of 1:"+str(SlopeM[1])+" for "+str(abs(ShoreX[1]-OffX[1]))+"m, from "+str(OffX[1])+" to "+str(ShoreX[1])+"m<br>")
             if abs(OffX[2]+ShoreX[2])<>0:
-                htmlfile.write("<li> You have a slope of 1:"+str(SlopeM[2])+" for "+str(ShoreX[2]-OffX[2])+"m, from "+str(OffX[2])+" to "+str(ShoreX[2])+"m<br>")
+                htmlfile.write("<li>     You have a slope of 1:"+str(SlopeM[2])+" for "+str(abs(ShoreX[2]-OffX[2]))+"m, from "+str(OffX[2])+" to "+str(ShoreX[2])+"m<br>")
+        
+        if ProfileQuestion=="(1) Yes": # profile was cut with GIS
+            htmlfile.write("<p>")
+            htmlfile.write("The figure below shows the profile that was cut from GIS,<br>including the bathymetry and topography at your location of interest.<br>")
+            htmlfile.write("<img src=\"GISProfile.png\" alt=\"Profile Plot #3\" width=\"640\" height=\"240\">")
+        
+            if HabDirectory and 'HabCount'  in locals(): 
+                htmlfile.write("<hr><H2><u>Location of Natural Habitats</u></H2>")
+                htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
+                htmlfile.write("<tr><td><img src=\"HabFigure.png\" alt=\"Location of Natural Habitats\" width=\"640\" height=\"480\"></td><td>")
+                htmlfile.write("We indicate below the type, start and end locations of the habitats at your site.  Distances are referenced in meters from the shoreline.\
+                                Positive distances are oriented seaward and negative distances landward. In other words, if a distance is positive, your habitat is in the water, and if a distance is negative, your habitat in on land.<p>")
+                
+                # open Excel sheet to write extent of habitats
+                xlApp=Dispatch("Excel.Application")
+                xlApp.Workbooks.Open(InputTable)
+                cell=xlApp.Worksheets("ModelInput")
+                
+                if any(MG1):
+                    htmlfile.write("You have a mangrove field that starts and ends at the locations indicated below:<br>")
+                    if 'mangwater' in locals():
+                        htmlfile.write("<b>Your mangrove starts in subtidal areas.  Please double check your habitat input layer.</b>")
+                    B=begMGx1;F=finMGx1
+                    # need to substract "shift" from coordinate because the profile Dx,Dmeas shifted from Xorig,Dorig by measure shift -> see how it's defined
+                    # there's also the same shift with TempX,TempY which we use to plot the location of the vegetation
+                    htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
+                    htmlfile.write("<td><b> </b></td>")               
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>Field "+str(kk)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>Start [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(B[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>End [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(F[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("</table>")
+                    htmlfile.write("<p>")
+                    
+                    # write values in Excel
+                    cell.Range("i49").Value=int(B[0]) # beginning of the field
+                    cell.Range("j49").Value=int(F[-1]) # end of the field
 
-        elif BackHelp==3 or BackHelp==4:
-            htmlfile.write("<HR><table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
-            htmlfile.write("<tr><td>")
-            htmlfile.write("<img src=\"ProfilePlot1.png\" alt=\"Profile Plot #1\" width=\"640\" height=\"480\">")
-            if Fig2==1:
-                htmlfile.write("</td><td>")
-                htmlfile.write("<img src=\"ProfilePlot2.png\" alt=\"Profile Plot #2\" width=\"640\" height=\"480\">")
-            htmlfile.write("</td></tr></table>")
-
-        if HabDirectory and Fig6 == 1: 
-            htmlfile.write("<hr><H2><u>Location of Natural Habitats</u></H2>")
-            htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"10\">")
-            htmlfile.write("<tr><td><img src=\"ProfilePlot6.png\" alt=\"Location of Natural Habitats\" width=\"640\" height=\"480\"></td><td>")
-            htmlfile.write("You have at least one biotic or abiotic natural habitat in your area of interest.  \
-                            We indicate below its type, start and end locations.  Distances are referenced in meters from the shoreline.\
-                            Positive distances are oriented seaward and negative distances landward. In other words, if a distance is positive, your habitat is in the water, and if a distance is negative, your habitat in on land.<p>")
-            if pst(begMGx)<>0:
-                htmlfile.write("You have a mangrove field that starts and ends at the locations indicated below:<br>")
-                B=begMGx;F=finMGx
-                htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
-                htmlfile.write("<td> </td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>Field "+str(kk)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>Start [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(B[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>End [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(F[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("</table>")
-                htmlfile.write("<p>")
-                
-            if pst(begDNx)<>0:
-                htmlfile.write("You have a dune field that starts and ends at the locations indicated below:<br>")
-                B=begDNx;F=finDNx
-                htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
-                htmlfile.write("<td> </td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>Field "+str(kk)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>Start [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(B[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>End [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(F[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("</table>")
-                htmlfile.write("<p>")
-                
-            if pst(begSGx)<>0:
-                htmlfile.write("You have a seagrass bed that starts and ends at the locations indicated below:<br>")
-                B=begSGx;F=finSGx
-                htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
-                htmlfile.write("<td> </td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>Field "+str(kk)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>Start [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(B[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>End [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(F[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("</table>")
-                htmlfile.write("<p>")
-                
-            if pst(begCRx)<>0:
-                htmlfile.write("You have a coral reef that starts and ends at the locations indicated below:<br>")
-                B=begCRx;F=finCRx
-                htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
-                htmlfile.write("<td> </td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>Field "+str(kk)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>Start [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(B[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>End [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(F[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("</table>")
-                htmlfile.write("<p>")
-                
-            if pst(begMRx)<>0:
-                htmlfile.write("You have a marsh that starts and ends at the locations indicated below:<br>")
-                B=begMRx;F=finMRx
-                htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
-                htmlfile.write("<td> </td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>Field "+str(kk)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>Start [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(B[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>End [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(F[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("</table>")
-                htmlfile.write("<p>")
-                
-            if pst(begOTx)<>0:
-                htmlfile.write("You have another habitat (OT) that starts and ends at the locations indicated below:<br>")
-                B=begOTx;F=finOTx
-                htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
-                htmlfile.write("<td> </td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>Field "+str(kk)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>Start [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(B[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<td>End [m]</td>")
-                for kk in range(len(B)):
-                    htmlfile.write("<td>"+str(F[kk])+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("</table>")
-                htmlfile.write("<p>")
-            htmlfile.write("</td></tr></table>")
-
-        elif HabDirectory and Fig6 == 0:
-            htmlfile.write("<hr><H2><u>Location of Natural Habitats</u></H2>")
-            htmlfile.write("No habitat was identified near your profile.<p>")
+                if any(DN1):
+                    htmlfile.write("You have a dune field that starts and ends at the locations indicated below:<br>")
+                    if 'dunewater' in locals():
+                        htmlfile.write("<b>Your dune starts in subtidal areas.  Please double check your habitat input layer.</b>")
+                    B=begDNx1;F=finDNx1
+                    htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
+                    htmlfile.write("<td><b> </b></td>")               
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>Field "+str(kk)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>Start [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(B[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>End [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(F[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("</table>")
+                    htmlfile.write("<p>")
+                    
+                if any(MR1):
+                    htmlfile.write("You have a marsh that starts and ends at the locations indicated below:<br>")
+                    if 'marwater' in locals():
+                        htmlfile.write("<b>Your marsh starts in subtidal areas.  Please double check your habitat input layer.</b>")
+                    B=begMRx1;F=finMRx1
+                    htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
+                    htmlfile.write("<td><b> </b></td>")               
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>Field "+str(kk)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>Start [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(B[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>End [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(F[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("</table>")
+                    htmlfile.write("<p>")
+                    
+                    # write values in Excel
+                    cell.Range("i52").Value=int(B[0]) # beginning of the field
+                    cell.Range("j52").Value=int(F[-1]) # end of the field                 
+    
+                if any(SG1): # if seagrass pre-management exists
+                    htmlfile.write("You have a seagrass bed that starts and ends at the locations indicated below:<br>")
+                    if 'seagwater' in locals():
+                        htmlfile.write("<b>Your seagrass is on land.  Please double check your habitat input layer.</b>")
+                    B=begSGx1;F=finSGx1
+                    htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
+                    htmlfile.write("<td><b> </b></td>")               
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>Field "+str(kk)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>Start [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(B[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>End [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(F[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("</table>")
+                    htmlfile.write("<p>")
+                    
+                    # write values in Excel
+                    cell.Range("i53").Value=int(B[0]) # beginning of the field
+                    cell.Range("j53").Value=int(F[-1]) # end of the field      
+    
+                if any(CR1):
+                    htmlfile.write("You have a coral reef that starts and ends at the locations indicated below:<br>")
+                    if 'coralwater' in locals():
+                        htmlfile.write("<b>Your coral reef is on land.  Please double check your habitat input layer.</b>")
+                    B=begCRx1;F=finCRx1
+                    htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
+                    htmlfile.write("<td><b> </b></td>")               
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>Field "+str(kk)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>Start [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(B[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>End [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(F[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("</table>")
+                    htmlfile.write("<p>")
+                    
+                    # write values in Excel
+                    cell.Range("e56").Value=int(B[0]) # beginning of the field
+                    cell.Range("f56").Value=int(F[-1]) # end of the field                 
+                                 
+                if any(OT1):
+                    htmlfile.write("You have another habitat (OT) that starts and ends at the locations indicated below:<br>")
+                    B=begOTx1;F=finOTx1
+                    htmlfile.write("<table border=\"1\" width=\"200\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
+                    htmlfile.write("<td><b> </b></td>")               
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>Field "+str(kk)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>Start [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(B[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<td>End [m]</td>")
+                    for kk in range(len(B)):
+                        htmlfile.write("<td>"+str(F[kk])+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("</table>")
+                    htmlfile.write("<p>")
+                        
+                htmlfile.write("</td></tr></table>")
+               
+                xlApp.ActiveWorkbook.Close(SaveChanges=1) # save changes in Excel
+                xlApp.Quit()
+            
+            elif HabDirectory and 'HabCount' not in locals():
+                htmlfile.write("<hr><H2><u>Location of Natural Habitats</u></H2>")
+                htmlfile.write("No habitat was identified near your profile.<p>")
         htmlfile.close() # close HTML
-
-
-        htmlfile=open(FetchWindWave_HTML,"w")
-        htmlfile.write("<html><title>Marine InVEST - Profile Generator</title><CENTER><H1>Coastal Protection - Tier 1</H1><H2>Profile Generator Results ("+subwsStr+")<br></H2><p>")
-        htmlfile.write("<a href=\"profile.html\">[ PROFILE INFO ]</a><br>[ FETCH, WAVE, AND WIND INFO ]<br>")
-        htmlfile.write("<CENTER><br><HR><H2><u>Fetch and Wind Roses</u></H2></CENTER>")
-        htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"0\"><tr><td>")
-        htmlfile.write("<iframe width=\"350\" height=\"325\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"")
-        htmlfile.write("src=\"http://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=en&amp;geocode=&amp;q=")
-        htmlfile.write(PtLat+","+PtLong)
-        htmlfile.write("&amp;aq=&amp;sspn=0.009467,0.021136&amp;vpsrc=6&amp;ie=UTF8&amp;ll=")
-        htmlfile.write(PtLat+","+PtLong)
-        htmlfile.write("&amp;spn=0.063714,0.169086&amp;t=h&amp;z=12&amp;output=embed\"></iframe>")
-        htmlfile.write("</td><td>")
-        htmlfile.write("<img src=\"Fetch_Plot.png\" width=\"347\" height=\"260\" alt=\"Fetch Rose: No Fetch Calculation Selected\"></td><td>")
-        htmlfile.write("<img src=\"Wind_Plot.png\" width=\"347\" height=\"260\" alt=\"Wind Rose: No Wave Watch III Info Provided\"></td></tr></table>")
-
-        temp=0
-        if WW3_Pts or FetchQuestion=='(1) Yes':
-            htmlfile.write("<HR><H2><u>Wind and Wave Information</u></H2>")
+       
+        if ProfileQuestion=="(1) Yes":
+            htmlfile=open(FetchWindWave_HTML,"w")
+            htmlfile.write("<html><title>Marine InVEST - Profile Generator</title><CENTER><H1>Coastal Protection - Tier 1</H1><H2>Profile Generator Results ("+subwsStr+")<br></H2><p>")
+            htmlfile.write("<a href=\"profile.html\">[ PROFILE INFO ]</a><br>[ FETCH, WAVE, AND WIND INFO ]<br>")
+            htmlfile.write("<CENTER><br><HR><H2><u>Fetch and Wind Roses</u></H2></CENTER>")
+            htmlfile.write("<table border=\"0\" width=\"1100\" cellpadding=\"5\" cellspacing=\"0\"><tr><td>")
+            htmlfile.write("<iframe width=\"350\" height=\"325\" frameborder=\"0\" scrolling=\"no\" marginheight=\"0\" marginwidth=\"0\"")
+            htmlfile.write("src=\"http://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=en&amp;geocode=&amp;q=")
+            htmlfile.write(PtLat+","+PtLong)
+            htmlfile.write("&amp;aq=&amp;sspn=0.009467,0.021136&amp;vpsrc=6&amp;ie=UTF8&amp;ll=")
+            htmlfile.write(PtLat+","+PtLong)
+            htmlfile.write("&amp;spn=0.063714,0.169086&amp;t=h&amp;z=12&amp;output=embed\"></iframe>")
+            htmlfile.write("</td><td>")
+            htmlfile.write("<img src=\"Fetch_Plot.png\" width=\"347\" height=\"260\" alt=\"Fetch Rose: No Fetch Calculation Selected\"></td><td>")
+            htmlfile.write("<img src=\"Wind_Plot.png\" width=\"347\" height=\"260\" alt=\"Wind Rose: No Wave Watch III Info Provided\"></td></tr></table>")
             
-            if WW3_Pts:
-                htmlfile.write("<i>From Wave Watch III data, we estimated various wind speed values<br>that we used to generate waves from each of the 16 fetch directions.</i><br>")
-            htmlfile.write("<table border=\"1\" width=\"900\" cellpadding=\"6\" cellspacing=\"0\"><tr>")
-            htmlfile.write("</td><th colspan=\"1\"></th><th colspan=\"16\"><b>Direction (degrees)</b></th></tr>")
-            htmlfile.write("<tr align=\"center\"><td></td>")
-            for kk in range(0,16):
-                htmlfile.write("<td><b>"+str(dirList[kk])+"°</b></td>")
-            htmlfile.write("</tr><tr align=\"center\"><td><b>Fetch (m)</b></td>")
-            
-            if FetchQuestion=='(1) Yes':
+            temp=0
+            if WW3_Pts or FetchQuestion=='(1) Yes':
+                htmlfile.write("<HR><H2><u>Wind and Wave Information</u></H2>")
+                
+                if WW3_Pts:
+                    htmlfile.write("<i>From Wave Watch III data, we estimated various wind speed values<br>that we used to generate waves from each of the 16 fetch directions.</i><br>")
+                htmlfile.write("<table border=\"1\" width=\"900\" cellpadding=\"6\" cellspacing=\"0\"><tr>")
+                htmlfile.write("</td><th colspan=\"1\"></th><th colspan=\"16\"><b>Direction (degrees)</b></th></tr>")
+                htmlfile.write("<tr align=\"center\"><td></td>")
                 for kk in range(0,16):
-                    htmlfile.write("<td>"+str(int(FetchFinalList[kk]))+"</td>")
+                    htmlfile.write("<td><b>"+str(dirList[kk])+"°</b></td>")
+                htmlfile.write("</tr><tr align=\"center\"><td><b>Fetch (m)</b></td>")
+                
+                if FetchQuestion=='(1) Yes':
+                    for kk in range(0,16):
+                        htmlfile.write("<td>"+str(int(FetchFinalList[kk]))+"</td>")
+                else:
+                    for kk in range(0,16):
+                        htmlfile.write("<td>-</td>")
+                if WW3_Pts:
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"980000\">Max Wind Speed (m/s)</FONT></b></td>")
+                    for kk in range(0,16):
+                        htmlfile.write("<td>"+str(WiMax[kk])+"</td>")
+                        
+                if WW3_Pts and FetchQuestion=='(1) Yes':
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
+                    for kk in range(0,16):
+                        temp1=round(WiWavMax[kk],2)
+                        if temp1==0.0:
+                            temp1=0 
+                        htmlfile.write("<td>"+str(temp1)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
+                    for kk in range(0,16):
+                        temp2=round(WiPerMax[kk],2)
+                        if temp2==0.0:
+                            temp2=0     
+                        htmlfile.write("<td>"+str(temp2)+"</td>")
+                        
+                if WW3_Pts:            
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"C80000\">Top 10% Wind Speed (m/s)</FONT></b></td>")
+                    for kk in range(0,16):
+                        htmlfile.write("<td>"+str(Wi10[kk])+"</td>")
+                        
+                if WW3_Pts and FetchQuestion=='(1) Yes':
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
+                    for kk in range(0,16):
+                        temp1=round(WiWav10[kk],2)
+                        if temp1==0.0:
+                            temp1=0 
+                        htmlfile.write("<td>"+str(temp1)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
+                    for kk in range(0,16):
+                        temp2=round(WiPer10[kk],2)
+                        if temp2==0.0:
+                            temp2=0     
+                        htmlfile.write("<td>"+str(temp2)+"</td>")
+                        
+                if WW3_Pts:            
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"FF0000\">Top 25% Wind Speed (m/s)</FONT></b></td>")
+                    for kk in range(0,16):
+                        htmlfile.write("<td>"+str(Wi25[kk])+"</td>")
+                                
+                if WW3_Pts and FetchQuestion=='(1) Yes':
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
+                    for kk in range(0,16):
+                        temp1=round(WiWav25[kk],2)
+                        if temp1==0.0:
+                            temp1=0 
+                        htmlfile.write("<td>"+str(temp1)+"</td>")
+                    htmlfile.write("</tr>")
+                    htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
+                    for kk in range(0,16):
+                        temp2=round(WiPer25[kk],2)
+                        if temp2==0.0:
+                            temp2=0     
+                        htmlfile.write("<td>"+str(temp2)+"</td>")
+                htmlfile.write("</tr></table><p>")
+                
+                if WW3_Pts and FetchQuestion=='(1) Yes':
+                    htmlfile.write("<u>Summary</u>:<br>")
+                    temp=[WiPerMax[ii]*WiWavMax[ii]**2 for ii in range(len(WiPerMax))];loc=argmax(num.array(temp))
+                    htmlfile.write("<li> The most powerful wave generated by the maximum wind speed is: Ho="+str(round(WiWavMax[loc],2))+"m, with a period of To="+str(round(max(WiPerMax),2))+"s<br>")
+                    temp=[WiPer10[ii]*WiWav10[ii]**2 for ii in range(len(WiPer10))];loc=argmax(num.array(temp))
+                    htmlfile.write("<li> The most powerful wave generated by the top 10% wind speed is: Ho="+str(round(WiWav10[loc],2))+"m, with a period of To="+str(round(max(WiPer10),2))+"s<br>")
+                    temp=[WiPer25[ii]*WiWav10[ii]**2 for ii in range(len(WiPer25))];loc=argmax(num.array(temp))
+                    htmlfile.write("<li> The most powerful wave generated by the top 25% wind speed is: Ho="+str(round(WiWav25[loc],2))+"m, with a period of To="+str(round(max(WiPer25),2))+"s<p><br>")
             else:
-                for kk in range(0,16):
-                    htmlfile.write("<td>-</td>")
-            if WW3_Pts:
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"980000\">Max Wind Speed (m/s)</FONT></b></td>")
-                for kk in range(0,16):
-                    htmlfile.write("<td>"+str(WiMax[kk])+"</td>")
-                    
-            if WW3_Pts and FetchQuestion=='(1) Yes':
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
-                for kk in range(0,16):
-                    temp1=round(WiWavMax[kk],2)
-                    if temp1==0.0:
-                        temp1=0 
-                    htmlfile.write("<td>"+str(temp1)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
-                for kk in range(0,16):
-                    temp2=round(WiPerMax[kk],2)
-                    if temp2==0.0:
-                        temp2=0     
-                    htmlfile.write("<td>"+str(temp2)+"</td>")
-                    
-            if WW3_Pts:            
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"C80000\">Top 10% Wind Speed (m/s)</FONT></b></td>")
-                for kk in range(0,16):
-                    htmlfile.write("<td>"+str(Wi10[kk])+"</td>")
-                    
-            if WW3_Pts and FetchQuestion=='(1) Yes':
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
-                for kk in range(0,16):
-                    temp1=round(WiWav10[kk],2)
-                    if temp1==0.0:
-                        temp1=0 
-                    htmlfile.write("<td>"+str(temp1)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
-                for kk in range(0,16):
-                    temp2=round(WiPer10[kk],2)
-                    if temp2==0.0:
-                        temp2=0     
-                    htmlfile.write("<td>"+str(temp2)+"</td>")
-                    
-            if WW3_Pts:            
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b><FONT COLOR=\"FF0000\">Top 25% Wind Speed (m/s)</FONT></b></td>")
-                for kk in range(0,16):
-                    htmlfile.write("<td>"+str(Wi25[kk])+"</td>")
-                            
-            if WW3_Pts and FetchQuestion=='(1) Yes':
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Height (m)</b></td>")
-                for kk in range(0,16):
-                    temp1=round(WiWav25[kk],2)
-                    if temp1==0.0:
-                        temp1=0 
-                    htmlfile.write("<td>"+str(temp1)+"</td>")
-                htmlfile.write("</tr>")
-                htmlfile.write("<tr align=\"center\"><td><b>Wind-Wave Period (s)</b></td>")
-                for kk in range(0,16):
-                    temp2=round(WiPer25[kk],2)
-                    if temp2==0.0:
-                        temp2=0     
-                    htmlfile.write("<td>"+str(temp2)+"</td>")
-            htmlfile.write("</tr></table><p>")
+                htmlfile.write("<p><i>We cannot provide you with wave information at your site since you didn't include Wave Watch III in the analysis.</i><p>")
+                temp=1
             
-            if WW3_Pts and FetchQuestion=='(1) Yes':
-                htmlfile.write("<u>Summary</u>:<br>")
-                temp=[WiPerMax[ii]*WiWavMax[ii]**2 for ii in range(len(WiPerMax))];loc=argmax(num.array(temp))
-                htmlfile.write("<li> The most powerful wave generated by the maximum wind speed is: Ho="+str(round(WiWavMax[loc],2))+"m, with a period of To="+str(round(max(WiPerMax),2))+"s<br>")
-                temp=[WiPer10[ii]*WiWav10[ii]**2 for ii in range(len(WiPer10))];loc=argmax(num.array(temp))
-                htmlfile.write("<li> The most powerful wave generated by the top 10% wind speed is: Ho="+str(round(WiWav10[loc],2))+"m, with a period of To="+str(round(max(WiPer10),2))+"s<br>")
-                temp=[WiPer25[ii]*WiWav10[ii]**2 for ii in range(len(WiPer25))];loc=argmax(num.array(temp))
-                htmlfile.write("<li> The most powerful wave generated by the top 25% wind speed is: Ho="+str(round(WiWav25[loc],2))+"m, with a period of To="+str(round(max(WiPer25),2))+"s<p><br>")
-        else:
-            htmlfile.write("<p><i>We cannot provide you with wave information at your site since you didn't include Wave Watch III in the analysis.</i><p>")
-            temp=1
-
-        if WW3_Pts:
-            htmlfile.write("<b>Wave Height Data from Wave Watch III </b></br>")
-            htmlfile.write("<i>From WaveWatchIII data, we estimated various <br>wave height/period values that you could use as input into the wave model</i>")
-            htmlfile.write("<table border=\"1\" width=\"600\" cellpadding=\"6\" cellspacing=\"0\">")
-            htmlfile.write("<tr align=\"center\"></td><th colspan=\"1\"></th><td>Wave Height (m)</td><td>Wave Period (s)</td></tr><tr align=\"center\">")
-            htmlfile.write("<td><b>Maximum Wave</b></td>")
-            htmlfile.write("<td>"+str(WavMax[0])+"</td>")
-            htmlfile.write("<td>"+str(WavMax[1])+"</td>")
-            htmlfile.write("</tr><tr align=\"center\">")
-            htmlfile.write("<td><b>Top 10% Wave</b></td>")
-            htmlfile.write("<td>"+str(Wav10[0])+"</td>")
-            htmlfile.write("<td>"+str(Wav10[1])+"</td>")
-            htmlfile.write("</tr><tr align=\"center\">")
-            htmlfile.write("<td><b>Top 20% Wave</b></td>")
-            htmlfile.write("<td>"+str(Wav25[0])+"</td>")
-            htmlfile.write("<td>"+str(Wav25[1])+"</td>")
-            htmlfile.write("</tr><tr align=\"center\">")
-            htmlfile.write("<td><b>10 Year Wave</b></td>")
-            htmlfile.write("<td>"+str(Wav10yr)+"</td>")
-            htmlfile.write("<td>-</td>")
-            htmlfile.write("</tr>")
-            if Tm<>-1:
-                htmlfile.write("<tr align=\"center\"><td><b>Most Frequent</b></td>")
-                htmlfile.write("<td>"+str(Hm)+"</td>")
-                htmlfile.write("<td>"+str(Tm)+"</td>")
-            htmlfile.write("</table>")
-        elif temp==0:
-            htmlfile.write("<p><i>We cannot provide you with wave information at your site since you didn't include Wave Watch III in the analysis.</i><p>")
-        htmlfile.close() # close HTML
+            if WW3_Pts:
+                htmlfile.write("<b>Wave Height Data from Wave Watch III </b></br>")
+                htmlfile.write("<i>From WaveWatchIII data, we estimated various <br>wave height/period values that you could use as input into the wave model</i>")
+                htmlfile.write("<table border=\"1\" width=\"600\" cellpadding=\"6\" cellspacing=\"0\">")
+                htmlfile.write("<tr align=\"center\"></td><th colspan=\"1\"></th><td>Wave Height (m)</td><td>Wave Period (s)</td></tr><tr align=\"center\">")
+                htmlfile.write("<td><b>Maximum Wave</b></td>")
+                htmlfile.write("<td>"+str(WavMax[0])+"</td>")
+                htmlfile.write("<td>"+str(WavMax[1])+"</td>")
+                htmlfile.write("</tr><tr align=\"center\">")
+                htmlfile.write("<td><b>Top 10% Wave</b></td>")
+                htmlfile.write("<td>"+str(Wav10[0])+"</td>")
+                htmlfile.write("<td>"+str(Wav10[1])+"</td>")
+                htmlfile.write("</tr><tr align=\"center\">")
+                htmlfile.write("<td><b>Top 20% Wave</b></td>")
+                htmlfile.write("<td>"+str(Wav25[0])+"</td>")
+                htmlfile.write("<td>"+str(Wav25[1])+"</td>")
+                htmlfile.write("</tr><tr align=\"center\">")
+                htmlfile.write("<td><b>10 Year Wave</b></td>")
+                htmlfile.write("<td>"+str(Wav10yr)+"</td>")
+                htmlfile.write("<td>-</td>")
+                htmlfile.write("</tr>")
+                if Tm<>-1:
+                    htmlfile.write("<tr align=\"center\"><td><b>Most Frequent</b></td>")
+                    htmlfile.write("<td>"+str(Hm)+"</td>")
+                    htmlfile.write("<td>"+str(Tm)+"</td>")
+                htmlfile.write("</table>")
+            elif temp==0:
+                htmlfile.write("<p><i>We cannot provide you with wave information at your site since you didn't include Wave Watch III in the analysis.</i><p>")
+            htmlfile.close() # close HTML
 
     except:
         gp.AddError(msgHTMLOutputs)
@@ -2434,20 +2238,21 @@ try:
     parafile.close()
 
     # delete superfluous intermediate data
-    del1=[LandPointLyr,LandPolyLyr,LandPoint_Buff,LandPoint_Buff50k,LandPoint_Geo,Shoreline,Shoreline_Buff_Clip]
-    del2=[PT1,PT2,PT1_Z,PT2_Z,PT_Z_Near,Backshore_Pts,Profile_Pts_Merge,Profile_Pts_Lyr]
-    del3=[PtsCopy,PtsCopy2,PtsCopyLR,PtsCopy3,PtsCopyLD,Fetch_AOI,UnionFC,SeaPoly,seapoly_rst,seapoly_e,PtsCopyEL,PtsCopyExp,PtsCopyExp_Lyr,LandPoint_WW3]
-    del4=[]
-    if HabDirectory:
-        for i in range(0,len(HabAbbrevList)):
-            del4.append(interws+HabAbbrevList[i])
-            del4.append(interws+HabAbbrevList[i]+"_rc")
-            del4.append(interws+HabAbbrevList[i]+".shp")
-    deletelist = del1+del2+del3+del4
-    for data in deletelist:
-        if gp.exists(data):
-            gp.delete_management(data)
-    del gp
+    if ProfileQuestion=="(1) Yes":
+        del1=[LandPointLyr,LandPolyLyr,LandPoint_Buff,LandPoint_Buff50k,LandPoint_Geo,Shoreline,Shoreline_Buff_Clip,Shoreline_Buff_Clip_Diss]
+        del2=[PT1,PT2,PT1_Z,PT2_Z,PT_Z_Near,Backshore_Pts,Profile_Pts_Merge,Profile_Pts_Lyr]
+        del3=[PtsCopy,PtsCopy2,PtsCopyLR,PtsCopy3,PtsCopyLD,Fetch_AOI,UnionFC,SeaPoly,seapoly_rst,seapoly_e,PtsCopyEL,PtsCopyExp,PtsCopyExp_Lyr,LandPoint_WW3]
+        del4=[]
+        if HabDirectory:
+            for i in range(0,len(HabAbbrevList)):
+                del4.append(interws+HabAbbrevList[i])
+                del4.append(interws+HabAbbrevList[i]+"_rc")
+                del4.append(interws+HabAbbrevList[i]+".shp")
+        deletelist = del1+del2+del3+del4
+        for data in deletelist:
+            if gp.exists(data):
+                gp.delete_management(data)
+        del gp
 
 except Exception, ErrorDesc:
     gp.AddMessage(gp.GetMessages())
