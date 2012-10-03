@@ -1,7 +1,7 @@
 # Marine InVEST: Fetch Calculator Tool
 # Authors: Gregg Verutes, Greg Guannel, Jeremy Davies 
 # Coded for ArcGIS 9.3 and 10
-# 06/24/12
+# 09/27/12
 
 from CPf_FetchTools import fetchGeoprocessor
 import sys, string, os, datetime, array, time, datetime
@@ -379,7 +379,7 @@ try:
             calcSingle(landsea_rst, windDir, windDirInt, fetchpath)
 
         for i in range(0,len(dirList)):
-            gp.Reclassify_sa(fetchpath+"\\"+dirList[i], "Value", "-1000000 0 50000;0 250 0; 250 1000 625;1000 2000 1500;\
+            gp.Reclassify_sa(fetchpath+"\\"+dirList[i], "Value", "-1000000 0 65000;0 250 0; 250 1000 625;1000 2000 1500;\
                                                                   2000 3000 2500;3000 4000 3500;4000 5000 4500;5000 6000 5500;\
                                                                   6000 7000 6500;7000 8000 7500;8000 9000 8500;9000 10000 9500;\
                                                                   10000 11000 10500;11000 12000 11500;12000 13000 12500;\
