@@ -304,7 +304,7 @@ try:
         gp.AddJoin_management("wsheds_sjoin_layer", subwshed_id_field, "scarcity_view", out_table_swid_field)
         gp.CopyFeatures_management("wsheds_sjoin_layer", wsheds_sjoin_copy)
 
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             gp.Delete_management("scarcity_view")
             gp.Delete_management("wsheds_sjoin_layer")
 
@@ -359,9 +359,10 @@ try:
 
             dsum = 0
 
-            for t in range (0, station_time):
+            # NEW FOR 10.1
+            for t in range (0, int(station_time)):
                 dsum += 1 / pow(1 + (station_discount / 100), t)
-
+            
             NPV = ((station_kwval * energy) -  station_cost) * dsum
                         
             # Add new field values to output table
@@ -396,7 +397,7 @@ try:
         gp.AddJoin_management("wsheds", "VALUE", "test_table_view", out_table_sid_field)
         gp.CopyRaster_management("wsheds", wsheds_j)
 
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             gp.Delete_management("test_table_view")
 
         # Map watersheds to calculated energy/value to do subsequent raster math
@@ -404,7 +405,7 @@ try:
         gp.Lookup_sa(wsheds_j, out_table_value_field, ws_value1)
         gp.Lookup_sa(wsheds_j, out_table_rsupply_field, ws_rsupply)
 
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             gp.Delete_management(wsheds_j)
             gp.Delete_management("wsheds")
 
@@ -448,7 +449,7 @@ try:
         # Table of energy/value per sub-watershed, add to scarcity table
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0"):
+        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "Value"
