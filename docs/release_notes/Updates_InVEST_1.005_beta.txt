@@ -1,0 +1,19 @@
+July 12, 2010
+
+Updates to InVEST Beta
+
+InVEST 1.005 – Beta
+
+Changes in InVEST 1.005
+
+
+InVEST 1.005 is a minor release with the following modification:
+
+1. Modified units for water purification: nutrient retention and avoided reservoir sedimentation models.
+
+2. Biodiversity model sample data names modified as follows:
+	a. Current landcover: lc_samp_cur_b
+	a. Future landcover: lc_samp_fut_b
+	a. Base landcover: lc_samp_bse_b
+
+	Note: Biodiversity model sample data has a different extent from the other models.	
