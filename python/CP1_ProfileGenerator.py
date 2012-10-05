@@ -879,7 +879,7 @@ try:
                 
     try:
         # read Excel file inputs
-        gp.AddMessage("\nReading Nearshore Waves Excel file inputs...")
+        gp.AddMessage("\nReading Erosion Potential Excel file inputs...")
         xlApp=Dispatch("Excel.Application")
         xlApp.Visible=0
         xlApp.DisplayAlerts=0
