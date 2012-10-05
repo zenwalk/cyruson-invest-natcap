@@ -16,12 +16,21 @@ include:
   - Minor bug fixes and usability enhancements
   - Runtime decreased by a factor of 210
 - Overlap Analysis 3.0 Beta
-  - Runtime improvements
+  - In most cases runtime decreased by at least a factor of 15
   - Minor bug fixes and usability enhancements
   - Split into two separate tools:
     - Overlap Analysis outputs rasters with individually-weighted pixels
     - Overlap Analysis: Management Zones produces a shapefile output.
   - Updated table format for input activity CSVs
+  - Removed the "grid the seascape" step
+
+Updates to ArcGIS models:
+- Coastal vulnerability
+  - Removed the "structures" option
+  - Minor bug fixes and usability enhancements
+- Coastal protection (erosion protection)
+  - Incorporated economic valuation option 
+  - Minor bug fixes and usability enhancements
 
 Additionally there are a handful of minor fixes and feature
 enhancements:
