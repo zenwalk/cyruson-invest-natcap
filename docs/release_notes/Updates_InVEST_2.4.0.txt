@@ -1,15 +1,13 @@
-October 1, 2012
+October 5, 2012
 
 Changes in InVEST 2.4.0
 
 General:
 
-This is a major release which releases several beta versions of the
-InVEST models in the InVEST 3.0 framework.  These models run as
-standalones, but a GIS platform is needed to edit and view the data
-inputs and outputs.  This release introduces start menu shortcuts for
-all available InVEST 3.0 beta models.  The existing InVEST 2.x models
-can still be found in the included Arc toolbox.
+This is a major release which releases two additional beta versions of the
+InVEST models in the InVEST 3.0 framework.  Additionally, this release 
+introduces start menu shortcuts for all available InVEST 3.0 beta models.  
+Existing InVEST 2.x models can still be found in the included Arc toolbox.
 
 Existing InVEST models migrated to the 3.0 framework in this release
 include:
@@ -25,12 +23,19 @@ include:
     - Overlap Analysis: Management Zones produces a shapefile output.
   - Updated table format for input activity CSVs
 
-Additionally there are a handful of other minor fixes and feature
-enhancements since the previous release:
+Additionally there are a handful of minor fixes and feature
+enhancements:
 
 - InVEST 3.0 Beta standalones (identified by a new InVEST icon) may be run 
-  from the Start Menu.
+  from the Start Menu (on windows navigate to 
+  Start Menu -> All Programs -> InVEST 2.4.0
 - Bug fixes for the calculation of raster statistics.
+- InVEST 3.0 wave energy no longer requires an AOI for global runs, but
+  encounters memory issues on machines with less than 4GB of RAM.  This
+  is a known issue that will be fixed in a minor release.
 - Minor fixes to several chapters in the user's guide.
-- Minor bug fix to the 3.0 Carbon model: harvest maps are no longer required inputs.
+- Minor bug fix to the 3.0 Carbon model: harvest maps are no longer required 
+  inputs.
 - Other minor bug fixes and runtime performance tweaks in the 3.0 framework.
+- Improved installer allows users to remove InVEST from the Windows Add/Remove
+  programs menu.
