@@ -2493,7 +2493,7 @@ try:
 					temp1=1.0+disc;
 					temp2=[(1.0/temp1)**t for t in range(1,TimeHoriz+1)]
 					EPV=p*Dav*sum(temp2)
-					gp.AddMessage("...Avoided Erosion between scenarios is "+str(round(Eav))+" meters squared.\n...Avoided Damage Value is $"+splitthousands(str(int(Dav)))+"(in your local currency)\n...Expected Projected Value of habitat is $"+splitthousands(str(int(EPV)))+" (in your local currency)")
+					gp.AddMessage("...Avoided Erosion between scenarios is "+str(round(Eav))+" meters squared.\n...Avoided Damage Value is $"+splitthousands(str(int(Dav)))+" (in your local currency)\n...Expected Projected Value of habitat is $"+splitthousands(str(int(EPV)))+" (in your local currency)")
 
 
 	#################################
