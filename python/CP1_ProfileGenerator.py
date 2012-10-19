@@ -1,6 +1,7 @@
 # Marine InVEST: Coastal Protection (Profile Generator)
-# Authors: Greg Guannel, Gregg Verutes, Jeremy Davies
-# 10/04/12
+# Authors: Greg Guannel, Gregg Verutes, Joe Faries, Jeremy Davies
+# Coded for ArcGIS 9.3, 10, 10.1
+# 10/19/12
 
 # import libraries
 import CPf_SignalSmooth as SignalSmooth
@@ -513,12 +514,12 @@ try:
     ##############################################
 
     try:
-        if (WW3_Pts or FetchQuestion=='(1) Yes') and ProfileQuestion=="(1) Yes":
+        if (WW3_Pts or FetchQuestion=='(1) Yes'):
             gp.AddMessage("\nPreparing inputs for Wave Watch III and/or fetch calculations...")
             # erase from 'Fetch_AOI' areas where there is land
             LandPoly=AddField(LandPoly,"ERASE","SHORT","0","0")
             gp.CalculateField_management(LandPoly,"ERASE","1","VB")
-            UnionExpr=Fetch_AOI+" 1; "+LandPoly+" 2"        
+            UnionExpr=Fetch_AOI+" 1; "+LandPoly+" 2"
             gp.Union_analysis(UnionExpr,UnionFC)
 
             # select features where "ERASE=0"
@@ -1002,30 +1003,48 @@ try:
             
             # set coordinate system to same projection (in meters) as the shoreline point input
             gp.outputCoordinateSystem=LandPoint
-            cur=gp.UpdateCursor(LandPoint)
-            row=cur.Next()
-            feat=row.Shape
-            midpoint=feat.Centroid
-            midList = midpoint.split(' ')
-            midList=[float(s) for s in midList]
-            midx=midList[0]
-            midy=midList[1]
-            del cur,row
+
+            LandPoint = AddField(LandPoint, "LAT", "DOUBLE", "0", "0")
+            LandPoint = AddField(LandPoint, "LONG", "DOUBLE", "0", "0")
+            
+            # centroid property returns a string with x and y separated by a space
+            xExpression = "float(!SHAPE.CENTROID!.split()[0])"
+            yExpression = "float(!SHAPE.CENTROID!.split()[1])"
+            gp.CalculateField_management(LandPoint, "LAT", yExpression, "PYTHON")
+            gp.CalculateField_management(LandPoint, "LONG", xExpression, "PYTHON")
+            
+            # grab coordinates in meters of LandPoint
+            cur = gp.UpdateCursor(LandPoint)
+            row = cur.Next()  
+            midy = row.GetValue("LAT")
+            midx = row.GetValue("LONG")
+            del row, cur
 
             # grab coordinates of the start and end of the coastline segment
-            cur=gp.SearchCursor(Shoreline_Buff_Clip)
-            row=cur.Next()
-            counter=1
-            feat=row.Shape
-            firstpoint=feat.FirstPoint
-            lastpoint=feat.LastPoint
-            startList = firstpoint.split(' ')
-            endList = lastpoint.split(' ')
-            startx=float(startList[0])
-            starty=float(startList[1])
-            endx=float(endList[0])
-            endy=float(endList[1])
+            Shoreline_Buff_Clip = AddField(Shoreline_Buff_Clip, "LAT_F", "DOUBLE", "0", "0")
+            Shoreline_Buff_Clip = AddField(Shoreline_Buff_Clip, "LONG_F", "DOUBLE", "0", "0")
+            Shoreline_Buff_Clip = AddField(Shoreline_Buff_Clip, "LAT_L", "DOUBLE", "0", "0")
+            Shoreline_Buff_Clip = AddField(Shoreline_Buff_Clip, "LONG_L", "DOUBLE", "0", "0")
+            
+            # centroid property returns a string with x and y separated by a space
+            x1Expression = "float(!SHAPE.FIRSTPOINT!.split()[0])"
+            y1Expression = "float(!SHAPE.FIRSTPOINT!.split()[1])"
+            x2Expression = "float(!SHAPE.LASTPOINT!.split()[0])"
+            y2Expression = "float(!SHAPE.LASTPOINT!.split()[1])"
+            gp.CalculateField_management(Shoreline_Buff_Clip, "LAT_F", y1Expression, "PYTHON")
+            gp.CalculateField_management(Shoreline_Buff_Clip, "LONG_F", x1Expression, "PYTHON")
+            gp.CalculateField_management(Shoreline_Buff_Clip, "LAT_L", y2Expression, "PYTHON")
+            gp.CalculateField_management(Shoreline_Buff_Clip, "LONG_L", x2Expression, "PYTHON")
 
+            # grab coordinates in meters of Shoreline_Buff_Clip
+            cur = gp.UpdateCursor(Shoreline_Buff_Clip)
+            row = cur.Next()  
+            starty = row.GetValue("LAT_F")
+            startx = row.GetValue("LONG_F")
+            endy = row.GetValue("LAT_L")
+            endx = row.GetValue("LONG_L")
+            del row, cur
+            
             # diagnose the type of perpendicular transect to create (PerpTransType)
             PerpTransType=0
             if starty==endy or startx==endx:
@@ -1077,8 +1096,7 @@ try:
                         x1=midx+TransectDist
                         x2=midx-TransectDist
                         PerpTransType=6
-            del cur, row
-
+ 
             # grab projection spatial reference from 'LandPoint'
             dataDesc=gp.describe(LandPoint)
             spatialRef=dataDesc.SpatialReference
@@ -1088,12 +1106,12 @@ try:
             x1,y1,x2,y2=PTCreate(PerpTransType,midx,midy,1)
             xDelta = midx-x1
             yDelta = midy-y1
-
+            
             # create two point transects, each point is 1 meter away from the previous    
             cur1=gp.InsertCursor(PT1)
             cur2=gp.InsertCursor(PT2)
-
-            for bb in range(1,((RadLineDist/2.0)+1)):
+     
+            for bb in range(1,int((RadLineDist/2.0)+1)):
                 row1=cur1.NewRow()
                 pnt=gp.CreateObject("POINT")
                 pnt.x=midx+(bb*(xDelta))
@@ -1823,16 +1841,21 @@ try:
 
         # return projected point to geographic (unprojected)
         gp.Project_management(LandPoint,LandPoint_Geo,geo_projection)
+        LandPoint_Geo = AddField(LandPoint_Geo, "LAT", "DOUBLE", "0", "0")
+        LandPoint_Geo = AddField(LandPoint_Geo, "LONG", "DOUBLE", "0", "0")
+        
+        # centroid property returns a string with x and y separated by a space
+        xExpression = "float(!SHAPE.CENTROID!.split()[0])"
+        yExpression = "float(!SHAPE.CENTROID!.split()[1])"
+        gp.CalculateField_management(LandPoint_Geo, "LAT", yExpression, "PYTHON")
+        gp.CalculateField_management(LandPoint_Geo, "LONG", xExpression, "PYTHON")
+        
         # grab coordinates for Google Maps plot
-        cur=gp.UpdateCursor(LandPoint_Geo)
-        row=cur.Next()
-        feat=row.Shape
-        midpoint1=feat.Centroid
-        midList1=midpoint1.split(' ')
-        midList1=[float(s) for s in midList1]
-        del cur,row
-        PtLat=str(round(midList1[1],4))
-        PtLong=str(round(midList1[0],4))
+        cur = gp.UpdateCursor(LandPoint_Geo)
+        row = cur.Next()  
+        PtLat = str(round(row.GetValue("LAT"),4))
+        PtLong = str(round(row.GetValue("LONG"),4))
+        del row, cur
         
         TR=str(HT)
         WaveClimateCheck=0
@@ -2109,7 +2132,7 @@ try:
                 htmlfile.write("</td><th colspan=\"1\"></th><th colspan=\"16\"><b>Direction (degrees)</b></th></tr>")
                 htmlfile.write("<tr align=\"center\"><td></td>")
                 for kk in range(0,16):
-                    htmlfile.write("<td><b>"+str(dirList[kk])+"°</b></td>")
+                    htmlfile.write("<td><b>"+str(dirList[kk])+"</b></td>")
                 htmlfile.write("</tr><tr align=\"center\"><td><b>Fetch (m)</b></td>")
                 
                 if FetchQuestion=='(1) Yes':
