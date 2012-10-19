@@ -1,0 +1,2 @@
+- Fixed an issue with the ArcMap document where the paths to default data were not saved as relative paths.  This caused the default data in the document to not be found by ArcGIS.
+- Introduced some more memory-efficient processing for Biodiversity 3.0 Beta.  This fixes an out-of-memory issue encountered by some users when using very large raster datasets as inputs.

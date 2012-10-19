@@ -1,0 +1,2 @@
+- Fixed a minor issue with hydropower output vaulation rasters whose statistics were not pre-calculated.  This would cause the range in ArcGIS to show ther rasters at -3e38 to 3e38.
+- The InVEST installer now saves a log of the installation process to InVEST_<version>\install_log.txt
