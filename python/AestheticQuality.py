@@ -1,10 +1,10 @@
 # Marine InVEST: Aesthetic Quality (Viewshed Analysis)
-# Authors: Gregg Verutes, Mike Papenfus
-# Coded for ArcGIS 9.3 and 10
-# 10/01/12
+# Authors: Gregg Verutes, Mike Papenfus, Apollo Xi
+# Coded for ArcGIS 9.3, 10, 10.1
+# 10/19/12
 
 # import modules
-import sys, string, os, datetime
+import sys, string, os, datetime, shlex
 import arcgisscripting
 from math import *
 
@@ -389,17 +389,22 @@ try:
             # return projected AOI to geographic (unprojected)
             geo_projection = getDatum(AOI)
             gp.Project_management(AOI, AOI_geo, geo_projection)
+            AOI_geo = AddField(AOI_geo, "LAT", "DOUBLE", "0", "0")
+            AOI_geo = AddField(AOI_geo, "LONG", "DOUBLE", "0", "0")
+            
+            # centroid property returns a string with x and y separated by a space
+            xExpression = "float(!SHAPE.CENTROID!.split()[0])"
+            yExpression = "float(!SHAPE.CENTROID!.split()[1])"
+            gp.CalculateField_management(AOI_geo, "LAT", yExpression, "PYTHON")
+            gp.CalculateField_management(AOI_geo, "LONG", xExpression, "PYTHON")
+            
             # grab latitude value of AOI polygons's centroid
             cur = gp.UpdateCursor(AOI_geo)
-            row = cur.Next()
-            feat = row.Shape
-            midpoint = feat.Centroid
-            midList = midpoint.split(' ')
-            midList = [float(s) for s in midList]
+            row = cur.Next()  
+            latAOI = row.GetValue("LAT")
+            longAOI = row.GetValue("LONG")
             del row, cur
-            latAOI = midList[1]
-            longAOI = midList[0]
-
+            
             # based on centroid of AOI, calculate latitude for approximate projection cell size
             latList = [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 27.5, 30.0, 32.5, 35.0, 37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 65.0, 67.5, 70.0, 72.5, 75.0, 77.5, 80.0]
             cellSizeList = [927.99, 924.39, 920.81, 917.26, 913.74, 902.85, 892.22, 881.83, 871.69, 853.83, 836.68, 820.21, 804.38, 778.99, 755.17, 732.76, 711.64, 679.16, 649.52, 622.35, 597.37, 557.69, 522.96, 492.30, 465.03, 416.93, 377.84, 345.46, 318.19, 256.15, 214.36, 184.29, 161.62]
