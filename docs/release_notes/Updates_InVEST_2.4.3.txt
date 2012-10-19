@@ -1,2 +1,6 @@
 - Fixed a minor issue with hydropower output vaulation rasters whose statistics were not pre-calculated.  This would cause the range in ArcGIS to show ther rasters at -3e38 to 3e38.
 - The InVEST installer now saves a log of the installation process to InVEST_<version>\install_log.txt
+- Fixed an issue with Carbon 3.0 where carbon output values were incorrectly calculated.
+- Added a feature to Carbon 3.0 were total carbon stored and sequestered is output as part of the running log.
+- Fixed an issue in Carbon 3.0 that would occur when users had text representations of floating point numbers in the carbon pool dbf input file.
+- Added a feature to all InVEST 3.0 models to list disk usage before and after each run and in most cases report a low free space error if relevant.
