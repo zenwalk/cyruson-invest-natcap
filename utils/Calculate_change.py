@@ -142,7 +142,7 @@ try:
             Suffix = "_" + Suffix
             
     except:
-        gp.AddError("Error in input arguments: " + gp.GetMessages(2))
+        gp.AddError("\nError in input arguments: " + gp.GetMessages(2))
         raise Exception
 
 
@@ -181,9 +181,19 @@ try:
         gp.workspace = interws
         
     except:
-        gp.AddError("Error configuring local variables: " + gp.GetMessages(2))
+        gp.AddError("\nError configuring local variables: " + gp.GetMessages(2))
         raise Exception
 
+
+    # Set the Geoprocessing environment
+    try:
+        install_info = gp.GetInstallInfo("desktop")
+        
+        # Make sure all temporary files go in the Intermediate folder
+        gp.workspace = interws
+    except:
+        gp.AddError( "\nError setting geoprocessing environment: " + gp.GetMessages(2))
+        raise Exception
 
 
     # If requested, split percent change results into
@@ -196,76 +206,107 @@ try:
             return(spraster_lt_zero, spraster_gte_zero)
 
         except:
-            gp.AddError ("Error splitting change rasters: " + gp.GetMessages(2))
+            gp.AddError ("\nError splitting change rasters: " + gp.GetMessages(2))
             raise Exception
 
     # Process inputs
     try:
         # Simple change (scenario1 - scenario2)
         if do_change:
-            gp.AddMessage ("\nCalculating change...")
-            gp.Minus_sa(scenario1, scenario2, change)
-            gp.AddMessage("\tCreated change output file: \n\t" + str(change))
+            try: 
+                gp.AddMessage ("\nCalculating change...")
+                gp.Minus_sa(scenario1, scenario2, change)
+                gp.AddMessage("\tCreated change output file: \n\t" + str(change))
 
-            if do_split:
-                change_lt_zero, change_gte_zero = split(change)
-                gp.AddMessage("\tCreated change less than zero output file: \n\t" + str(change_lt_zero))
-                gp.AddMessage("\tCreated change greater than zero output file: \n\t" + str(change_gte_zero))
+                if do_split:
+                    change_lt_zero, change_gte_zero = split(change)
+                    gp.AddMessage("\tCreated change less than zero output file: \n\t" + str(change_lt_zero))
+                    gp.AddMessage("\tCreated change greater than zero output file: \n\t" + str(change_gte_zero))
+
+            except:
+                gp.AddError ("\nError calculating change: " + gp.GetMessages(2))
+                raise Exception
 
         # Percent change (((scenario1 - scenario2) / scenario2) * 100)
         if do_percent_change:
-            gp.AddMessage("\nCalculating percent change...")
-            gp.SingleOutputMapAlgebra_sa("((" + scenario1 + " - " + scenario2 + ") / " + scenario2 + ") * 100", percent_change)
-            gp.AddMessage("\tCreated percent change output file: \n\t" + str(percent_change))
+            try: 
+                gp.AddMessage("\nCalculating percent change...")
+                gp.SingleOutputMapAlgebra_sa("((" + scenario1 + " - " + scenario2 + ") / " + scenario2 + ") * 100", percent_change)
+                gp.AddMessage("\tCreated percent change output file: \n\t" + str(percent_change))
 
-            if do_split:
-                pchange_lt_zero, pchange_gte_zero = split(percent_change)
-                gp.AddMessage("\tCreated percent change less than zero output file: \n\t" + str(pchange_lt_zero))
-                gp.AddMessage("\tCreated percent change greater than zero output file: \n\t" + str(pchange_gte_zero))
+                if do_split:
+                    pchange_lt_zero, pchange_gte_zero = split(percent_change)
+                    gp.AddMessage("\tCreated percent change less than zero output file: \n\t" + str(pchange_lt_zero))
+                    gp.AddMessage("\tCreated percent change greater than zero output file: \n\t" + str(pchange_gte_zero))
+            except:
+                gp.AddError ("\nError calculating percent change: " + gp.GetMessages(2))
+                raise Exception
 
         # Create table of change per subwatershed
         if do_subwsheds:
-            gp.AddMessage("\nCreating change table for subwatersheds...")
+            try:
+                gp.AddMessage("\nCreating change table for subwatersheds...")
 
-            # Output table with change values per subwatershed
-            change_subwshed_table_name = "change_subwatershed.dbf"
-            change_subwshed_table = postprocws + change_subwshed_table_name            
-            gp.CreateTable_management(postprocws, change_subwshed_table_name)
+                # Output table with change values per subwatershed
+                change_subwshed_table_name = "change_subwatershed.dbf"
+                change_subwshed_table = postprocws + change_subwshed_table_name            
+                gp.CreateTable_management(postprocws, change_subwshed_table_name)
 
-            # For subwatershed input, each subwatershed has the same value for each cell in it,
-            # so do zonal stats and take the mean
-                
-            if do_change:
-                gp.AddMessage("\n\tCalculating change per subwatershed...")
-                gp.ZonalStatisticsAsTable_sa(subwsheds, subwshed_id_field, change, change_zstat_table, "DATA")
-                gp.AddField(change_subwshed_table, "change", "double")
-                
-            if do_percent_change:
-                gp.AddMessage("\n\tCalculating change per subwatershed...")
-                gp.ZonalStatisticsAsTable_sa(subwsheds, subwshed_id_field, percent_change, pchange_zstat_table, "DATA")
-                gp.AddField(change_subwshed_table, "pchange", "float")
+                # Zonal stats field name has changed in Arc 10
+                if (install_info["Version"] == "10.0"):
+                    zstat_id_field = subwshed_id_field
+                else:
+                    zstat_id_field = "VALUE"
 
-
-        # Create table of change for whole area of interest
-        if do_area:
-            gp.AddMessage("\nCreating change table for whole area of interest...")
-
-            # If subwatersheds are entered, need to sum them for whole area of interest
-            if do_subwsheds:
-                gp.AddMessage("\n\tSumming by subwatershed...")
-
-            # If no subwatersheds, can just sum over whole area
-            else:
+                # For subwatershed input, each subwatershed has the same value for each cell in it,
+                # so do zonal stats and take the mean
+                    
                 if do_change:
-                    gp.ZonalStatisticsAsTable_sa(area_mask, subwshed_id_field, change, change_zstat_table, "DATA")
-                    gp.AddField(change_subwshed_table, "change", "double")
-                
-                # Can't do zstat on pchange, need to sum over subwshed first, then get pchange
+                    gp.AddMessage("\n\tCalculating change per subwatershed...")
+                    
+                    gp.ZonalStatisticsAsTable_sa(subwsheds, subwshed_id_field, change, change_zstat_table, "DATA")
+                    change_subws_zstat_rows = gp.SearchCursor(change_zstat_table)
+
+                    gp.AddField(change_subwshed_table, "change", "double")                   
+                    
                 if do_percent_change:
+                    gp.AddMessage("\n\tCalculating change per subwatershed...")
+                    gp.ZonalStatisticsAsTable_sa(subwsheds, subwshed_id_field, percent_change, pchange_zstat_table, "DATA")
+                    pchange_subws_zstat_rows = gp.SearchCursor(pchange_zstat_table)
+
                     gp.AddField(change_subwshed_table, "pchange", "float")
 
+                change_subws_rows = gp.InsertCursor(change_subwshed_table)
 
-           
+                
+
+            except:
+                gp.AddError ("\nError creating change table for subwatersheds: " + gp.GetMessages(2))
+                raise Exception
+            
+        # Create table of change for whole area of interest
+        if do_area:
+            try:
+                
+                gp.AddMessage("\nCreating change table for whole area of interest...")
+
+                # If subwatersheds are entered, need to sum them for whole area of interest
+                if do_subwsheds:
+                    gp.AddMessage("\n\tSumming by subwatershed...")
+
+                # If no subwatersheds, can just sum over whole area
+                else:
+                    if do_change:
+                        gp.ZonalStatisticsAsTable_sa(area_mask, subwshed_id_field, change, change_zstat_table, "DATA")
+                        gp.AddField(change_subwshed_table, "change", "double")
+                    
+                    # Can't do zstat on pchange, need to sum over subwshed first, then get pchange
+                    if do_percent_change:
+                        gp.AddField(change_subwshed_table, "pchange", "float")
+
+            except:
+                gp.AddError ("\nError creating change table for watersheds: " + gp.GetMessages(2))
+                raise Exception           
 
     except:
         gp.AddError ("Error calculating change: " + gp.GetMessages(2))
