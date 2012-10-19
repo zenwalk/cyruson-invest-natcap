@@ -1,6 +1,7 @@
 # Marine InVEST: Coastal Protection (Wave and Erosion)
 # Authors: Greg Guannel, Gregg Verutes, Joe Faries, Apollo Xi
-# 10/03/12
+# Coded for ArcGIS 9.3, 10, 10.1
+# 10/19/12
 
 import sys, os, string, time, datetime
 import CPf_SignalSmooth as SignalSmooth
@@ -2491,7 +2492,7 @@ try:
 					Dav=D1-D2; # avoided erosion
 					p=1.0/Tr # return frequency
 					temp1=1.0+disc;
-					temp2=[(1.0/temp1)**t for t in range(1,TimeHoriz+1)]
+					temp2=[(1.0/temp1)**t for t in range(1,int(TimeHoriz)+1)]
 					EPV=p*Dav*sum(temp2)
 					gp.AddMessage("...Avoided Erosion between scenarios is "+str(round(Eav))+" meters squared.\n...Avoided Damage Value is $"+splitthousands(str(int(Dav)))+" (in your local currency)\n...Expected Projected Value of habitat is $"+splitthousands(str(int(EPV)))+" (in your local currency)")
 

@@ -1,7 +1,7 @@
 # Marine InVEST: Fetch Calculator Tool
 # Authors: Gregg Verutes, Greg Guannel, Jeremy Davies 
-# Coded for ArcGIS 9.3 and 10
-# 09/27/12
+# Coded for ArcGIS 9.3, 10, and 10.1
+# 10/19/12
 
 from CPf_FetchTools import fetchGeoprocessor
 import sys, string, os, datetime, array, time, datetime
