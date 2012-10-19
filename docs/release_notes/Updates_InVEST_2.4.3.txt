@@ -1,0 +1,1 @@
+- Fixed a minor issue with hydropower output vaulation rasters whose statistics were not pre-calculated.  This would cause the range in ArcGIS to show ther rasters at -3e38 to 3e38.
