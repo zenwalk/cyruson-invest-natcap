@@ -1,6 +1,7 @@
 # Marine InVEST: Habitat Risk Assessment Model
-# Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
-# 10/01/12
+# Authors: Katie Arkema, Joey Bernhardt, Gregg Verutes, Jeremy Davies, Martin Lacayo
+# Coded for ArcGIS 9.3, 10, 10.1
+# 10/19/12
 
 # import modules
 import sys, string, os, datetime, csv
@@ -1114,9 +1115,10 @@ try:
                     plt.plot(CumExposureList[i],CumConsequenceList[i], 'rs', markerfacecolor='red', markersize=8) # limited data
                     plt.annotate('H'+str(i+1),xy=(CumExposureList[i]-.15,CumConsequenceList[i]-.15),xytext=(CumExposureList[i]+.05,CumConsequenceList[i]))
 
-            OnesList = np.ones(maxListValue+4, dtype=np.float64)
-            plt.plot(range(maxListValue+4), OnesList, 'k-')
-            plt.plot(OnesList, range(maxListValue+4), 'k-')
+            MaxNumber = int(maxListValue)+4
+            OnesList = np.ones(MaxNumber, dtype=np.float64)            
+            plt.plot(range(MaxNumber), OnesList, 'k-')
+            plt.plot(OnesList, range(MaxNumber), 'k-')
             plt.xlim(0,maxListValue+1)
             plt.ylim(0,maxListValue+1)
             plt.grid()
