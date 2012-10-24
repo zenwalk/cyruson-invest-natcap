@@ -1,0 +1,4 @@
+- Fixes memory errors experienced by some users in the Carbon Valuation 3.0 Beta model.
+- Minor improvements to logging in the InVEST User Interface
+- Fixes an issue importing packages for some officially-unreleased InVEST models.
+
