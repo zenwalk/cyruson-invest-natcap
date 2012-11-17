@@ -765,7 +765,7 @@ try:
 
             # Map general classes to landuse table via the lucode
             gp.MakeTableView_management(lulc_general_table, "lulc_gen_layer")
-            gp.AddJoin("lulc_layer", "VALUE", "lulc_gen_layer", lucode_field)
+            gp.AddJoin("lulc_layer", "VALUE", "lulc_gen_layer", lucode_field, "KEEP_COMMON")
             gp.CopyRaster_management("lulc_layer", lulc_gen_join)
             gp.CalculateField_management(lulc_gen_join, lulc_gen_field, "[" + lugen_rios_field + "]", "VB")
 
