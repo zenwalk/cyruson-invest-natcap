@@ -72,9 +72,9 @@ try:
         else:
             lulc_found = False
 
-        # Land use / land cover general class table
+        # Land use / land cover general class/activities table
         lulc_general_table = sys.argv[8]
-        parameters.append("Land use general classes table: " + lulc_general_table)
+        parameters.append("Land use general classes/activities table: " + lulc_general_table)
         if (lulc_general_table != "") and (lulc_general_table != string.whitespace) and (lulc_general_table != "#"):
             lulc_general_table_found = True
         else:
@@ -754,7 +754,7 @@ try:
             gp.CopyRaster_management(lulc, lulc_copy)
 
             if not confirmfield(lulc_gen_field, lulc_copy):
-                gp.AddField(lulc_copy, lulc_gen_field, "TEXT")
+                gp.AddField(lulc_copy, lulc_gen_field, "LONG")
 
             # Remove any fields that conflict with the coefficient table input field names
             for field in rios_fields:
