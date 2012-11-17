@@ -156,6 +156,8 @@ try:
         # Assumption is that the full filenames are from WorldClim, zone 23 (Cali)
         # tmean1_23.tif...tmin12_23.tif
         
+        # CHANGE THESE IF NECESSARY FOR DIFFERENT INPUT FILENAMES
+        
         tmean_fname_pre = "tmean"
         tmean_fname_suf = "_23.tif"
 
