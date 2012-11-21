@@ -140,7 +140,8 @@ try:
 ##        na_all = interws + "na_all"
         
         # Output layers
-        eto_annual = postprocws + "eto" + Suffix + ".tif"
+##        eto_annual = postprocws + "eto" + Suffix + ".tif"
+        eto_annual = postprocws + "eto" + Suffix
         
     except:
         gp.AddError("\nError configuring local variables: " + gp.GetMessages(2))
@@ -220,7 +221,7 @@ try:
                 eto_month = interws + "eto_m_" + str(month)
                 eto_day = interws + "eto_d_" + str(month)
 
-                # 30 days has September...
+                # 30 days hath September...
                 if month == 2:
                     gp.Times_sa(eto_day, "28.2", eto_month)
                 elif month in [4, 6, 9, 11]:
