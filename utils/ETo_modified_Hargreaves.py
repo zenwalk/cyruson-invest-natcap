@@ -141,7 +141,7 @@ try:
         
         # Output layers
 ##        eto_annual = postprocws + "eto" + Suffix + ".tif"
-        eto_annual = postprocws + "eto" + Suffix
+        eto_annual = postprocws + "eto" + Suffix + ".tif"
         
     except:
         gp.AddError("\nError configuring local variables: " + gp.GetMessages(2))
