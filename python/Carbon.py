@@ -1019,7 +1019,7 @@ try:
      if total_value_stored_carbon:
           parameters.append("Total value of current stored carbon: "+thous(total_value_stored_carbon)+" Mg")   
      if total_value_sequestered:
-          parameters.append("Total value of sequestered carbon: "+thous(total_value_sequestered)+" Mg")
+          parameters.append("Total value of sequestered carbon: "+thous(total_value_sequestered)+" thousands of dollars")
      parameters.append("Script location: "+os.path.dirname(sys.argv[0])+"\\"+os.path.basename(sys.argv[0]))
      parameters.append("Suffix: "+str(suffix))
      
