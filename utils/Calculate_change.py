@@ -104,11 +104,6 @@ try:
         if do_subwshed and subwshed_mean == False and subwshed_sum == False:
             gp.AddError("\nError: If subwatersheds are to be processed, the type of data must be specified (Sum or Mean)")
             raise Exception
-        
-##        if do_subwshed and ((subwshed_mean == "") or (subwshed_mean == string.whitespace) or (subwshed_mean == "#")) \
-##           and ((subwshed_sum == "") or (subwshed_sum == string.whitespace) or (subwshed_sum == "#")):
-##            gp.AddError("\nError: If subwatersheds are to be processed, the type of data must be specified (Sum or Mean)")
-##            raise Exception
 
         # If calculating change for subwatersheds, need shapefile
         subwsheds = gp.GetParameterAsText(9)
