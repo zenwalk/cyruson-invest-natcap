@@ -829,7 +829,8 @@ try:
             gp.Extent = saveExtent
 
             # Final riparian continuity index
-            gp.Minus_sa("1.0", cont_index_right_clip, out_rindex)
+##            gp.Minus_sa("1.0", cont_index_right_clip, out_rindex)
+            gp.CopyRaster_management(cont_index_right_clip, out_rindex)
             
         except:
             gp.AddError ("\nError creating riparian continuity index:  " + gp.GetMessages(2))
