@@ -20,13 +20,19 @@ Other improvements:
   - Better support for unicode filepaths in all 3.0 Beta user interfaces.
   - Improved state saving and retrieval when loading up previous-run parameters
     in all 3.0 Beta user interfaces.
-  - Carbon Biophysical 3.0 Beta: Tweaked the user interface to require the user to
-    provide a future LULC raster when the 'Calculate Sequestration' checkbox
-    is checked.
+  - All 3.0 Beta tools now report elapsed time on completion of a model.
+  - All 3.0 Beta tools now provide disk space usage reports on completion of a
+    model.
+  - All 3.0 Beta tools now report arguments at the top of each logfile.
+  - Carbon Biophysical 3.0 Beta:
+    - Tweaked the user interface to require the user to
+      provide a future LULC raster when the 'Calculate Sequestration' checkbox
+      is checked.
+    - Fixed a bug that restricted naming of harvest layers.  Harvest layers are
+      now selected simply by taking the first available layer.
   - Biodiversity 3.0 Beta: The half-saturation constant is now allowed to be a
     positive floating-point number.
   - Timber 3.0 Beta: Validation has been added to the user interface for this
     tool for all tabular and shapefile inputs.
-
 
 
