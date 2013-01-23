@@ -1,0 +1,32 @@
+This minor release of InVEST introduces major changes to the InVEST 3.0 Beta
+Pollination model:
+  - Greatly improved memory efficiency over previous versions of this model.
+  - 3.0 Beta Pollination Biophysical and Valuation have been merged into a 
+    single tool, run through a unified user interface.
+  - Slightly improved runtime through the use of newer core InVEST GIS libraries.
+  - Optional ability to weight different species individually.  This feature
+    adds a column to the Guilds table that allows the user to specify a
+    relative weight for each species, which will be used before combining all
+    species supply rasters.
+  - Optional ability to aggregate pollinator abundances at specific points
+    provided by an optional points shapefile input.
+  - Bugfix: non-agricultural pixels are set to a value of 0.0 to indicate no
+    value on the farm value output raster.
+  - Bugfix: sup_val_<beename>_<scenario>.tif rasters are now saved to the
+    intermediate folder inside the user's workspace instead of the output
+    folder.
+
+Other improvements:
+  - Better support for unicode filepaths in all 3.0 Beta user interfaces.
+  - Improved state saving and retrieval when loading up previous-run parameters
+    in all 3.0 Beta user interfaces.
+  - Carbon Biophysical 3.0 Beta: Tweaked the user interface to require the user to
+    provide a future LULC raster when the 'Calculate Sequestration' checkbox
+    is checked.
+  - Biodiversity 3.0 Beta: The half-saturation constant is now allowed to be a
+    positive floating-point number.
+  - Timber 3.0 Beta: Validation has been added to the user interface for this
+    tool for all tabular and shapefile inputs.
+
+
+
