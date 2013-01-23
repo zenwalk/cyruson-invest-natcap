@@ -1,0 +1,1 @@
+- Fixed a compatibility issue with ArcGIS 9.3 where the ArcMap and ArcToolbox were unable to be opened by Arc 9.3.
