@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# ETo_mThornthwaite.py
+# ETo_Thornthwaite.py
 #
 # Coded by Stacie Wolny
 # for the Natural Capital Project
@@ -51,61 +51,61 @@ try:
         input_dir = gp.GetParameterAsText(1)
         parameters.append("Input folder: " + input_dir)
 
-        # Create dictionary to hold monthly radiation data
-        HS = []
-        # Fill slot 0 to make subsequent month assignments easier
-        HS.append(0)
+##        # Create dictionary to hold monthly radiation data
+##        HS = []
+##        # Fill slot 0 to make subsequent month assignments easier
+##        HS.append(0)
         
-        # Hours of sun value for January
-        HS.append(gp.GetParameterAsText(2))
-        parameters.append("Hours of sun for January: " + str(HS[1]))
-
-        # Hours of sun value for February
-        HS.append(gp.GetParameterAsText(3))
-        parameters.append("Hours of sun for February: " + str(HS[2]))
-
-        # Hours of sun value for March
-        HS.append(gp.GetParameterAsText(4))
-        parameters.append("Hours of sun for March: " + str(HS[3]))
-
-        # Hours of sun value for April
-        HS.append(gp.GetParameterAsText(5))
-        parameters.append("Hours of sun for April: " + str(HS[4]))
-
-        # Hours of sun value for May
-        HS.append(gp.GetParameterAsText(6))
-        parameters.append("Hours of sun for May: " + str(HS[5]))
-
-        # Hours of sun value for June
-        HS.append(gp.GetParameterAsText(7))
-        parameters.append("Hours of sun for June: " + str(HS[6]))
-
-        # Hours of sun value for July
-        HS.append(gp.GetParameterAsText(8))
-        parameters.append("Hours of sun for July: " + str(HS[7]))
-
-        # Hours of sun value for August
-        HS.append(gp.GetParameterAsText(9))
-        parameters.append("Hours of sun for August: " + str(HS[8]))
-
-        # Hours of sun value for September
-        HS.append(gp.GetParameterAsText(10))
-        parameters.append("Hours of sun for September: " + str(HS[9]))
-
-        # Hours of sun value for October
-        HS.append(gp.GetParameterAsText(11))
-        parameters.append("Hours of sun for October: " + str(HS[10]))
-
-        # Hours of sun value for November
-        HS.append(gp.GetParameterAsText(12))
-        parameters.append("Hours of sun for November: " + str(HS[11]))
-
-        # Hours of sun value for December
-        HS.append(gp.GetParameterAsText(13))
-        parameters.append("Hours of sun for December: " + str(HS[12]))
+##        # Hours of sun value for January
+##        HS.append(gp.GetParameterAsText(2))
+##        parameters.append("Hours of sun for January: " + str(HS[1]))
+##
+##        # Hours of sun value for February
+##        HS.append(gp.GetParameterAsText(3))
+##        parameters.append("Hours of sun for February: " + str(HS[2]))
+##
+##        # Hours of sun value for March
+##        HS.append(gp.GetParameterAsText(4))
+##        parameters.append("Hours of sun for March: " + str(HS[3]))
+##
+##        # Hours of sun value for April
+##        HS.append(gp.GetParameterAsText(5))
+##        parameters.append("Hours of sun for April: " + str(HS[4]))
+##
+##        # Hours of sun value for May
+##        HS.append(gp.GetParameterAsText(6))
+##        parameters.append("Hours of sun for May: " + str(HS[5]))
+##
+##        # Hours of sun value for June
+##        HS.append(gp.GetParameterAsText(7))
+##        parameters.append("Hours of sun for June: " + str(HS[6]))
+##
+##        # Hours of sun value for July
+##        HS.append(gp.GetParameterAsText(8))
+##        parameters.append("Hours of sun for July: " + str(HS[7]))
+##
+##        # Hours of sun value for August
+##        HS.append(gp.GetParameterAsText(9))
+##        parameters.append("Hours of sun for August: " + str(HS[8]))
+##
+##        # Hours of sun value for September
+##        HS.append(gp.GetParameterAsText(10))
+##        parameters.append("Hours of sun for September: " + str(HS[9]))
+##
+##        # Hours of sun value for October
+##        HS.append(gp.GetParameterAsText(11))
+##        parameters.append("Hours of sun for October: " + str(HS[10]))
+##
+##        # Hours of sun value for November
+##        HS.append(gp.GetParameterAsText(12))
+##        parameters.append("Hours of sun for November: " + str(HS[11]))
+##
+##        # Hours of sun value for December
+##        HS.append(gp.GetParameterAsText(13))
+##        parameters.append("Hours of sun for December: " + str(HS[12]))
 
         # Suffix to append to output filenames, as <filename>_<suffix>
-        Suffix = gp.GetParameterAsText(14)
+        Suffix = gp.GetParameterAsText(2)
         parameters.append("Suffix: " + Suffix)
 
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -163,6 +163,30 @@ try:
 
         # Calculate ETo one month at a time
         # range needs to go to 13 so that 12 is calculated
+
+        # Create dictionary to hold monthly hours of sun data
+        HS = []
+        # Fill slot 0 to make subsequent month assignments more intuitive
+        HS.append(0)
+
+##        HS.append(gp.GetParameterAsText(13))
+
+        # Calculate monthly hours of sun, based on latitude and month-specific equations
+        
+##        gp.AddMessage("\nCalculating monthly hours of sun per day...")
+##        tmean_jantmp = input_dir + os.sep + tmean_fname_pre + "1" + tmean_fname_suf
+##        gp.
+        
+        for month in range (1, 13):
+            try:
+                # Create full tmean filename for this month
+                # Use this layer to create lat/long layer
+                tmean_x10 = input_dir + os.sep + tmean_fname_pre + str(month) + tmean_fname_suf
+                if not gp.exists(tmean_x10):
+                    gp.AddError("\nError: Tmean file " + tmean_x10 + " does not exist")
+                    raise Exception
+                
+        
         for month in range (1, 13):
             try:
 
