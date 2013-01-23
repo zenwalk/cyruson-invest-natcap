@@ -35,4 +35,9 @@ Other improvements:
   - Timber 3.0 Beta: Validation has been added to the user interface for this
     tool for all tabular and shapefile inputs.
 
-
+Improvements to the InVEST 2.x ArcGIS-based toolset:
+  - Minor bugfix to Coastal Vulnerability, where an internal unit of
+    measurements was off by a couple digits in the Fetch Calculator.
+  - Minor fixes to various helper tools used in InVEST 2.x models.
+  - Outputs for Hargreaves are now saved as geoTIFFs.
+  - Thornwaite allows more flexible entring of hours of sunlight
