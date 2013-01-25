@@ -1,0 +1,13 @@
+Jan 26, 2012
+
+Changes in InVEST 2.2.1
+
+General:
+
+This is a minor release which fixes the following defects: 
+
+-A variety of miscellaneous bugs were fixed that were causing crashes of the Coastal Protection model in Arc 9.3.
+-Fixed an issue in the Pollination model that was looking for an InVEST1005 directory.
+-The InVEST "models only" release had an entry for the InVEST 3.0 Beta tools, but was missing the underlying runtime.  This has been added to the models only 2.2.1 release at the cost of a larger installer.
+-The default InVEST ArcMap document wouldn't open in ArcGIS 9.3.  It can now be opened by Arc 9.3 and above.
+-Minor updates to the Coastal Protection user's guide.
