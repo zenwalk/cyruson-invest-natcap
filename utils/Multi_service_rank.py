@@ -220,12 +220,16 @@ try:
         group_by_value = gp.GetParameterAsText(16)
         parameters.append("Group by value: " + str(group_by_value))
 
-        # Or group by X% of area?
+        # Group by X% of area?
         group_by_area = gp.GetParameterAsText(17)
         parameters.append("Group by area: " + group_by_area)
 
         if do_percent and group_by_value == 'false' and group_by_area == 'false':
             gp.AddError("\nError: If grouping is to be done, Group by Value and/or Group by Area must be selected.")
+            raise Exception
+
+        if not do_percent and (group_by_value == 'true' or group_by_area == 'true') :
+            gp.AddError("\nError: If grouping is to be done, a Grouping Percent must be provided.")
             raise Exception
 
         # Suffix to append to output filenames, as <filename>_<suffix>
