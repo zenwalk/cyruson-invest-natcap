@@ -261,10 +261,10 @@ try:
 
                 # Check result against flow direction
                 # If there are non-cardinal values, do it again, up to 3 times
-                gp.FlowDirection_sa(dem_fill_sinks, flow_dir, "NORMAL")
-                
                 gp.AddMessage("\n\tChecking for non-cardinal flow direction values...")
+                gp.FlowDirection_sa(dem_fill_sinks, flow_dir, "NORMAL")
                 flowdir_cardinals = [1, 2, 4, 8, 16, 32, 64, 128]
+
                 gp.BuildRasterAttributeTable_management(flow_dir, "OVERWRITE")
 
                 fd_rows = gp.SearchCursor(flow_dir)
