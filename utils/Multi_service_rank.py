@@ -161,17 +161,79 @@ try:
             gp.Divide_sa(service5, service_max, service5_norm)
             # Create string of service/weight pairs required for Arc's Weighted Sum function             
             overlay_input = overlay_input + "; " + service5_norm + " VALUE " + str(weight5)
+
+        # Service 6 - service output from an InVEST model
+        service6 = gp.GetParameterAsText(11)
+        parameters.append("Service 6: " + service6)
+
+        # Weight 6 - floating point value, weight to multiply all values in Service 6 by
+        weight6 = gp.GetParameterAsText(12)
+        parameters.append("Weight 6: " + weight6)
+
+        # If service 6 is entered, a corresponding weight must be entered too
+        if ((service6 != "") and (service6 != string.whitespace) and (service6 != "#")) \
+           and ((weight6 == "") or (weight6 == string.whitespace) or (weight6 == "#")):
+            gp.AddError("\nError: If service 6 is to be processed, a corresponding weight must be provided")
+            raise Exception
+        # If both service and weight are entered, process them
+        elif ((service6 != "") and (service6 != string.whitespace) and (service6 != "#")) \
+           and ((weight6 != "") and (weight6 != string.whitespace) and (weight6 != "#")):
+            # Normalize service
+            service6_norm = interws + "serv6_norm"
+            service_max = gp.GetRasterProperties_management(service6, "MAXIMUM")
+            gp.Divide_sa(service6, service_max, service6_norm)
+            # Create string of service/weight pairs required for Arc's Weighted Sum function             
+            overlay_input = overlay_input + "; " + service6_norm + " VALUE " + str(weight6)
+
+        # Service 7 - service output from an InVEST model
+        service7 = gp.GetParameterAsText(13)
+        parameters.append("Service 7: " + service7)
+
+        # Weight 7 - floating point value, weight to multiply all values in Service 7 by
+        weight7 = gp.GetParameterAsText(14)
+        parameters.append("Weight 7: " + weight7)
+
+        # If service 7 is entered, a corresponding weight must be entered too
+        if ((service7 != "") and (service7 != string.whitespace) and (service7 != "#")) \
+           and ((weight7 == "") or (weight7 == string.whitespace) or (weight7 == "#")):
+            gp.AddError("\nError: If service 7 is to be processed, a corresponding weight must be provided")
+            raise Exception
+        # If both service and weight are entered, process them
+        elif ((service7 != "") and (service7 != string.whitespace) and (service7 != "#")) \
+           and ((weight7 != "") and (weight7 != string.whitespace) and (weight7 != "#")):
+            # Normalize service
+            service7_norm = interws + "serv7_norm"
+            service_max = gp.GetRasterProperties_management(service7, "MAXIMUM")
+            gp.Divide_sa(service7, service_max, service7_norm)
+            # Create string of service/weight pairs required for Arc's Weighted Sum function             
+            overlay_input = overlay_input + "; " + service7_norm + " VALUE " + str(weight7)
             
-        # Percent value for slicing result (to see top X% of service provision)
-        percent = gp.GetParameterAsText(11)
-        parameters.append("Percent" + str(percent))
+        # Optional percent value for slicing result (to see top X% of service provision)
+        percent = gp.GetParameterAsText(15)
+        parameters.append("Grouping percent" + str(percent))
         if ((percent == "") or (percent == string.whitespace) or (percent == "#")):
             do_percent = False
         else:
             do_percent = True
 
+        # Group by X% of ranking value?
+        group_by_value = gp.GetParameterAsText(16)
+        parameters.append("Group by value: " + str(group_by_value))
+
+        # Group by X% of area?
+        group_by_area = gp.GetParameterAsText(17)
+        parameters.append("Group by area: " + group_by_area)
+
+        if do_percent and group_by_value == 'false' and group_by_area == 'false':
+            gp.AddError("\nError: If grouping is to be done, Group by Value and/or Group by Area must be selected.")
+            raise Exception
+
+        if not do_percent and (group_by_value == 'true' or group_by_area == 'true') :
+            gp.AddError("\nError: If grouping is to be done, a Grouping Percent must be provided.")
+            raise Exception
+
         # Suffix to append to output filenames, as <filename>_<suffix>
-        Suffix = gp.GetParameterAsText(12)
+        Suffix = gp.GetParameterAsText(18)
         parameters.append("Suffix: " + Suffix)
 
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -196,7 +258,10 @@ try:
 
         # Output files
         weighted_service_sum = postprocws + "weighted_service_sum" + Suffix + ".tif"
-        weighted_service_final = postprocws + "weighted_service_group" + Suffix + ".tif"
+        weighted_service_group_value_ras = postprocws + "weighted_service_group_by_value" + Suffix + ".tif"
+        weighted_service_group_value_poly = postprocws + "weighted_service_group_by_value" + Suffix + ".shp"
+        weighted_service_group_area_ras = postprocws + "weighted_service_group_by_area" + Suffix + ".tif"
+        weighted_service_group_area_poly = postprocws + "weighted_service_group_by_area" + Suffix + ".shp"
         
     except:
         gp.AddError("\nError configuring local variables: " + gp.GetMessages(2))
@@ -230,18 +295,31 @@ try:
             # Need output slices to assign 1 to largest values, but by default 1 goes to
             #   lowest values.  So multiply by -1 and do slice to get desired rankings
             gp.Times_sa(weighted_service_sum, "-1.0", weighted_service_neg)
-            ### Should this be equal interval or equal area?  equal interval easily gives a single value
-            ### in highest-value class
-            gp.Slice_sa(weighted_service_neg, weighted_service_slice, num_slices, "EQUAL_INTERVAL")
-            gp.AddMessage("weighted service slice: " + weighted_service_slice)
+            
+            ### If group by value is chosen, do a slice by equal interval
+            if group_by_value == 'true':
+                
+                gp.AddMessage("\n\tGrouping by value...")
+                gp.Slice_sa(weighted_service_neg, weighted_service_group_value_ras, num_slices, "EQUAL_INTERVAL")
+                gp.AddMessage("\n\tCreated grouped raster output by value: \n\t" + weighted_service_group_value_ras)
+                gp.RasterToPolygon_conversion(weighted_service_group_value_ras, weighted_service_group_value_poly, "NO_SIMPLIFY")
+                gp.AddMessage("\n\tCreated grouped polygon output by value: \n\t" + weighted_service_group_value_poly)
+
+            if group_by_area == 'true':
+                
+                gp.AddMessage("\n\tGrouping by area...")
+                gp.Slice_sa(weighted_service_neg, weighted_service_group_area_ras, num_slices, "EQUAL_AREA")
+                gp.AddMessage("\n\tCreated grouped raster output by area: \n\t" + weighted_service_group_area_ras)
+                gp.RasterToPolygon_conversion(weighted_service_group_area_ras, weighted_service_group_area_poly, "NO_SIMPLIFY")
+                gp.AddMessage("\n\tCreated grouped polygon output by area: \n\t" + weighted_service_group_area_poly)
+            
 ##            # But there might be missing slice values (if no pixel values fall in that interval)
 ##            #   so re-assign result to the OID+1, which will give 1->whatever
 ##            # IS THIS NECESSARY, OR SHOULD PEOPLE KNOW THAT THERE ARE MISSING INTERVALS?
 ##            gp.Lookup_sa(weighted_service_slice, "Rowid", weighted_service_oid)
 ##            # OID is 0->x, so add 1 to get a ranking of 1->x
 ##            gp.Plus_sa(weighted_service_oid, "1", weighted_service_final)
-##            gp.AddMessage("\nCreated grouped output: \n\t" + weighted_service_final)
-            gp.AddMessage("\nCreated grouped output: \n\t" + weighted_service_slice)
+
             
     except:
         gp.AddError ("Error calculating change: " + gp.GetMessages(2))
