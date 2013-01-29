@@ -1,0 +1,1 @@
+- Fixed a visualization bug with wave energy where output rasters did not have the min/max/stdev calculations on them.  This made the default visualization in arc be a gray blob.
