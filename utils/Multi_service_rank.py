@@ -216,19 +216,19 @@ try:
         else:
             do_percent = True
 
-        # Group by X% of ranking value?
-        group_by_value = gp.GetParameterAsText(16)
-        parameters.append("Group by value: " + str(group_by_value))
+        # Group by X% of ranking value distribution?
+        group_by_dist = gp.GetParameterAsText(16)
+        parameters.append("Group by value: " + str(group_by_dist))
 
         # Group by X% of area?
         group_by_area = gp.GetParameterAsText(17)
         parameters.append("Group by area: " + group_by_area)
 
-        if do_percent and group_by_value == 'false' and group_by_area == 'false':
+        if do_percent and group_by_dist == 'false' and group_by_area == 'false':
             gp.AddError("\nError: If grouping is to be done, Group by Value and/or Group by Area must be selected.")
             raise Exception
 
-        if not do_percent and (group_by_value == 'true' or group_by_area == 'true') :
+        if not do_percent and (group_by_dist == 'true' or group_by_area == 'true') :
             gp.AddError("\nError: If grouping is to be done, a Grouping Percent must be provided.")
             raise Exception
 
@@ -257,11 +257,8 @@ try:
         weighted_service_oid = interws + "serv_oid"
 
         # Output files
-        weighted_service_sum = postprocws + "weighted_service_sum" + Suffix + ".tif"
-        weighted_service_group_value_ras = postprocws + "weighted_service_group_by_value" + Suffix + ".tif"
-        weighted_service_group_value_poly = postprocws + "weighted_service_group_by_value" + Suffix + ".shp"
-        weighted_service_group_area_ras = postprocws + "weighted_service_group_by_area" + Suffix + ".tif"
-        weighted_service_group_area_poly = postprocws + "weighted_service_group_by_area" + Suffix + ".shp"
+        weighted_service_sum = postprocws + "combined_service_rank" + Suffix + ".tif"
+
         
     except:
         gp.AddError("\nError configuring local variables: " + gp.GetMessages(2))
@@ -289,37 +286,123 @@ try:
 
         if do_percent:
 
-            gp.AddMessage("\nGrouping results by " + str(percent) + "%...")
-            num_slices = int(round(100 / int(percent)))
+            try:
 
-            # Need output slices to assign 1 to largest values, but by default 1 goes to
-            #   lowest values.  So multiply by -1 and do slice to get desired rankings
-            gp.Times_sa(weighted_service_sum, "-1.0", weighted_service_neg)
-            
-            ### If group by value is chosen, do a slice by equal interval
-            if group_by_value == 'true':
+                group_dist_zstat_table = interws + "group_dist_zstat.dbf"
+                group_area_zstat_table = interws + "group_area_zstat.dbf"
+                group_dist_poly_dissolve = interws + "group_dist_poly_dissolve.shp"
+                weighted_service_group_dist_poly = interws + "combined_service_group_by_dist.shp"
+                weighted_service_group_area_poly = interws + "combined_service_group_by_value.shp"
+
+                weighted_service_group_dist_ras = postprocws + "combined_service_group_by_distribution" + Suffix + ".tif"
+                weighted_service_group_dist_poly_final = postprocws + "combined_service_group_by_distribution" + Suffix + ".shp"
+                weighted_service_group_area_ras = postprocws + "combined_service_group_by_value" + Suffix + ".tif"
+                weighted_service_group_area_poly_final = postprocws + "combined_service_group_by_value" + Suffix + ".shp"
+
+
+
+                gp.AddMessage("\nGrouping results by " + str(percent) + "%...")
+                num_slices = int(round(100 / int(percent)))
+
+                # Need output slices to assign 1 to largest values, but by default 1 goes to
+                #   lowest values.  So multiply by -1 and do slice to get desired rankings
+                gp.Times_sa(weighted_service_sum, "-1.0", weighted_service_neg)
                 
-                gp.AddMessage("\n\tGrouping by value...")
-                gp.Slice_sa(weighted_service_neg, weighted_service_group_value_ras, num_slices, "EQUAL_INTERVAL")
-                gp.AddMessage("\n\tCreated grouped raster output by value: \n\t" + weighted_service_group_value_ras)
-                gp.RasterToPolygon_conversion(weighted_service_group_value_ras, weighted_service_group_value_poly, "NO_SIMPLIFY")
-                gp.AddMessage("\n\tCreated grouped polygon output by value: \n\t" + weighted_service_group_value_poly)
+                ### If group by value is chosen, do a slice by equal interval
+                if group_by_dist == 'true':
 
-            if group_by_area == 'true':
-                
-                gp.AddMessage("\n\tGrouping by area...")
-                gp.Slice_sa(weighted_service_neg, weighted_service_group_area_ras, num_slices, "EQUAL_AREA")
-                gp.AddMessage("\n\tCreated grouped raster output by area: \n\t" + weighted_service_group_area_ras)
-                gp.RasterToPolygon_conversion(weighted_service_group_area_ras, weighted_service_group_area_poly, "NO_SIMPLIFY")
-                gp.AddMessage("\n\tCreated grouped polygon output by area: \n\t" + weighted_service_group_area_poly)
+                    
+                    gp.AddMessage("\n\tGrouping by value distribution...")
+                    gp.Slice_sa(weighted_service_neg, weighted_service_group_dist_ras, num_slices, "EQUAL_INTERVAL")                
+                    gp.AddMessage("\n\tCreated grouped raster output by value distribution: \n\t" + weighted_service_group_dist_ras)
+                    gp.RasterToPolygon_conversion(weighted_service_group_dist_ras, weighted_service_group_dist_poly, "NO_SIMPLIFY")
+
+                    # RasterToPolygon creates a lot of polygons with the same group value.
+                    # Merge each group value into a single polygon
+                    gp.Dissolve_management(weighted_service_group_dist_poly, weighted_service_group_dist_poly_final, "GRIDCODE")
+                    
+                    # Add min/max values per group to the polygon attribute table
+                    gp.AddField_management(weighted_service_group_dist_poly_final, "group_id", "long")
+                    gp.AddField_management(weighted_service_group_dist_poly_final, "group_min", "float")
+                    gp.AddField_management(weighted_service_group_dist_poly_final, "group_max", "float")
+                    # Set group id to GRIDCODE, which is created from the VALUE field in RasterToPolygon
+                    gp.CalculateField_management(weighted_service_group_dist_poly_final, "group_id", "[GRIDCODE]", "VB")
+                    gp.DeleteField_management(weighted_service_group_dist_poly_final, "GRIDCODE")
+                    
+                    # Get min/max values per group                
+                    gp.ZonalStatisticsAsTable_sa(weighted_service_group_dist_ras, "VALUE", weighted_service_sum, group_dist_zstat_table, "DATA")
+
+                    dist_poly_rows = gp.UpdateCursor(weighted_service_group_dist_poly_final, "", "", "", "group_id A")
+                    dist_poly_row = dist_poly_rows.Reset
+                    dist_poly_row = dist_poly_rows.Next()
+
+                    # Loop through polygons
+                    while dist_poly_row:
+
+                        # and find matching zonal stats min/max values for each
+                        dist_zstat_rows = gp.SearchCursor(group_dist_zstat_table, "", "", "", "VALUE A")
+                        dist_zstat_row = dist_zstat_rows.Reset
+                        dist_zstat_row = dist_zstat_rows.Next()
+
+                        while (int(dist_zstat_row.getValue("VALUE")) <> int(dist_poly_row.getValue("group_id"))):
+                            dist_zstat_row = dist_zstat_rows.Next()
+
+                        dist_poly_row.setValue("group_min", dist_zstat_row.getValue("MIN"))
+                        dist_poly_row.setValue("group_max", dist_zstat_row.getValue("MAX"))
+                        dist_poly_rows.UpdateRow(dist_poly_row)
+                        dist_poly_row = dist_poly_rows.Next()
+                    
+                    gp.AddMessage("\n\tCreated grouped polygon output by value distribution: \n\t" + weighted_service_group_dist_poly_final)                    
+
+                if group_by_area == 'true':
+                    
+                    gp.AddMessage("\n\tGrouping by area...")
             
-##            # But there might be missing slice values (if no pixel values fall in that interval)
-##            #   so re-assign result to the OID+1, which will give 1->whatever
-##            # IS THIS NECESSARY, OR SHOULD PEOPLE KNOW THAT THERE ARE MISSING INTERVALS?
-##            gp.Lookup_sa(weighted_service_slice, "Rowid", weighted_service_oid)
-##            # OID is 0->x, so add 1 to get a ranking of 1->x
-##            gp.Plus_sa(weighted_service_oid, "1", weighted_service_final)
+                    gp.Slice_sa(weighted_service_neg, weighted_service_group_area_ras, num_slices, "EQUAL_AREA")
+                    gp.AddMessage("\n\tCreated grouped raster output by area: \n\t" + weighted_service_group_area_ras)
+                    gp.RasterToPolygon_conversion(weighted_service_group_area_ras, weighted_service_group_area_poly, "NO_SIMPLIFY")
 
+                    # RasterToPolygon creates a lot of polygons with the same group value.
+                    # Merge each group value into a single polygon
+                    gp.Dissolve_management(weighted_service_group_area_poly, weighted_service_group_area_poly_final, "GRIDCODE")
+                    
+                    # Add min/max values per group to the polygon attribute table
+                    gp.AddField_management(weighted_service_group_area_poly_final, "group_id", "long")
+                    gp.AddField_management(weighted_service_group_area_poly_final, "group_min", "float")
+                    gp.AddField_management(weighted_service_group_area_poly_final, "group_max", "float")
+                    # Set group id to GRIDCODE, which is created from the VALUE field in RasterToPolygon
+                    gp.CalculateField_management(weighted_service_group_area_poly_final, "group_id", "[GRIDCODE]", "VB")
+                    gp.DeleteField_management(weighted_service_group_area_poly_final, "GRIDCODE")
+                    
+                    # Get min/max values per group                
+                    gp.ZonalStatisticsAsTable_sa(weighted_service_group_area_ras, "VALUE", weighted_service_sum, group_area_zstat_table, "DATA")
+
+                    area_poly_rows = gp.UpdateCursor(weighted_service_group_area_poly_final, "", "", "", "group_id A")
+                    area_poly_row = area_poly_rows.Reset
+                    area_poly_row = area_poly_rows.Next()
+
+                    # Loop through polygons
+                    while area_poly_row:
+
+                        # and find matching zonal stats min/max values for each
+                        area_zstat_rows = gp.SearchCursor(group_area_zstat_table, "", "", "", "VALUE A")
+                        area_zstat_row = area_zstat_rows.Reset
+                        area_zstat_row = area_zstat_rows.Next()
+
+                        while (int(area_zstat_row.getValue("VALUE")) <> int(area_poly_row.getValue("group_id"))):
+                            area_zstat_row = area_zstat_rows.Next()
+                        
+                        area_poly_row.setValue("group_min", area_zstat_row.getValue("MIN"))
+                        area_poly_row.setValue("group_max", area_zstat_row.getValue("MAX"))
+                        area_poly_rows.UpdateRow(area_poly_row)
+
+                        area_poly_row = area_poly_rows.Next()
+                    
+                    gp.AddMessage("\n\tCreated grouped polygon output by area: \n\t" + weighted_service_group_area_poly_final)
+
+            except:
+                gp.AddError ("Error grouping results: " + gp.GetMessages(2))
+                raise Exception
             
     except:
         gp.AddError ("Error calculating change: " + gp.GetMessages(2))
