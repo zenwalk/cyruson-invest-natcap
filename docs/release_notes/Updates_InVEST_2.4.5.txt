@@ -1,5 +1,5 @@
 This is a minor release of InVEST that does not add any new models, but
-does add aditionaly functionality, stability, and increased performances to
+does add additional functionality, stability, and increased performance to
 many of the InVEST 3.0 standalones:
 
   - Pollination 3.0 Beta:
