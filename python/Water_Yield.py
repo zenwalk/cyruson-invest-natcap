@@ -213,7 +213,7 @@ try:
         gp.AddMessage("\nChecking input raster projections...")
         precipDesc = gp.describe(landuse)
         precipspatref = precipDesc.SpatialReference
-        rasters = (eto, soil_depth, pawf)
+        rasters = (eto, soil_depth, pawf, precip)
         for x in rasters:
             rasterDesc = gp.describe(x)
             spatreflc = rasterDesc.SpatialReference
@@ -222,7 +222,8 @@ try:
             elif spatreflc.LinearUnitName <> 'Meter':
                 gp.AddMessage("This model assumes that data in " + x + " is projected in meters.  You may get erroneous results")
             if str(precipspatref.name) <> str(spatreflc.name):
-                gp.AddError("\nError: " + x + " is not in the same coordinate system as the precipitation raster.  " + x + " is projected in " + spatreflc.name + " while the precipitation layer is in " + precipspatref.name + ".  Please project all rasters in the same projection and rerun this tool.  Exiting tool....")  
+                gp.AddError("\nError: " + x + " is not in the same coordinate system as the landuse raster.  " + x + " is projected in " + spatreflc.name + \
+                            " while the landuse layer is in " + precipspatref.name + ".  Please project all rasters in the same projection and rerun this tool.  Exiting tool....")  
                 raise Exception
     except:
         gp.AddError("\nError checking input raster projections: " + gp.GetMessages(2)) 
