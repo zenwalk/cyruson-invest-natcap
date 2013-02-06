@@ -341,7 +341,8 @@ try:
             elif spatreflc.LinearUnitName <> 'Meter':
                 gp.AddMessage("This model assumes that data in " + x + " is projected in meters.  You may get erroneous results")
             if str(DEMspatref.name) <> str(spatreflc.name):
-                gp.AddError("\nError: " + x + " is not in the same coordinate system as the hydrology rasters.  " + x + " is projected in " + spatreflc.name + " while the hydrology layers are in " + DEMspatref.name + ".  Please project raster in the same projection as the hydrology layers.\n")  
+                gp.AddError("\nError: " + x + " is not in the same coordinate system as the DEM.  " + x + " is projected in " + spatreflc.name + \
+                            " while the DEM is in " + DEMspatref.name + ".  Please project raster in the same projection as the DEM.\n")  
                 raise Exception
     except:
         gp.AddError("\nError checking input raster projections: " + gp.GetMessages(2)) 
