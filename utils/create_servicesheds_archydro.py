@@ -97,12 +97,6 @@ try:
 
         # ArcHydro does not allow shapefiles as input or output,
         # so do these in a geodatabase
-        sink_poly = sshed_gdb + os.sep + "sink_poly"
-        sink_drainage = sshed_gdb + os.sep + "sink_drainage"
-        sink_point = sshed_gdb + os.sep + "sink_point"
-        sink_link = interws + "sink_link"
-        sink_wshed = interws + "sink_wshed"
-        dem_fill = interws + "dem_fill"
         flow_dir = interws + "flow_dir"
         flow_acc = interws + "flow_acc"
         streams = interws + "streams"
@@ -127,6 +121,7 @@ try:
                 
         # Output files
         streams_out = outputws + "streams_" + str(stream_threshold_numcells) + "_" + Suffix + ".tif"
+        streams_out_shp = outputws + "streams_" + str(stream_threshold_numcells) + "_" + Suffix + ".shp"
         servicesheds = outputws + "servicesheds" + Suffix + ".shp"
 
     except:
@@ -142,6 +137,7 @@ try:
         if dem_spatref.Type <> "Projected":
             arcpy.AddError("Error: " + DEM + " must have a projected coordinate system for servicesheds to be calculated correctly.")
             raise Exception
+        arcpy.AddMessage("done checking spatref")
     except:
         arcpy.AddError("\nError checking DEM properties: " + arcpy.GetMessages(2)) 
         raise Exception
@@ -155,7 +151,7 @@ try:
 
         # Make sure the user has the necessary versions of ArcGIS and ArcHydro  
         install_info = arcpy.GetInstallInfo("desktop")      
-        if (install_info["Version"] <> "10.0"):
+        if (install_info["Version"] <> "10.0" and install_info["Version"] <> "10.1"):
             arcpy.AddError("Error: ArcGIS 10 and ArcHydro 2.0 are required to run this tool.")
             raise Exception
 
@@ -167,6 +163,7 @@ try:
             arcpy.AddError("\nError: Can't find ArcHydro in the ArcGIS toolbox list.  Please verify the ArcHydro installation.")
             raise Exception
 
+        arcpy.AddMessage("set target locations")
         ArcHydroTools.SetTargetLocations("HydroConfig", "Layers", interws, sshed_gdb)
         
     except:
@@ -176,76 +173,78 @@ try:
 
     # Do all ArcHydro processes involved with making watersheds
     
-##    try:
-##            
-##        arcpy.AddMessage("\nFlow direction...")
-##        ArcHydroTools.FlowDirection(DEM, flow_dir)
-##
-##        arcpy.AddMessage("\nFlow accumulation...")
-##        ArcHydroTools.FlowAccumulation(flow_dir, flow_acc)
-##
-##        arcpy.AddMessage("\nStream definition...")
-##        ArcHydroTools.StreamDefinition(flow_acc, stream_threshold_numcells, streams, "")
-##
-##        # Output the streams layer so users can compare with known streams
-##        arcpy.CopyRaster_management(streams, streams_out)
-##        arcpy.AddMessage("\n\tCreated streams output file:\n\t" + str(streams_out))
-##
-##        arcpy.AddMessage("\nStream segmentation...")
-##        ArcHydroTools.StreamSegmentation(streams, flow_dir, stream_link, "", "")
-##
-##        arcpy.AddMessage("\nCatchment grid delineation...")
-##        ArcHydroTools.CatchmentGridDelineation(flow_dir, stream_link, catchment_grid)
-##
-##        arcpy.AddMessage("\nCatchment polygons...")
-##        ArcHydroTools.CatchmentPolyProcessing(catchment_grid, catchment_poly)
-##
-##        arcpy.AddMessage("\nDrainage lines...")
-##        ArcHydroTools.DrainageLineProcessing(stream_link, flow_dir, drainage_line)
-##
-##        arcpy.AddMessage("\nAdjoint catchments...")
-##        ArcHydroTools.AdjointCatchment(drainage_line, catchment_poly, adjoint_catchment)
-##
-##        # Prepare user-input outlets to conform with ArcHydro's requirements
-##        # for batch points
-##
-##        arcpy.AddMessage("\nPreparing batch points...")
-##        arcpy.CopyFeatures_management(outlets, batchpoints)
-##
-##        for bp_field, field_info in bp_field_dict.iteritems():
-##            field_type = field_info[0]
-##            field_default = field_info[1]
-##            
-##            # Add fields if they do not exist in the input outlets file
-##            if (len(arcpy.ListFields(batchpoints, bp_field)) == 0):
-##                arcpy.AddField_management(batchpoints, bp_field, field_type)
-##                
-##            # Set field values
-##            # Name = blank (to start - will set to user input field)
-##            # Descript = blank (to start - will also set to user input field)
-##            # BatchDone = 0 (do need to process this point)
-##            # SnapOn = 1 (do snap point to closest stream)
-##            # SrcType = 0 (0 = outlet, 1 = inlet)
-##            arcpy.CalculateField_management(batchpoints, bp_field, field_default)
-##
-##        # Populate Name, Descript fields with user-specified field values
-##        arcpy.AddMessage("\n\tUsing field \'" + str(outlets_id_field)+ "\' to assign serviceshed names")
-##        arcpy.CalculateField_management(batchpoints, name_field, "[" + outlets_id_field + "]")
-##        arcpy.CalculateField_management(batchpoints, descript_field, "[" + outlets_id_field + "]")
-##
-##        arcpy.AddMessage("\nCreating servicesheds...")
-##        ArcHydroTools.BatchWatershedDelineation(batchpoints, flow_dir, streams, streams, \
-##                                                 catchment_poly, adjoint_catchment, "", \
-##                                                 servicesheds_gdb, serviceshed_points)
-##
-##        arcpy.CopyFeatures_management(servicesheds_gdb, servicesheds)
-##            
-##        arcpy.AddMessage("\n\tCreated serviceshed output file:\n\t" + str(servicesheds))
-##
-##
-##    except:
-##        arcpy.AddError("\nError creating servicesheds:" + arcpy.GetMessages(2))
-##        raise Exception
+    try:
+            
+        arcpy.AddMessage("\nFlow direction...")
+        ArcHydroTools.FlowDirection(DEM, flow_dir)
+
+        arcpy.AddMessage("\nFlow accumulation...")
+        ArcHydroTools.FlowAccumulation(flow_dir, flow_acc)
+
+        arcpy.AddMessage("\nStream definition...")
+        ArcHydroTools.StreamDefinition(flow_acc, stream_threshold_numcells, streams, "")
+
+        # Output the streams layer so users can compare with known streams
+        arcpy.CopyRaster_management(streams, streams_out)
+        arcpy.AddMessage("\n\tCreated streams raster file:\n\t" + str(streams_out))
+        arcpy.RasterToPolyline_conversion(streams_out, streams_out_shp, "NODATA")
+        arcpy.AddMessage("\n\tCreated streams shapefile:\n\t" + str(streams_out_shp))
+
+        arcpy.AddMessage("\nStream segmentation...")
+        ArcHydroTools.StreamSegmentation(streams, flow_dir, stream_link, "", "")
+
+        arcpy.AddMessage("\nCatchment grid delineation...")
+        ArcHydroTools.CatchmentGridDelineation(flow_dir, stream_link, catchment_grid)
+
+        arcpy.AddMessage("\nCatchment polygons...")
+        ArcHydroTools.CatchmentPolyProcessing(catchment_grid, catchment_poly)
+
+        arcpy.AddMessage("\nDrainage lines...")
+        ArcHydroTools.DrainageLineProcessing(stream_link, flow_dir, drainage_line)
+
+        arcpy.AddMessage("\nAdjoint catchments...")
+        ArcHydroTools.AdjointCatchment(drainage_line, catchment_poly, adjoint_catchment)
+
+        # Prepare user-input outlets to conform with ArcHydro's requirements
+        # for batch points
+
+        arcpy.AddMessage("\nPreparing batch points...")
+        arcpy.CopyFeatures_management(outlets, batchpoints)
+
+        for bp_field, field_info in bp_field_dict.iteritems():
+            field_type = field_info[0]
+            field_default = field_info[1]
+            
+            # Add fields if they do not exist in the input outlets file
+            if (len(arcpy.ListFields(batchpoints, bp_field)) == 0):
+                arcpy.AddField_management(batchpoints, bp_field, field_type)
+                
+            # Set field values
+            # Name = blank (to start - will set to user input field)
+            # Descript = blank (to start - will also set to user input field)
+            # BatchDone = 0 (do need to process this point)
+            # SnapOn = 1 (do snap point to closest stream)
+            # SrcType = 0 (0 = outlet, 1 = inlet)
+            arcpy.CalculateField_management(batchpoints, bp_field, field_default)
+
+        # Populate Name, Descript fields with user-specified field values
+        arcpy.AddMessage("\n\tUsing field \'" + str(outlets_id_field)+ "\' to assign serviceshed names")
+        arcpy.CalculateField_management(batchpoints, name_field, "[" + outlets_id_field + "]")
+        arcpy.CalculateField_management(batchpoints, descript_field, "[" + outlets_id_field + "]")
+
+        arcpy.AddMessage("\nCreating servicesheds...")
+        ArcHydroTools.BatchWatershedDelineation(batchpoints, flow_dir, streams, streams, \
+                                                 catchment_poly, adjoint_catchment, "", \
+                                                 servicesheds_gdb, serviceshed_points)
+
+        arcpy.CopyFeatures_management(servicesheds_gdb, servicesheds)
+            
+        arcpy.AddMessage("\n\tCreated serviceshed output file:\n\t" + str(servicesheds))
+
+
+    except:
+        arcpy.AddError("\nError creating servicesheds:" + arcpy.GetMessages(2))
+        raise Exception
 
 
     # Write input parameters to an output file for user reference
@@ -265,13 +264,13 @@ try:
         raise Exception
     
         
-    # Clean up temporary files
-    arcpy.AddMessage("\nCleaning up temporary files...\n")
-    try:
-        arcpy.Delete_management(interws)
-    except:
-        arcpy.AddError("\nError cleaning up temporary files:  " + arcpy.GetMessages(2))
-        raise Exception
+##    # Clean up temporary files
+##    arcpy.AddMessage("\nCleaning up temporary files...\n")
+##    try:
+##        arcpy.Delete_management(interws)
+##    except:
+##        arcpy.AddError("\nError cleaning up temporary files:  " + arcpy.GetMessages(2))
+##        raise Exception
 
 
 except:
