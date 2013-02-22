@@ -45,12 +45,8 @@ try:
         DEM = gp.GetParameterAsText(1)
         parameters.append("DEM: " + DEM)
 
-        # Stream shapefile
-        streams = gp.GetParameterAsText(2)
-        parameters.append("Streams: " + streams)
-
         # Fill sinks?
-        fill_sinks = gp.GetParameterAsText(3)
+        fill_sinks = gp.GetParameterAsText(2)
         if fill_sinks =='true':
             fill_sinks = True
             parameters.append("Fill sinks: Yes")
@@ -59,16 +55,20 @@ try:
             parameters.append("Fill sinks: No")            
 
         # Burn streams?
-        burn_streams = gp.GetParameterAsText(4)
+        burn_streams = gp.GetParameterAsText(3)
         if burn_streams =='true':
             burn_streams = True
             parameters.append("Burn streams: Yes")
-            if (streams == "") or (streams == string.whitespace) or (streams == "#"):
-                gp.AddError("\nError: If streams are to be burned, a streams shapefile must be provided.\n")
-                raise Exception
         else:
             burn_streams = False
             parameters.append("Burn streams: No")
+
+        # Stream shapefile
+        streams = gp.GetParameterAsText(4)
+        parameters.append("Streams: " + streams)
+        if burn_streams and ((streams == "") or (streams == string.whitespace) or (streams == "#")):
+            gp.AddError("\nError: If streams are to be burned, a streams shapefile must be provided.\n")
+            raise Exception
 
         # Fill small holes (missing data)?
         fill_small_holes = gp.GetParameterAsText(5)
@@ -91,7 +91,6 @@ try:
         if not fill_large_holes and not fill_small_holes and not burn_streams and not fill_sinks:
             gp.AddError("\nError: Nothing to do - Please check boxes next to the DEM preparation steps to be done.\n")
             raise Exeption
-
 
         # Suffix to append to output filenames, as <filename>_<suffix>
         Suffix = gp.GetParameterAsText(7)
@@ -175,7 +174,7 @@ try:
     # Interpolate over the DEM and use interpolated values to fill holes
     try:
         if fill_large_holes:
-            gp.AddMessage("\nFilling large holes...")
+            gp.AddMessage("\nFilling large holes (may take a long time)...")
             # Use DEM with small holes filled, if done, otherwise use input DEM
             if fill_small_holes:
                 use_dem = dem_11x11
@@ -184,6 +183,9 @@ try:
                 
             # Turn DEM into points for interpolation
             gp.RasterToPoint_conversion(use_dem, dem_points)
+            # Make sure interpolated output is same extent and cell size as DEM and snap to its alignment
+            gp.extent = dsc.extent
+            gp.SnapRaster = DEM
             # Interpolate over points using IDW interpolation
             # Use a power value of 3 to weight closer cells more heavily and do less smoothing
             gp.Idw_sa(dem_points, "GRID_CODE", dem_interp, cell_size, "3")
@@ -205,8 +207,9 @@ try:
             # Use 3 so that the streams will be burned 3m deeper
             gp.AddField_management(streams_copy, stream_field, "SHORT")
             gp.CalculateField_management(streams_copy, stream_field, "3", "PYTHON")
-            # Make sure stream layer is same extent and cell size as DEM
+            # Make sure stream layer is same extent and cell size as DEM and snap to its alignment
             gp.extent = dsc.extent
+            gp.SnapRaster = DEM
             gp.FeatureToRaster_conversion(streams_copy, stream_field, streams_ras, cell_size)
             # Set NoDatas to zero
             gp.SingleOutputMapAlgebra_sa("CON(IsNull(" + streams_ras + "), 0, " + streams_ras + ")", streams_ras0)
@@ -231,57 +234,59 @@ try:
         if fill_sinks:
             gp.AddMessage ("\nFilling sinks...")
 
-        if burn_streams:
-            use_dem = dem_burned
-        elif fill_large_holes:
-            use_dem = dem_lg_holes
-        elif fill_small_holes:
-            use_dem = dem_11x11
-        else:
-            use_dem = DEM
-
-        fill_count = 1
-        fill_max = 3
-
-        while(fill_count <= fill_max):
-
-            # If filling has already been done, use the filled raster
-            if gp.exists(dem_fill_sinks):
-                gp.CopyRaster(dem_fill_sinks, dem_fill_sinks_copy)
-                use_dem2 = dem_fill_sinks_copy
+            if burn_streams:
+                use_dem = dem_burned
+            elif fill_large_holes:
+                use_dem = dem_lg_holes
+            elif fill_small_holes:
+                use_dem = dem_11x11
             else:
-                use_dem2 = use_dem
+                use_dem = DEM
 
-            gp.Fill_sa(use_dem2, dem_fill_sinks)
+            fill_count = 1
+            fill_max = 3
 
-            # Check result against flow direction
-            # If there are non-cardinal values, do it again, up to 3 times
-            gp.FlowDirection_sa(dem_fill_sinks, flow_dir, "NORMAL")
-            
-            gp.AddMessage("\n\tChecking for non-cardinal flow direction values...")
-            flowdir_cardinals = [1, 2, 4, 8, 16, 32, 64, 128]
-            gp.BuildRasterAttributeTable_management(flow_dir, "OVERWRITE")
+            while(fill_count <= fill_max):
 
-            fd_rows = gp.SearchCursor(flow_dir)
-            fd_row = fd_rows.Reset
-            fd_row = fd_rows.Next()
+                gp.AddMessage("\n\tPass " + str(fill_count) + " of " + str(fill_max))
+                
+                # If filling has already been done, use the filled raster
+                if gp.exists(dem_fill_sinks):
+                    gp.CopyRaster(dem_fill_sinks, dem_fill_sinks_copy)
+                    use_dem2 = dem_fill_sinks_copy
+                else:
+                    use_dem2 = use_dem
 
-            fill_again = False
+                gp.Fill_sa(use_dem2, dem_fill_sinks)
 
-            while(fd_row):
-                if flowdir_cardinals.count(fd_row.getValue("VALUE")) == 0:
-                    gp.AddMessage("\n\tA non-cardinal flow direction value has been encountered, filling again... \n")
-                    fill_again = True
-                    
+                # Check result against flow direction
+                # If there are non-cardinal values, do it again, up to 3 times
+                gp.AddMessage("\n\tChecking for non-cardinal flow direction values...")
+                gp.FlowDirection_sa(dem_fill_sinks, flow_dir, "NORMAL")
+                flowdir_cardinals = [1, 2, 4, 8, 16, 32, 64, 128]
+
+                gp.BuildRasterAttributeTable_management(flow_dir, "OVERWRITE")
+
+                fd_rows = gp.SearchCursor(flow_dir)
+                fd_row = fd_rows.Reset
                 fd_row = fd_rows.Next()
 
-            if fill_again:
-                fill_count += 1
-                if fill_count > fill_max:
-                    gp.AddError("\n\tWarning: DEM has been filled 3 times and still has non-cardinal flow directions.")
-            # Doesn't need to be filled again, break out of loop
-            else:
-                break
+                fill_again = False
+
+                while(fd_row):
+                    if flowdir_cardinals.count(fd_row.getValue("VALUE")) == 0:
+                        gp.AddMessage("\n\tA non-cardinal flow direction value has been encountered, filling again... \n")
+                        fill_again = True
+                        
+                    fd_row = fd_rows.Next()
+
+                if fill_again:
+                    fill_count += 1
+                    if fill_count > fill_max:
+                        gp.AddError("\n\tWarning: DEM has been filled 3 times and still has non-cardinal flow directions.")
+                # Doesn't need to be filled again, break out of loop
+                else:
+                    break
         
     except:
         gp.AddError ("\nError filling sinks: " + gp.GetMessages(2))
@@ -332,8 +337,6 @@ try:
     except:
         gp.AddError("\nError cleaning up temporary files:  " + gp.GetMessages(2))
         raise Exception
-
-
 
 except:
     gp.AddError ("\nError running script")
