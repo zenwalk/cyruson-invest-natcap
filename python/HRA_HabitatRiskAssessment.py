@@ -1,9 +1,10 @@
 # Marine InVEST: Habitat Risk Assessment Model
-# Authors: Joey Bernhardt, Katie Arkema, Gregg Verutes, Jeremy Davies, Martin Lacayo
-# 12/13/11
+# Authors: Katie Arkema, Joey Bernhardt, Gregg Verutes, Jeremy Davies, Martin Lacayo
+# Coded for ArcGIS 9.3, 10, 10.1
+# 10/19/12
 
 # import modules
-import sys, string, os, datetime, shlex, csv
+import sys, string, os, datetime, csv
 import arcgisscripting
 from math import *
 
@@ -317,6 +318,8 @@ try:
         gp.MakeFeatureLayer_management(GS_HQ, GS_HQ_lyr, "", "", "")
         HabNoDataList = []
         del_hab = []
+        del_zshab = []
+        del_cmbhab = []
         for i in range(0,len(HabLyrList)):
             HabVariable = Hab_Directory+"\\"+HabLyrList[i]
             checkProjections(HabVariable)
@@ -330,6 +333,8 @@ try:
                 gp.FeatureToRaster_conversion(HabVariable, "VID", "hab_"+str(i+1), "50")
                 HabNoDataList.append("no")
                 del_hab.append("hab_"+str(i+1))
+                del_zshab.append("zs_h"+str(i+1))
+                del_cmbhab.append("cmbhab"+str(i+1))
             gp.SelectLayerByAttribute_management(HabLyrList[i][:-4]+".lyr", "CLEAR_SELECTION", "")
 
         StressNoDataList = []
@@ -401,6 +406,8 @@ try:
         # combine hab and stress rasters that overlap
         OverlapList = []
         OverlapNoDataList = []
+        del_cmbHS = []
+        del_zsHS = []
         for i in range(0,len(HabLyrList)):
             for j in range(0,len(StressLyrList)):
                 if i+1 not in diffHabList and j+1 not in diffStressList:
@@ -419,6 +426,8 @@ try:
                             OverlapNoDataList.append("yes")
                         else:
                             OverlapNoDataList.append("no")
+                            del_cmbHS.append("cmb_h"+str(i+1)+"s"+str(j+1))
+                            del_zsHS.append("zs_h"+str(i+1)+"s"+str(j+1))
                 else:
                     OverlapList.append("H"+str(i+1)+"S"+str(j+1))
                     OverlapNoDataList.append("yes")
@@ -435,18 +444,63 @@ try:
         gp.AddMessage("...determining habitat area in each cell")      
         for i in range(0,len(HabLyrList)):
             if HabNoDataList[i] == "no":
-                gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", "hab_"+str(i+1), "zs_H"+str(i+1)+".dbf", "DATA")
-                gp.AddJoin_management(GS_HQ_lyr, "VALUE", "zs_H"+str(i+1)+".dbf", "VALUE", "KEEP_COMMON")
-                gp.CalculateField_management(GS_HQ_lyr, "GS_HQ.H"+str(i+1)+"_A", "[zs_H"+str(i+1)+".AREA]", "VB", "")
-                gp.RemoveJoin_management(GS_HQ_lyr, "zs_H"+str(i+1))
+                gp.ZonalStatistics_sa(GS_rst, "VALUE", "hab_"+str(i+1), "zs_H"+str(i+1), "SUM", "DATA")
+                CmbExpr = "zs_H"+str(i+1)+";"+GS_rst
+                gp.Combine_sa(CmbExpr, "cmbhab"+str(i+1))
 
+                HabCellID = []
+                HabZSArea = []
+                cur = gp.UpdateCursor("cmbhab"+str(i+1))
+                row = cur.Next()
+                while row:
+                    HabCellID.append(row.GetValue("GS_RST"))
+                    HabZSArea.append(row.GetValue("ZS_H"+str(i+1)))
+                    row = cur.next()
+                del row, cur
+
+                cur = gp.UpdateCursor(GS_HQ_lyr)
+                row = cur.Next()
+                entry = 0
+                while row:
+                    if row.GetValue("VALUE") == HabCellID[entry]:
+                        row.SetValue("H"+str(i+1)+"_A", HabZSArea[entry]*2500)
+                        entry = entry + 1
+                        if entry == len(HabCellID):
+                            break
+                    cur.UpdateRow(row)
+                    row = cur.next()
+                del row, cur
+                
         gp.AddMessage("...determining area of habitat-stressor overlap in each cell") 
         for i in range(0,len(OverlapList)):
             if OverlapNoDataList[i] == "no":
-                gp.ZonalStatisticsAsTable_sa(GS_rst, "VALUE", OverlapList[i], "zs_"+OverlapList[i]+".dbf", "DATA")
-                gp.AddJoin_management(GS_HQ_lyr, "VALUE", "zs_"+OverlapList[i]+".dbf", "VALUE", "KEEP_COMMON")
-                gp.CalculateField_management(GS_HQ_lyr, "GS_HQ."+OverlapList[i]+"_A", "[zs_"+OverlapList[i]+".AREA]", "VB", "")
-                gp.RemoveJoin_management(GS_HQ_lyr, "zs_"+OverlapList[i])
+                gp.ZonalStatistics_sa(GS_rst, "VALUE", OverlapList[i], "zs_"+OverlapList[i], "SUM", "DATA")
+                CmbExpr = "zs_"+OverlapList[i]+";"+GS_rst
+                gp.Combine_sa(CmbExpr, "cmb_"+OverlapList[i])
+
+                OverlapCellID = []
+                OverlapZSArea = []
+                cur = gp.UpdateCursor("cmb_"+OverlapList[i])
+                row = cur.Next()
+                while row:
+                    OverlapCellID.append(row.GetValue("GS_RST"))
+                    OverlapZSArea.append(row.GetValue("ZS_"+OverlapList[i]))
+                    row = cur.next()
+                del row, cur
+
+                cur = gp.UpdateCursor(GS_HQ_lyr)
+                row = cur.Next()
+                entry = 0
+                while row:
+                    if row.GetValue("VALUE") == OverlapCellID[entry]:
+                        row.SetValue(OverlapList[i]+"_A", OverlapZSArea[entry]*2500)
+                        entry = entry + 1
+                        if entry == len(OverlapCellID):
+                            break
+                    cur.UpdateRow(row)
+                    row = cur.next()
+                del row, cur
+
                 # benchmark
                 if int(len(OverlapList)*0.25) == i+1:
                     gp.AddMessage("......25% completed")
@@ -639,11 +693,11 @@ try:
     try:
         # add fields for risk calculations
         for i in range(0,StressCount):
-            GS_HQ_area = AddField(GS_HQ_area, "OLP_RNK_S"+str(i+1), "SHORT", "", "")
+            GS_HQ_area = AddField(GS_HQ_area, "OLP_RK_S"+str(i+1), "SHORT", "", "")
         for j in range(0,len(OverlapList)):
             GS_HQ_area = AddField(GS_HQ_area, "RISK_"+OverlapList[j], "DOUBLE", "8", "2")
         for k in range(0,HabCount):
-            GS_HQ_area = AddField(GS_HQ_area, "CUMRISK_H"+str(k+1), "DOUBLE", "", "")            
+            GS_HQ_area = AddField(GS_HQ_area, "CUMRS_H"+str(k+1), "DOUBLE", "", "")            
         GS_HQ_area = AddField(GS_HQ_area, "RECOV_HAB", "DOUBLE", "", "")
         GS_HQ_area = AddField(GS_HQ_area, "ECOS_RISK", "DOUBLE", "", "")
 
@@ -666,7 +720,7 @@ try:
                                 OverlapRank = 3.0
                             else:
                                 OverlapRank = 0.0
-                            row.SetValue("OLP_RNK_S"+str(j+1), OverlapRank)
+                            row.SetValue("OLP_RK_S"+str(j+1), OverlapRank)
                             if OverlapRank > 0:
                                 OverlapCell = "yes"
                                 # calculate exposure and consequence averages                    
@@ -705,7 +759,7 @@ try:
                         HabRiskTally = 0.0
                         for m in range((HabCounter*StressCount),((HabCounter*StressCount)+StressCount)):
                             HabRiskTally = HabRiskTally + HabRiskList[m]
-                        row.SetValue("CUMRISK_H"+str(HabCounter+1), HabRiskTally)
+                        row.SetValue("CUMRS_H"+str(HabCounter+1), HabRiskTally)
                         HabCounter += 1
                         
                 # set recovery score for each habitat that is present
@@ -714,7 +768,7 @@ try:
             # sum up all habitat risk scores
             EcoRiskScore = 0.0
             for k in range(0,HabCount):
-                EcoRiskScore = EcoRiskScore + row.GetValue("CUMRISK_H"+str(k+1))
+                EcoRiskScore = EcoRiskScore + row.GetValue("CUMRS_H"+str(k+1))
             row.SetValue("ECOS_RISK", EcoRiskScore)
             cur.UpdateRow(row)
             row = cur.next()
@@ -781,7 +835,7 @@ try:
         del3 = []
         for k in range(0,HabCount):
             if HabNoDataList[k] == "no":
-                gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRISK_H"+str(k+1), interws+"cr_h"+str(k+1), cellsize)       
+                gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRS_H"+str(k+1), interws+"cr_h"+str(k+1), cellsize)       
                 SetNullExp = "setnull("+interws+"cr_h"+str(k+1)+" <= 0 , "+interws+"cr_h"+str(k+1)+")"
                 gp.SingleOutputMapAlgebra_sa(SetNullExp, "cum_risk_h"+str(k+1))
                 del3.append("cr_h"+str(k+1))
@@ -1061,9 +1115,10 @@ try:
                     plt.plot(CumExposureList[i],CumConsequenceList[i], 'rs', markerfacecolor='red', markersize=8) # limited data
                     plt.annotate('H'+str(i+1),xy=(CumExposureList[i]-.15,CumConsequenceList[i]-.15),xytext=(CumExposureList[i]+.05,CumConsequenceList[i]))
 
-            OnesList = np.ones(maxListValue+4, dtype=np.float64)
-            plt.plot(range(maxListValue+4), OnesList, 'k-')
-            plt.plot(OnesList, range(maxListValue+4), 'k-')
+            MaxNumber = int(maxListValue)+4
+            OnesList = np.ones(MaxNumber, dtype=np.float64)            
+            plt.plot(range(MaxNumber), OnesList, 'k-')
+            plt.plot(OnesList, range(MaxNumber), 'k-')
             plt.xlim(0,maxListValue+1)
             plt.ylim(0,maxListValue+1)
             plt.grid()
@@ -1134,9 +1189,9 @@ try:
             keepFieldList = ["FID", "Shape", "CELL_SIZE"]
             eraseFieldList = []
             for i in range(0,HabCount):
-                keepFieldList.append("CUMRISK_H"+str(i+1))
+                keepFieldList.append("CUMRS_H"+str(i+1))
                 for j in range(0,StressCount):
-                    keepFieldList.append("RISK_H"+str(i+1)+"S"+str(j+1))
+                    keepFieldList.append("RS_H"+str(i+1)+"S"+str(j+1))
             
             fields = gp.ListFields(GS_HQ_intersect, "*")
             fc_field = fields.Next()
@@ -1167,17 +1222,17 @@ try:
                 while row:
                     # individual stressor risk logic
                     for j in range(0,StressCount):
-                        if row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(1.0/3.0)):
+                        if row.GetValue("RS_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(1.0/3.0)):
                             row.SetValue("S"+str(j+1)+"RISKNUM", 1)
-                        elif row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) >= (np.sqrt(8.0)*(1.0/3.0)) and row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(2.0/3.0)):
+                        elif row.GetValue("RS_H"+str(i+1)+"S"+str(j+1)) >= (np.sqrt(8.0)*(1.0/3.0)) and row.GetValue("RS_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(2.0/3.0)):
                             row.SetValue("S"+str(j+1)+"RISKNUM", 2)
                         else:
                             row.SetValue("S"+str(j+1)+"RISKNUM", 3)        
                         
                     # cumulative risk logic
-                    if row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(1.0/3.0)):
+                    if row.GetValue("CUMRS_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(1.0/3.0)):
                         row.SetValue("CRISK_NUM", 1)
-                    elif row.GetValue("CUMRISK_H"+str(i+1)) >= (np.sqrt(8.0*StressCount)*(1.0/3.0)) and row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(2.0/3.0)):
+                    elif row.GetValue("CUMRS_H"+str(i+1)) >= (np.sqrt(8.0*StressCount)*(1.0/3.0)) and row.GetValue("CUMRS_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(2.0/3.0)):
                         row.SetValue("CRISK_NUM", 2)
                     else:
                         row.SetValue("CRISK_NUM", 3)
@@ -1220,7 +1275,7 @@ try:
     for i in range(0,len(HabLyrList)):
         for j in range(0,len(StressLyrList)):
             del2.append("H"+str(i+1)+"S"+str(j+1))
-    deletelist = del1 + del2 + del3 + del_hab + del_stress
+    deletelist = del1 + del2 + del3 + del_hab + del_zshab + del_cmbhab + del_stress + del_zsHS + del_cmbHS
     for data in deletelist:
         if gp.exists(data):
             gp.delete_management(data)
