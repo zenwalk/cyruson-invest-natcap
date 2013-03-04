@@ -70,8 +70,15 @@ try:
             gp.AddError("\nError: If streams are to be burned, a streams shapefile must be provided.\n")
             raise Exception
 
+        # Depth to burn the streams
+        stream_depth = gp.GetParameterAsText(5)
+        parameters.append("Stream burn depth: " + str(stream_depth))
+        if burn_streams and ((stream_depth == "") or (stream_depth == string.whitespace) or (stream_depth == "#")):
+            gp.AddError("\nError: If streams are to be burned, a depth value must be provided.\n")
+            raise Exception
+
         # Fill small holes (missing data)?
-        fill_small_holes = gp.GetParameterAsText(5)
+        fill_small_holes = gp.GetParameterAsText(6)
         if fill_small_holes =='true':
             fill_small_holes = True
             parameters.append("Fill small holes: Yes")
@@ -80,7 +87,7 @@ try:
             parameters.append("Fill small holes: No")
 
         # Fill large holes (missing data)?
-        fill_large_holes = gp.GetParameterAsText(6)
+        fill_large_holes = gp.GetParameterAsText(7)
         if fill_large_holes =='true':
             fill_large_holes = True
             parameters.append("Fill large holes: Yes")
@@ -93,7 +100,7 @@ try:
             raise Exeption
 
         # Suffix to append to output filenames, as <filename>_<suffix>
-        Suffix = gp.GetParameterAsText(7)
+        Suffix = gp.GetParameterAsText(8)
         parameters.append("Suffix: " + Suffix)
 
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
@@ -204,9 +211,9 @@ try:
             stream_field = "str"
             gp.CopyFeatures_management(streams, streams_copy)
             # Create a field with single value to be used in creating raster streams
-            # Use 3 so that the streams will be burned 3m deeper
             gp.AddField_management(streams_copy, stream_field, "SHORT")
-            gp.CalculateField_management(streams_copy, stream_field, "3", "PYTHON")
+            gp.AddMessage("calculate field")
+            gp.CalculateField_management(streams_copy, stream_field, stream_depth, "PYTHON")
             # Make sure stream layer is same extent and cell size as DEM and snap to its alignment
             gp.extent = dsc.extent
             gp.SnapRaster = DEM
