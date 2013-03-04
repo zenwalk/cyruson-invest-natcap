@@ -2,6 +2,8 @@ This a major release of InVEST that adds new 3.0 versions of our models as
 well as additional functionality, stability, and increased performance to
 many of the existing models:
 
+
+  - Removed support for the ArcGIS invest_VERSION.mxd map.
   - Sediment 3.0 Beta:
       - new 3.0 version of the ArcGIS sediment model
       - this model performs an order of magnitude faster than the original
@@ -16,4 +18,6 @@ many of the existing models:
       - new offshore wind energy model.
   - Recreation Alpha:
       - Working example of future land and near shore recreation model.
+  - Updates to water yield 3.0 beta:
+      - Fixed an bug that happened on some 
   - Improvements to the InVEST 2.x ArcGIS-based toolset:
