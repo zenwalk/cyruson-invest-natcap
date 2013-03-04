@@ -1,0 +1,19 @@
+This a major release of InVEST that adds new 3.0 versions of our models as
+well as additional functionality, stability, and increased performance to
+many of the existing models:
+
+  - Sediment 3.0 Beta:
+      - new 3.0 version of the ArcGIS sediment model
+      - this model performs an order of magnitude faster than the original
+        ArcGIS model, but may have memory issues with larger datasets. This
+	is scheduled for a fix in a future release.
+  - Nutrient 3.0 Beta:
+      - new 3.0 version of the ArcGIS sediment model
+      - this model performs an order of magnitude faster than the original
+        ArcGIS model, but may have memory issues with larger datasets. This
+	is scheduled for a fix in a future release.
+  - Wind Energy Beta:
+      - new offshore wind energy model.
+  - Recreation Alpha:
+      - Working example of future land and near shore recreation model.
+  - Improvements to the InVEST 2.x ArcGIS-based toolset:
