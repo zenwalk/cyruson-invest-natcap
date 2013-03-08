@@ -865,6 +865,46 @@ try:
 		elif XelVal==2:
 			sand=0
 			mud=1
+		try:
+			# read in user's cross-shore profile
+			TextData=open(CSProfile,"r") 
+			X_lst=[];h_lst=[]
+			for line in TextData.read().strip("\n").split("\n"):
+				linelist=[float(s) for s in line.split("\t")] # split the list by comma delimiter
+				X_lst.append(linelist[0])
+				h_lst.append(linelist[1])
+			TextData.close()
+			Xinit = num.array(X_lst)
+			X=num.array(X_lst);h=num.array(h_lst)
+	
+			# Adjust Bathy
+			if h[0]>0 or h[0]>h[-1]:
+				flip=1;
+			else:
+				h=h[::-1] # reverse order if profile starts offshore
+				flip=0 # flip later to profile starts offshore
+	
+	
+			h=h-MSL; # adjust water level so that 0 is at MSL
+	
+			if mud: # if there's a marsh or a mangrove
+				gp.AddMessage("...your backshore is a *marsh/mangrove*")            
+				h=h-S # add surge level by decreasing depth (increasing the absolute value)
+				keep=find(h<-0.1)
+				h=h[keep];X=X[keep] # only keep values that are below water
+				dx=abs(X[1]-X[0]);m=abs(h[-1]-h[-int(10.0/dx)])/10 # average slope 10m from end of transect
+	
+			elif sand: # it's a beach
+				gp.AddMessage("...your backshore is a *sandy beach*")            
+				keep=find(h<-0.1)
+				h=h[keep];X=X[keep] # only keep values that are below water
+			h=-h # depth is now positive
+			if flip: # original profile starts onshore
+				h=h[::-1] # reverse order if profile starts at onshore
+	
+		except:
+			gp.AddError(msgReadCSProfile)
+			raise Exception		
 
 		# read muddy shoreline information
 		Cm=cell1.Range("e25").Value # dry density
@@ -899,7 +939,7 @@ try:
 		densdeltagr = temp1[7]
 		if XsMAg == 0 and XoMAg == 0: # if there is no habitat footprint, then density must be '0' as well
 			del densdeltagr
-			densdeltagr = 0.0        
+			densdeltagr = 100.0
 		dNogr=(1-densdeltagr *1.0/100.0) # density change in mangrove roots 
 
 
@@ -910,14 +950,14 @@ try:
 		densdeltagc = temp1[7]
 		if XsMAg == 0.0 and XoMAg == 0.0: # if there is no habitat footprint, then density must be '0' as well
 			del densdeltagc
-			densdeltagc = 0.0      
+			densdeltagc = 100.0      
 		dNogc=(1-densdeltagc *1.0/100.0)# density change in mangrove canopy
 
 		temp1=XelVal[1] # mangrove trunks
 		densdeltagt = temp1[7]
 		if XsMAg == 0.0 and XoMAg == 0.0: # if there is no habitat footprint, then density must be '0' as well
 			del densdeltagt
-			densdeltagt = 0.0     
+			densdeltagt = 100.0     
 		hogt=temp1[0] # height of mangrove trunks
 		dogt=temp1[1] # diameter of mangrove trunks
 		Nogt=temp1[2] # density of mangrove trunks
@@ -928,10 +968,20 @@ try:
 			Xog=-Xog
 		if Xsg<Xog:
 			gp.AddWarning("...You switched mangrove edge distances.  We'll change them for you.")
-			temp=Xsg;Xog=Xsg;Xsr=temp
+			temp=Xog;Xog=Xsg;Xsg=temp
 		if XsMAg<XoMAg:
 			gp.AddWarning("...You switched mangrove edge distances for the management action.  We'll change them for you.")
-			temp=XsMAg;XoMAg=XsMAg;XsMAg=temp
+			temp=XoMAg;XoMAg=XsMAg;XsMAg=temp
+		if Xog<min(Xinit) and Xsg<min(Xinit):
+			gp.AddWarning("...The mangrove footprint you applied lies completely outside the extent of your topo/bathy profile. The mangrove has been excluded in the analysis. Check your inputs.")
+			Xog = 0; Xsg = 0; XoMAg =0; XsMAg = 0;
+		elif Xog<min(Xinit):
+			gp.AddWarning("...The mangrove footprint you applied extends beyond the limits of your topo/bathy profile. The inland limit of the mangrove has been set to the inland limit of the topo/bathy profile. Check your inputs.")
+			Xog = min(Xinit)
+		if XoMAg<min(Xinit):
+			gp.AddWarning("...The mangrove footprint you applied for the managment action extends beyond the limits of your topo/bathy profile. The inland limit of the mangrove post management action has been set to the inland limit of the topo/bathy profile. Check your inputs.")
+			XoMAg = min(Xinit)			
+		
 		if XsMAg+XoMAg<>0: # if there is vegetation in management action
 			if XsMAg>Xsg:
 				gp.AddWarning("...Your impacted mangrove footprint has to be within your initial conditon footprint.  We'll change it for you.")
@@ -951,17 +1001,26 @@ try:
 		densdeltar = temp1[7]
 		if XsMAr == 0 and XoMAr == 0: # if there is no habitat footprint, then density must be '0' as well
 			del densdeltar
-			densdeltar = 0.0        
+			densdeltar = 100.0        
 		dNor=(1-densdeltar *1.0/100.0) # density change in marsh
 		if Xor>0:
 			gp.AddWarning("...Marshes landward edge should be above mean sea level.  We'll move it for you.")  
 			Xor=-Xor;
 		if Xsr<Xor:
 			gp.AddWarning("...You switched marsh offshore and shoreward edge.  We'll change them for you.")
-			temp=Xsr;Xor=Xsr;Xsr=temp
+			temp=Xor;Xor=Xsr;Xsr=temp
 		if XsMAr<XoMAr:
 			gp.AddWarning("...You switched marsh offshore and shoreward edge for the management action.  We'll change them for you.")
-			temp=XsMAr;XoMAr=XsMAr;XsMAr=temp
+			temp=XoMAr;XoMAr=XsMAr;XsMAr=temp
+		if Xor<min(Xinit) and Xsr<min(Xinit):
+			gp.AddWarning("...The marsh footprint you applied lies completely outside the extent of your topo/bathy profile. The marsh has been excluded in the analysis. Check your inputs.")
+			Xor = 0; Xsr = 0; XoMAr =0; XsMAr = 0;
+		elif Xor<min(Xinit):
+			gp.AddWarning("...The marsh footprint you applied extends beyond the limits of your topo/bathy profile. The inland limit of the marsh has been set to the inland limit of the topo/bathy profile. Check your inputs.")
+			Xor = min(Xinit)
+		if XoMAr<min(Xinit):
+			gp.AddWarning("...The marsh footprint you applied post management extends beyond the limits of your topo/bathy profile. The inland limit of the marsh post management has been set to the inland limit of the topo/bathy profile. Check your inputs.")
+			XoMAr = min(Xinit)			
 		if XsMAr+XoMAr<>0: # if there is vegetation in management action
 			if XsMAr>Xsr:
 				gp.AddWarning("...Your impacted marsh footprint has to be within your initial conditon footprint.  We'll change it for you.")
@@ -979,25 +1038,33 @@ try:
 		XsMAs=temp1[5] # shoreward edge after management action
 		XoMAs=temp1[6] # offshore edge after management action
 		densdeltas = temp1[7]
-		if XsMAs is None and XoMAs is None: # if there is no habitat footprint, then density must be '0' as well
+		if XsMAs == 0 and XoMAs == 0: # if there is no habitat footprint, then density must be '0' as well
 			del densdeltas
-			densdeltas = 0.0        
+			densdeltas = 100.0        
 		dNos=(1-densdeltas *1.0/100.0) # density change in seagrass        
 		if Xss>Xos:
 			gp.AddWarning("...You switched seagrass offshore and shoreward edge.  We'll change them for you.")
-			temp=Xss;Xos=Xss;Xss=temp
+			temp=Xos;Xos=Xss;Xss=temp
 
 		if XsMAs>XoMAs:
 			gp.AddWarning("...You switched seagrass offshore and shoreward edge for the management action.  We'll change them for you.")
-			temp=XsMAs;XoMAs=XsMAs;XsMAs=temp
-
+			temp=XoMAs;XoMAs=XsMAs;XsMAs=temp
+		if Xos>max(Xinit) and Xss>max(Xinit):
+			gp.AddWarning("...The seagrass footprint you applied lies completely outside the extent of your topo/bathy profile. The seagrass has been excluded in the analysis. Check your inputs.")
+			Xos = 0; Xss = 0; XoMAs =0; XsMAs = 0;
+		elif Xos>max(Xinit):
+			gp.AddWarning("...The seagrass footprint you applied extends beyond the limits of your topo/bathy profile. The offshore limit of the seagrass has been set to the offshore limit of the topo/bathy profile. Check your inputs.")
+			Xos = max(Xinit)
+		if XoMAs>max(Xinit):
+			gp.AddWarning("...The seagrass footprint you applied post management action extends beyond the limits of your topo/bathy profile. The offshore limit of the seagrass post management action has been set to the offshore limit of the topo/bathy profile. Check your inputs.")
+			XoMAs = max(Xinit)			
 		if XsMAs+XoMAs<>0: # if there is vegetation in management action
 			if XsMAs<Xss:
 				gp.AddWarning("...Your impacted seagrass footprint has to be within your initial conditon footprint.  We'll change it for you.")
 				XsMAs=Xss
 			if XoMAs>Xos:
 				gp.AddWarning("...Your impacted seagrass footprint has to be within your initial conditon footprint.  We'll change it for you.")
-				XoMAs=Xos
+				XoMAs=Xos		
 
 		# read coral info
 		CoralType=cell1.Range("d56").Value
@@ -1019,7 +1086,13 @@ try:
 		if CoralMA is None:
 			CoralMA="None"
 		if AlphF+AlphR+he+hr+Wr==0:
-			CoralMA="None"
+			CoralMA="None"        
+		if Xcn>Xco:
+			gp.AddWarning("...You switched coral offshore and shoreward edge.  We'll change them for you.")
+			temp=Xco;Xco=Xcn;Xcn=temp
+		if Xco>max(Xinit):
+			gp.AddWarning("...The coral reef footprint you applied is offshore of the limits of your profile. The reef will be placed at the offshore limit of the profile (Barrier Reef).")
+			Xcn=-1.0; Xco = -1.0; CoralType = "Barrier"
 
 		# read oyster reef information
 		OysterReefType=cell1.Range("d59").value;
@@ -1078,46 +1151,6 @@ try:
 	htmlfile.write("</td></tr></table>")
 
 	try:
-		# read in user's cross-shore profile
-		TextData=open(CSProfile,"r") 
-		X_lst=[];h_lst=[]
-		for line in TextData.read().strip("\n").split("\n"):
-			linelist=[float(s) for s in line.split("\t")] # split the list by comma delimiter
-			X_lst.append(linelist[0])
-			h_lst.append(linelist[1])
-		TextData.close()
-		X=num.array(X_lst);h=num.array(h_lst)
-
-		# Adjust Bathy
-		if h[0]>0 or h[0]>h[-1]:
-			flip=1;
-		else:
-			h=h[::-1] # reverse order if profile starts offshore
-			flip=0 # flip later to profile starts offshore
-
-
-		h=h-MSL; # adjust water level so that 0 is at MSL
-
-		if mud: # if there's a marsh or a mangrove
-			gp.AddMessage("...your backshore is a *marsh/mangrove*")            
-			h=h-S # add surge level by decreasing depth (increasing the absolute value)
-			keep=find(h<-0.1)
-			h=h[keep];X=X[keep] # only keep values that are below water
-			dx=abs(X[1]-X[0]);m=abs(h[-1]-h[-int(10.0/dx)])/10 # average slope 10m from end of transect
-
-		elif sand: # it's a beach
-			gp.AddMessage("...your backshore is a *sandy beach*")            
-			keep=find(h<-0.1)
-			h=h[keep];X=X[keep] # only keep values that are below water
-		h=-h # depth is now positive
-		if flip: # original profile starts onshore
-			h=h[::-1] # reverse order if profile starts at onshore
-
-	except:
-		gp.AddError(msgReadCSProfile)
-		raise Exception
-
-	try:
 		# compute offshore wave height
 		if WaveErosionQuestion=="(2) No, please compute these values from wind speed and fetch distance": 
 			Us=Us;Ft=Ft;depth=depth
@@ -1164,7 +1197,7 @@ try:
 				if densdeltas == 0.0:
 					htmlfile.write("...you assumed that the seagrass bed footprint will be reduced by "+str(abs(abs(Xos-Xss)-abs(XoMAs-XsMAs)))+"m.<br>")
 				else:
-					htmlfile.write("...you assumed that the seagrass bed footprint will be reduced by "+str(abs(abs(Xos-Xss)-abs(XoMAs-XsMAs)))+"m and that the density of the marsh will reduce by " +str(densdeltas)+"%.<br>")
+					htmlfile.write("...you assumed that the seagrass bed footprint will be reduced by "+str(abs(abs(Xos-Xss)-abs(XoMAs-XsMAs)))+"m and that the density of the seagrass will reduce by " +str(densdeltas)+"%.<br>")
 			elif XoMAs+XsMAs==Xos+Xss:
 				if densdeltas == 0.0:
 					htmlfile.write("...you assumed that the seagrass bed will not be affected by a particular management action.<br>")
@@ -1250,7 +1283,7 @@ try:
 				if densdeltagc+densdeltagr+densdeltagt == 0.0:
 					htmlfile.write("...you assumed that the mangrove forest footprint will be reduced by "+str(abs(abs(Xog-Xsg)-abs(XoMAg-XsMAg)))+"m. <br>")
 				else:
-					htmlfile.write("...you assumed that the mangrove forest footprint will be reduced by "+str(abs(abs(Xog-Xsg)-abs(XoMAg-XsMAg)))+"m and that the density of the marsh will reduce by " +str((densdeltagc+densdeltagr+densdeltagt)/3)+"%. <br>")
+					htmlfile.write("...you assumed that the mangrove forest footprint will be reduced by "+str(abs(abs(Xog-Xsg)-abs(XoMAg-XsMAg)))+"m and that the density of the mangrove will reduce by " +str((densdeltagc+densdeltagr+densdeltagt)/3)+"%. <br>")
 			elif XoMAg+XsMAg==Xog+Xsg:
 				if densdeltagc+densdeltagr+densdeltagt == 0.0 :
 					htmlfile.write("...you assumed that the mangrove forest will not be affected by a particular management action.<br>")
