@@ -1,23 +1,75 @@
 This a major release of InVEST that adds new 3.0 versions of our models as
 well as additional functionality, stability, and increased performance to
-many of the existing models:
+many of the existing models.  The timing of this release corresponds with
+our group's annual training at Stanford University.  We expect to release
+InVEST 2.5.1 in a couple of weeks to address any expected (but currently
+unknown) issues that arise during the training.  See the release notes
+below for details of the release:
 
-
-  - Removed support for the ArcGIS invest_VERSION.mxd map.
   - Sediment 3.0 Beta:
-      - new 3.0 version of the ArcGIS sediment model
-      - this model performs an order of magnitude faster than the original
-        ArcGIS model, but may have memory issues with larger datasets. This
-	is scheduled for a fix in a future release.
+      - This is a standalone model that executes an order of magnitude faster
+        than the original ArcGIS model, but may have memory issues with 
+	larger datasets. This fix is scheduled for the 2.5.1 release of InVEST.
+      - Uses a d-infinity flow algorithm (ArcGIS version uses D8).
+      - Includes a more accurate LS factor.
+      - Outputs are now summaried by polygon rather than rasterized polygons.
+        Users can view results directly as a table rather than sampling a
+	GIS raster.
   - Nutrient 3.0 Beta:
-      - new 3.0 version of the ArcGIS sediment model
-      - this model performs an order of magnitude faster than the original
-        ArcGIS model, but may have memory issues with larger datasets. This
-	is scheduled for a fix in a future release.
-  - Wind Energy Beta:
-      - new offshore wind energy model.
+      - This is a standalone model that executes an order of magnitude faster
+        than the original ArcGIS model, but may have memory issues with 
+	larger datasets. This fix is scheduled for the 2.5.1 release of InVEST.
+      - Uses a d-infinity flow algorithm (ArcGIS version uses D8).
+      - Includes a more accurate LS factor.
+      - Outputs are now summaried by polygon rather than rasterized polygons.
+        Users can view results directly as a table rather than sampling a
+	GIS raster.
+  - Wind Energy:
+      - A new offshore wind energy model.  This is a standalone-only model
+        available under the windows start menu.
   - Recreation Alpha:
-      - Working example of future land and near shore recreation model.
-  - Updates to water yield 3.0 beta:
-      - Fixed an bug that happened on some 
+      - This is a working demo of our soon to be released future land and near
+        shore recreation model.  The model itself is incomplete and should only
+	be used as a demo or by NatCap partners that know what they're doing.
+  - Habitat Risk Assessment 3.0 Alpha:
+      - This is a working demo of our soon to be released 3.0 version of habitat
+        risk asssessment.  The model itself is incomplete and should only
+	be used as a demo or by NatCap partners that know what they're doing.
+	Users that need to use the habitat risk assessment should use the ArcGIS
+	version of this model.
+      
   - Improvements to the InVEST 2.x ArcGIS-based toolset:
+      - Bug fixes to the ArcGIS based Coastal Protection toolset.
+
+  - Removed support for the ArcGIS invest_VERSION.mxd map.  We expect to fully
+    transition the InVEST toolset to standlone tools in a few months.  In
+    preparation of this we are starting to depricate parts of our old ArcGIS
+    toolset including this ArcMap document.  The InVEST ArcToolbox is still
+    availble in C:\InVEST_2_5_0\invest_250.tbx.
+
+  - Known issues: 
+
+    - The InVEST 3.0 standalones generate open source GeoTiffs as
+      outputs rather than the proprietary ESRI Grid format.  ArcGIS 9.3.1 
+      occasionally displays these rasters incorrectly.  We have found
+      that these layers can be visualized in ArcGIS 9.3.1 by following 
+      convoluted steps: Right Click on the layer and select Properties; click on
+      the Symbology tab; select Strech, agree to calcualte a histogram (this will
+      create an .aux file that Arc can use for visualization), click "Ok", remove
+      the raster from the layer list, then add it back. As an alternative, we
+      suggest using an open source GIS Desktop Tool like Quantum GIS or ArcGIS
+      version 10.0 or greater. 
+
+   - The InVEST 3.0 carbon model will generate inaccruate sequestration results
+     if the extents of the current and future maps don't align.  This will be
+     fixed in InVEST 2.5.1; in the meanwhile a workaround is to clip both LULCs
+     so they have identical overlaps.
+
+   - A user reported an unstable run of InVEST 3.0 water yield.  We are not
+     certain what is causing the issue, but we do have a fix that will go out
+     in InVEST 2.5.1.
+   
+   - Windows XP users report issues running the InVEST standalones.  We have
+     attempted to fix this issue although our development team is unable to verify
+     the fix because we don't have access to Windows XP.  Feedback from users would	
+     be helpful.
