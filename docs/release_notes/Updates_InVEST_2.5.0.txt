@@ -70,7 +70,7 @@ for any issues relating to software:
      certain what is causing the issue, but we do have a fix that will go out
      in InVEST 2.5.1.
    
-   - At the moment the InVEST standalones do now run on Windows XP.  This appears
+   - At the moment the InVEST standalones do not run on Windows XP.  This appears
      to be related to an incompatibility between Windows XP and GDAL, the an open
      source gis library we use to create and read GIS data.  At the moment we are
      uncertain if we will be able to fix this bug in future releases, but will
