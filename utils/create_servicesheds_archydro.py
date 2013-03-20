@@ -13,7 +13,6 @@
 #
 #   - Requires beta version of ArcHydro
 #   - Users will need to change snap distance outside the tool
-#       (I provide instructions on how, just less convenient than I'd like)
 #
 # ---------------------------------------------------------------------------
 
@@ -63,8 +62,10 @@ try:
 
         if (Suffix == "") or (Suffix == string.whitespace) or (Suffix == "#"):
             Suffix = ""
+            streams_spacer = "_"
         else:
             Suffix = "_" + Suffix
+            streams_spacer = ""
         
     except:
         arcpy.AddMessage("\nError in input arguments: " + arcpy.GetMessages(2))
@@ -120,8 +121,8 @@ try:
                          snapon_field:['SHORT', '1'], srctype_field:['SHORT', '0']}
                 
         # Output files
-        streams_out = outputws + "streams_" + str(stream_threshold_numcells) + "_" + Suffix + ".tif"
-        streams_out_shp = outputws + "streams_" + str(stream_threshold_numcells) + "_" + Suffix + ".shp"
+        streams_out = outputws + "streams_" + str(stream_threshold_numcells) + streams_spacer + Suffix + ".tif"
+        streams_out_shp = outputws + "streams_" + str(stream_threshold_numcells) + streams_spacer + Suffix + ".shp"
         servicesheds = outputws + "servicesheds" + Suffix + ".shp"
 
     except:
@@ -137,7 +138,6 @@ try:
         if dem_spatref.Type <> "Projected":
             arcpy.AddError("Error: " + DEM + " must have a projected coordinate system for servicesheds to be calculated correctly.")
             raise Exception
-        arcpy.AddMessage("done checking spatref")
     except:
         arcpy.AddError("\nError checking DEM properties: " + arcpy.GetMessages(2)) 
         raise Exception
@@ -149,8 +149,8 @@ try:
         # Make sure all temporary files go in the Intermediate folder
         arcpy.workspace = interws
 
-        # Make sure the user has the necessary versions of ArcGIS and ArcHydro  
-        install_info = arcpy.GetInstallInfo("desktop")      
+        # Make sure the user has the necessary versions of ArcGIS and ArcHydro
+        install_info = arcpy.GetInstallInfo("desktop")
         if (install_info["Version"] <> "10.0" and install_info["Version"] <> "10.1"):
             arcpy.AddError("Error: ArcGIS 10 and ArcHydro 2.0 are required to run this tool.")
             raise Exception
@@ -163,7 +163,6 @@ try:
             arcpy.AddError("\nError: Can't find ArcHydro in the ArcGIS toolbox list.  Please verify the ArcHydro installation.")
             raise Exception
 
-        arcpy.AddMessage("set target locations")
         ArcHydroTools.SetTargetLocations("HydroConfig", "Layers", interws, sshed_gdb)
         
     except:
@@ -264,13 +263,13 @@ try:
         raise Exception
     
         
-##    # Clean up temporary files
-##    arcpy.AddMessage("\nCleaning up temporary files...\n")
-##    try:
-##        arcpy.Delete_management(interws)
-##    except:
-##        arcpy.AddError("\nError cleaning up temporary files:  " + arcpy.GetMessages(2))
-##        raise Exception
+    # Clean up temporary files
+    arcpy.AddMessage("\nCleaning up temporary files...\n")
+    try:
+        arcpy.Delete_management(interws)
+    except:
+        arcpy.AddError("\nError cleaning up temporary files:  " + arcpy.GetMessages(2))
+        raise Exception
 
 
 except:
