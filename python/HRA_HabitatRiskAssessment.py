@@ -697,7 +697,7 @@ try:
         for j in range(0,len(OverlapList)):
             GS_HQ_area = AddField(GS_HQ_area, "RISK_"+OverlapList[j], "DOUBLE", "8", "2")
         for k in range(0,HabCount):
-            GS_HQ_area = AddField(GS_HQ_area, "CUMRS_H"+str(k+1), "DOUBLE", "", "")            
+            GS_HQ_area = AddField(GS_HQ_area, "CUMRISK_H"+str(k+1), "DOUBLE", "", "")            
         GS_HQ_area = AddField(GS_HQ_area, "RECOV_HAB", "DOUBLE", "", "")
         GS_HQ_area = AddField(GS_HQ_area, "ECOS_RISK", "DOUBLE", "", "")
 
@@ -759,7 +759,7 @@ try:
                         HabRiskTally = 0.0
                         for m in range((HabCounter*StressCount),((HabCounter*StressCount)+StressCount)):
                             HabRiskTally = HabRiskTally + HabRiskList[m]
-                        row.SetValue("CUMRS_H"+str(HabCounter+1), HabRiskTally)
+                        row.SetValue("CUMRISK_H"+str(HabCounter+1), HabRiskTally)
                         HabCounter += 1
                         
                 # set recovery score for each habitat that is present
@@ -768,7 +768,7 @@ try:
             # sum up all habitat risk scores
             EcoRiskScore = 0.0
             for k in range(0,HabCount):
-                EcoRiskScore = EcoRiskScore + row.GetValue("CUMRS_H"+str(k+1))
+                EcoRiskScore = EcoRiskScore + row.GetValue("CUMRISK_H"+str(k+1))
             row.SetValue("ECOS_RISK", EcoRiskScore)
             cur.UpdateRow(row)
             row = cur.next()
@@ -835,7 +835,7 @@ try:
         del3 = []
         for k in range(0,HabCount):
             if HabNoDataList[k] == "no":
-                gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRS_H"+str(k+1), interws+"cr_h"+str(k+1), cellsize)       
+                gp.FeatureToRaster_conversion(GS_HQ_area, "CUMRISK_H"+str(k+1), interws+"cr_h"+str(k+1), cellsize)       
                 SetNullExp = "setnull("+interws+"cr_h"+str(k+1)+" <= 0 , "+interws+"cr_h"+str(k+1)+")"
                 gp.SingleOutputMapAlgebra_sa(SetNullExp, "cum_risk_h"+str(k+1))
                 del3.append("cr_h"+str(k+1))
@@ -1189,9 +1189,9 @@ try:
             keepFieldList = ["FID", "Shape", "CELL_SIZE"]
             eraseFieldList = []
             for i in range(0,HabCount):
-                keepFieldList.append("CUMRS_H"+str(i+1))
+                keepFieldList.append("CUMRISK_H"+str(i+1))
                 for j in range(0,StressCount):
-                    keepFieldList.append("RS_H"+str(i+1)+"S"+str(j+1))
+                    keepFieldList.append("RISK_H"+str(i+1)+"S"+str(j+1))
             
             fields = gp.ListFields(GS_HQ_intersect, "*")
             fc_field = fields.Next()
@@ -1222,17 +1222,17 @@ try:
                 while row:
                     # individual stressor risk logic
                     for j in range(0,StressCount):
-                        if row.GetValue("RS_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(1.0/3.0)):
+                        if row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(1.0/3.0)):
                             row.SetValue("S"+str(j+1)+"RISKNUM", 1)
-                        elif row.GetValue("RS_H"+str(i+1)+"S"+str(j+1)) >= (np.sqrt(8.0)*(1.0/3.0)) and row.GetValue("RS_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(2.0/3.0)):
+                        elif row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) >= (np.sqrt(8.0)*(1.0/3.0)) and row.GetValue("RISK_H"+str(i+1)+"S"+str(j+1)) < (np.sqrt(8.0)*(2.0/3.0)):
                             row.SetValue("S"+str(j+1)+"RISKNUM", 2)
                         else:
                             row.SetValue("S"+str(j+1)+"RISKNUM", 3)        
                         
                     # cumulative risk logic
-                    if row.GetValue("CUMRS_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(1.0/3.0)):
+                    if row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(1.0/3.0)):
                         row.SetValue("CRISK_NUM", 1)
-                    elif row.GetValue("CUMRS_H"+str(i+1)) >= (np.sqrt(8.0*StressCount)*(1.0/3.0)) and row.GetValue("CUMRS_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(2.0/3.0)):
+                    elif row.GetValue("CUMRISK_H"+str(i+1)) >= (np.sqrt(8.0*StressCount)*(1.0/3.0)) and row.GetValue("CUMRISK_H"+str(i+1)) < (np.sqrt(8.0*StressCount)*(2.0/3.0)):
                         row.SetValue("CRISK_NUM", 2)
                     else:
                         row.SetValue("CRISK_NUM", 3)
