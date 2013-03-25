@@ -1,0 +1,3 @@
+This is a minor release of InVEST that addresses numerous minor bugs and performance tweaks in the InVEST 3.0 models.  Including:
+
+ * Performance updates to the carbon model.
