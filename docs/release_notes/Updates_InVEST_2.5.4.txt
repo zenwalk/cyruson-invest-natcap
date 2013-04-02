@@ -1,3 +1,6 @@
 This is a minor release of InVEST that addresses numerous minor bugs and performance tweaks in the InVEST 3.0 models.  Including:
 
  * Performance updates to the carbon model.
+ * Nodata masking fix for rarity raster in Biodiversity Model.
+    - When computing rarity from a base landuse raster and current or future
+      landuse raster, the intersection of the two was not being properly taken.
