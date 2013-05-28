@@ -4,3 +4,11 @@ This is a minor release of InVEST that addresses numerous minor bugs and perform
  * Nodata masking fix for rarity raster in Biodiversity Model.
     - When computing rarity from a base landuse raster and current or future
       landuse raster, the intersection of the two was not being properly taken.
+
+ * Refactor of Wave Energy Model:
+    - Combining the Biophysical and Valuation modules into one.
+    - Adding new data for the North Sea.
+    - Fixed a bug where elevation values that were equal to or greater than zero
+      were being used in calculations.
+    - Fixed memory issues when dealing with large datasets.
+    - Updated core functions to remove any use of depracated functions
