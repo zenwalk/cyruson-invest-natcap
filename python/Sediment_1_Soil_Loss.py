@@ -1199,7 +1199,7 @@ try:
     gp.AddMessage("\nCalculating total sediment retention...")
     try:
         # Only include C factor here (not P), as we're evaluating the landscape, not farming practices
-        gp.SingleOutputMapAlgebra_sa("( " + daccum_raster + " + ( " + RKLS + " - (" + RKLS + " * " + c_factor + " )) )", total_retention)
+        gp.SingleOutputMapAlgebra_sa("( " + daccum_raster + " + ( " + RKLS + " - (" + RKLS + " * " + c_factor + " * " + p_factor + " )) )", total_retention)
                                                                                                                                                                            
         # Subtract the amount of sediment allowed by the critical load and/or dead volume input
         if value_wquality:
