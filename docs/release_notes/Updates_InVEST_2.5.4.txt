@@ -20,8 +20,9 @@ This is a minor release of InVEST that addresses numerous minor bugs and perform
 
 Known Issues:
 
-  * Flow routing in the standalone sediment and nutrient models has
-    a bug in several landscapes.  We're not certain of the nature of
-    the bug at the moment, but we will fix by the next release.  Thus,
-    sediment and nutrient models are marked as (beta).
+  * Flow routing in the standalone sediment and nutrient models has a
+    bug that prevents routing in several landscapes.  We're not
+    certain of the nature of the bug at the moment, but we will fix by
+    the next release.  Thus, sediment and nutrient models are marked
+    as (beta) since in some cases the DEM routes correctly.
       
