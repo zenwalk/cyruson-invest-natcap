@@ -12,3 +12,16 @@ This is a minor release of InVEST that addresses numerous minor bugs and perform
       were being used in calculations.
     - Fixed memory issues when dealing with large datasets.
     - Updated core functions to remove any use of depracated functions
+
+  * Fixed an issue that affected several InVEST models that occured
+    when watershed polygons were too small to cover a pixel.  Excessively
+    small watersheds are now handled correctly
+    
+
+Known Issues:
+
+  * Flow routing in the standalone sediment and nutrient models has
+    a bug in several landscapes.  We're not certain of the nature of
+    the bug at the moment, but we will fix by the next release.  Thus,
+    sediment and nutrient models are marked as (beta).
+      
