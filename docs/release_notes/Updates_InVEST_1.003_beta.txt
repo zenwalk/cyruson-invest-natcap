@@ -1,0 +1,25 @@
+July 31, 2009
+
+Updates to InVEST Beta
+
+InVEST 1.003 – Beta
+
+Differences between InVEST 1.002 and InVEST ARS 1.003
+
+
+Hydropower
+
+In version 1.003, the model calculates the following:
+- The water yield per pixel. 
+- The energy production for each reservoir of interest. 
+- The energy production per each pixel. 
+- The hydropower value of each pixel. 
+
+Biodiversity
+
+1. In version 1.002 the users guide indicates that the sensitivity value of 1 represents high resistance to a threat
+while a sensitivity value of 0 represents a low resistance.  This was incorrect and has been revised to say that a high value 
+indicates high sensitivity (resulting in reduced quality) while a low value indicates low sensitivity (resulting 
+in high or unchanged quality))
+2. In version 1.002 the transformation of the quality values by the sensitivity was not being calculated correctly. This has been revised in 1.003.
+3. In v1.002 the model says that users should enter a value of 0 for non-natural land cover and the model should change it to NoData. This was not happening.  In 1.003 the resulting quality raster will have NoData where the land cover is not natural hence it is possible to differentiate low quality natural habitat from non-natural habitat.

@@ -1,0 +1,52 @@
+This is a minor release of InVEST that does not add any new models, but
+does add additional functionality, stability, and increased performance to
+many of the InVEST 3.0 standalones:
+
+  - Pollination 3.0 Beta:
+      - Greatly improved memory efficiency over previous versions of this model.
+      - 3.0 Beta Pollination Biophysical and Valuation have been merged into a 
+        single tool, run through a unified user interface.
+      - Slightly improved runtime through the use of newer core InVEST GIS libraries.
+      - Optional ability to weight different species individually.  This feature
+        adds a column to the Guilds table that allows the user to specify a
+        relative weight for each species, which will be used before combining all
+        species supply rasters.
+      - Optional ability to aggregate pollinator abundances at specific points
+        provided by an optional points shapefile input.
+      - Bugfix: non-agricultural pixels are set to a value of 0.0 to indicate no
+        value on the farm value output raster.
+      - Bugfix: sup_val_<beename>_<scenario>.tif rasters are now saved to the
+        intermediate folder inside the user's workspace instead of the output
+        folder.
+  - Carbon Biophysical 3.0 Beta:
+    - Tweaked the user interface to require the user to
+      provide a future LULC raster when the 'Calculate Sequestration' checkbox
+      is checked.
+    - Fixed a bug that restricted naming of harvest layers.  Harvest layers are
+      now selected simply by taking the first available layer.
+  - Better memory efficiency in hydropower model.
+  - Better support for unicode filepaths in all 3.0 Beta user interfaces.
+  - Improved state saving and retrieval when loading up previous-run parameters
+    in all 3.0 Beta user interfaces.
+  - All 3.0 Beta tools now report elapsed time on completion of a model.
+  - All 3.0 Beta tools now provide disk space usage reports on completion of a
+    model.
+  - All 3.0 Beta tools now report arguments at the top of each logfile.
+  - Biodiversity 3.0 Beta: The half-saturation constant is now allowed to be a
+    positive floating-point number.
+  - Timber 3.0 Beta: Validation has been added to the user interface for this
+    tool for all tabular and shapefile inputs.
+  - Fixed some typos in Equation 1 in the Finfish Aquaculture user's guide.
+  - Fixed a bug where start menu items were not getting deleted during an InVEST
+    uninstall.
+  - Added a feature so that if the user selects to download datasets but the
+    datasets don't successfully download the installation alerts the user and
+    continues normally.
+  - Fixed a typo with tau in aquaculture guide, originally said 0.8, really 0.08.
+
+  - Improvements to the InVEST 2.x ArcGIS-based toolset:
+      - Minor bugfix to Coastal Vulnerability, where an internal unit of
+        measurements was off by a couple digits in the Fetch Calculator.
+      - Minor fixes to various helper tools used in InVEST 2.x models.
+      - Outputs for Hargreaves are now saved as geoTIFFs.
+      - Thornwaite allows more flexible entering of hours of sunlight.

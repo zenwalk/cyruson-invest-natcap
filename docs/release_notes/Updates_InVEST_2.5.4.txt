@@ -1,0 +1,43 @@
+This is a minor release of InVEST that addresses numerous minor bugs and performance tweaks in the InVEST 3.0 models.  Including:
+
+ * Refactor of Wave Energy Model:
+    - Combining the Biophysical and Valuation modules into one.
+    - Adding new data for the North Sea.
+    - Fixed a bug where elevation values that were equal to or greater than zero
+      were being used in calculations.
+    - Fixed memory issues when dealing with large datasets.
+    - Updated core functions to remove any use of depracated functions
+
+ * Performance updates to the carbon model.
+
+ * Nodata masking fix for rarity raster in Biodiversity Model.
+    - When computing rarity from a base landuse raster and current or future
+      landuse raster, the intersection of the two was not being properly taken.
+
+ * Fixes to the flow routing algorithms in the sediment and nutrient
+   retention models in cases where stream layers were burned in by ArcGIS
+   hydro tools.  In those cases streams were at the same elevation and caused
+   routing issues.
+
+ * Fixed an issue that affected several InVEST models that occured
+   when watershed polygons were too small to cover a pixel.  Excessively
+   small watersheds are now handled correctly
+
+ * Arc model deprecation.  We are deprecating the following ArcGIS versions
+   of our InVEST models in the sense we recommend ALL users use the InVEST
+   standalones over the ArcGIS versions, and the existing ArcGIS versions
+   of these models will be removed entirely in the next release.
+    - Timber
+    - Carbon
+    - Pollination
+    - Biodiversity
+    - Finfish Aquaculture
+
+Known Issues:
+
+ * Flow routing in the standalone sediment and nutrient models has a
+   bug that prevents routing in several landscapes.  We're not
+   certain of the nature of the bug at the moment, but we will fix by
+   the next release.  Thus, sediment and nutrient models are marked
+   as (beta) since in some cases the DEM routes correctly.
+      
