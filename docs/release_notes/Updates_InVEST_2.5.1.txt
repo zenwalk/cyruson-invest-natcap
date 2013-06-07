@@ -1,0 +1,10 @@
+This is a minor release of InVEST that does not add any new models, but
+does add additional functionality, stability, and increased performance to
+one of the InVEST 3.0 standalones:
+
+  - Pollination 3.0 Beta:
+        - Fixed a bug where Windows users of InVEST could run the model, but
+          most raster outputs were filled with nodata values.
+
+Additionally, this minor release fixes a bug in the InVEST user interface where
+collapsible containers became entirely non-interactive.
