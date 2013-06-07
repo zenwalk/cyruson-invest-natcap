@@ -2,7 +2,7 @@ This is a minor release of InVEST that addresses numerous minor bugs and perform
 
  * Refactor of Wave Energy Model:
     - Combining the Biophysical and Valuation modules into one.
-    - Adding new data for the North Sea.
+    - Adding new data for the North Sea and Australia
     - Fixed a bug where elevation values that were equal to or greater than zero
       were being used in calculations.
     - Fixed memory issues when dealing with large datasets.
