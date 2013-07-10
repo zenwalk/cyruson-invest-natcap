@@ -177,6 +177,7 @@ try:
     BathyProfile=html_txt+"BathyProfile_"+subwsStr+".txt"
     CreatedProfile=html_txt+"CreatedProfile_"+subwsStr+".txt"
     ProfileCutGIS=html_txt+"ProfileCutGIS_"+ subwsStr+".txt"
+    ProfileCutGIS_Smooth=html_txt+"SmoothProfileCutGIS_"+ subwsStr+".txt"
     FetchDistances=html_txt+"FetchDistances_"+ subwsStr+".txt"
     HabitatLocation=html_txt+"HabitatLocation_"+ subwsStr+".txt"
     Profile_HTML=html_txt+"profile.html"
@@ -1185,12 +1186,12 @@ try:
             counter=0
             TransectChoice=1
        
-            if neg1ID < neg2ID:
+            if neg1ID <= neg2ID:
                 # need to add this shift b/c profile used can be offset from cut profile because of the location of the point shapefile on the shoreline
                 # this shift value will be used to correct location of the vegetation so it matches profile used x-axis
                 shift=neg1ID
                 Xorig=[-len(Dmeas2)+ii for ii in range(len(Dmeas2)+len(Dmeas1))]
-                Dorig=[Dmeas2[ii] for ii in range(len(Dmeas2))];Dorig.extend(Dmeas1)
+                Dorig=[Dmeas2[-ii] for ii in range(len(Dmeas2))];Dorig.extend(Dmeas1)
                 for i in range(neg1ID,pos1ID):
                     Dx.append(counter)
                     Dmeas.append(Dmeas1[i])
@@ -1230,10 +1231,17 @@ try:
             for kk in range(len(Dorig)):
                 if abs(Dorig[kk]) > 100:
                     Dorig[kk]=0
+            SmoothValue=(SmoothParameter/100.0)*len(Dorig)
+            Tempy1=SignalSmooth.smooth(Dorig,round(SmoothValue,2),'flat') # smooth function
             file=open(ProfileCutGIS,"w")
             for i in range(0,len(Dorig)):
                 file.writelines(str(Xorig[i])+"\t"+str(Dorig[i])+"\n")
             file.close()
+            file=open(ProfileCutGIS_Smooth,"w")
+            for i in range(0,len(Tempy1)):
+                file.writelines(str(Xorig[i])+"\t"+str(Tempy1[i])+"\n")
+            file.close()
+            
             
             # create txt for bathy portion
             file=open(BathyProfile,"w")
@@ -1676,7 +1684,7 @@ try:
             Dorig=num.array(Dorig);
             Xorig=num.array(Xorig)
             fig=figure(3)
-            ax=subplot(211);plot(Xorig-shift+1,Dorig,Dx,Dmeas,'r',Xorig,Dorig*0,'k',linewidth=2);grid()
+            ax=subplot(211);plot(Xorig,Dorig,Xorig,Tempy1,'r',Xorig,Dorig*0,'k',linewidth=2);grid()
             ax.legend(('Raw Profile','Extracted Bathy'), prop=fontP,loc='upper left',ncol=2)            
             box=ax.get_position();
 
@@ -1709,10 +1717,10 @@ try:
                     ax=subplot(HabPrst,1,HabCount); temp1=TempY+nan;temp2=TempY+nan
                     la=num.nonzero(MG1);temp1[la]=TempY[la]
                     la=num.nonzero(MG2);temp2[la]=TempY[la]
-                    plot(TempX,TempY,xd,yd,'r');plot(TempX-shift,temp1,'or',markersize=15);grid()
+                    plot(TempX,TempY);plot(TempX-shift,temp1,'or',markersize=15);grid()
                     xlim(TempX[-1],TempX[0])     
                     if leg:
-                        ax.legend(('Raw Profile (GIS)','Created Profile','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
+                        ax.legend(('Raw Profile (GIS)','Habitat'), prop=fontP,loc='upper left',ncol=2);leg=0
                     ylabel('Mangrove',size='large',weight='bold');HabCount=HabCount+1
                     axvline(x=0, linewidth=1, color='k')
                 if any(DN1):
