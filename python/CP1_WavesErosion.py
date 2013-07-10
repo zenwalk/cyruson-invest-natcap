@@ -878,20 +878,19 @@ try:
 			X=num.array(X_lst);h=num.array(h_lst)
 	
 			# Adjust Bathy
-			if h[0]>0 or h[0]>h[-1]:
+			if any(h[0:100]>0) or h[0]>h[-1]:
 				flip=1;
 			else:
 				h=h[::-1] # reverse order if profile starts offshore
 				flip=0 # flip later to profile starts offshore
-	
 	
 			h=h-MSL; # adjust water level so that 0 is at MSL
 	
 			if mud: # if there's a marsh or a mangrove
 				gp.AddMessage("...your backshore is a *marsh/mangrove*")            
 				h=h-S # add surge level by decreasing depth (increasing the absolute value)
-				keep=find(h<-0.1)
-				h=h[keep];X=X[keep] # only keep values that are below water
+				out=find(h>-0.1)
+				h=h[out[-1]+1:-1];X=X[out[-1]+1:-1] # only keep values that are below water
 				dx=abs(X[1]-X[0]);m=abs(h[-1]-h[-int(10.0/dx)])/10 # average slope 10m from end of transect
 	
 			elif sand: # it's a beach
@@ -2071,7 +2070,7 @@ try:
 			elif mud==1: # compute erosion amount for consolidated sediments
 				gp.AddMessage("...estimating erosion amount for muddy substrate")
 				lx=len(Xaxis);msg=0
-				values=range(Zero,lx)
+				#values=range(Zero,lx)
 				Retreat1,Trms1,Tc1,Tw1,Te=MudErosion(BottVelo*0,BottVelo,Depth,To,me,Cm) # before management action
 				Retreat2,Trms2,Tc2,Tw2,Te=MudErosion(BottVeloMA*0,BottVeloMA,Depth,To,me,Cm) # after                        
 				ErodeLoc=find(Trms1>Te[0]); ErodeLoc=ErodeLoc[ErodeLoc>=Zero]# Indices where erosion rate greater than Threshold
