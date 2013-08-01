@@ -310,7 +310,7 @@ try:
 
 
                 # Zonal stats field name has changed in Arc 10
-                if (install_info["Version"] == "10.0"):
+                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
                     zstat_id_field = subwshed_id_field
                 else:
                     zstat_id_field = "VALUE"
@@ -425,7 +425,7 @@ try:
                 gp.DeleteField_management(change_area_table, "Field1")
 
                 # Zonal stats field name has changed in Arc 10
-                if (install_info["Version"] == "10.0"):
+                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
                     zstat_id_field = area_id_field
                 else:
                     zstat_id_field = "VALUE"
