@@ -212,7 +212,6 @@ try:
             gp.CopyFeatures_management(streams, streams_copy)
             # Create a field with single value to be used in creating raster streams
             gp.AddField_management(streams_copy, stream_field, "SHORT")
-            gp.AddMessage("calculate field")
             gp.CalculateField_management(streams_copy, stream_field, stream_depth, "PYTHON")
             # Make sure stream layer is same extent and cell size as DEM and snap to its alignment
             gp.extent = dsc.extent
@@ -337,13 +336,13 @@ try:
         raise Exception
 
 
-    # Clean up temporary files
-    gp.AddMessage("\nCleaning up temporary files...\n")
-    try:
-        gp.Delete_management(interws)
-    except:
-        gp.AddError("\nError cleaning up temporary files:  " + gp.GetMessages(2))
-        raise Exception
+##    # Clean up temporary files
+##    gp.AddMessage("\nCleaning up temporary files...\n")
+##    try:
+##        gp.Delete_management(interws)
+##    except:
+##        gp.AddError("\nError cleaning up temporary files:  " + gp.GetMessages(2))
+##        raise Exception
 
 except:
     gp.AddError ("\nError running script")

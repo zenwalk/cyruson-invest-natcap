@@ -7,12 +7,12 @@
 #
 # Creates servicesheds for a set of points on the landscape.
 # The servicesheds can be overlapping.
-# Requires Arc10 and ArcHydro 2.0
+# Requires Arc10 and ArcHydro 2.1
 #
 # NOTES:
 #
 #   - Requires beta version of ArcHydro
-#   - Users will need to change snap distance outside the tool
+#   - Users need to change snap distance outside the tool
 #
 # ---------------------------------------------------------------------------
 
@@ -149,22 +149,15 @@ try:
         # Make sure all temporary files go in the Intermediate folder
         arcpy.workspace = interws
 
-        # Make sure the user has the necessary versions of ArcGIS and ArcHydro
+        # Make sure the user has the necessary version of ArcGIS
         install_info = arcpy.GetInstallInfo("desktop")
-        if (install_info["Version"] <> "10.0" and install_info["Version"] <> "10.1"):
-            arcpy.AddError("Error: ArcGIS 10 and ArcHydro 2.0 are required to run this tool.")
-            raise Exception
-
-        toolboxList = arcpy.ListToolboxes("archydro")
-        if "archydro" in toolboxList[0]:
-            arcpy.AddMessage("\nArcHydro toolbox found")
-            
-        else:
-            arcpy.AddError("\nError: Can't find ArcHydro in the ArcGIS toolbox list.  Please verify the ArcHydro installation.")
-            raise Exception
-
-        ArcHydroTools.SetTargetLocations("HydroConfig", "Layers", interws, sshed_gdb)
         
+        if (install_info["Version"] <> "10.0" and install_info["Version"] <> "10.1"):
+            arcpy.AddError("Error: ArcGIS 10.x is required to run this tool.")
+            raise Exception
+        
+        ArcHydroTools.SetTargetLocations("HydroConfig", "Layers", interws, sshed_gdb)
+
     except:
         arcpy.AddError("\nError setting geoprocessing environment: " + arcpy.GetMessages(2))
         raise Exception
@@ -261,15 +254,18 @@ try:
     except:
         arcpy.AddError ("\nError creating parameter file: " + arcpy.GetMessages(2))
         raise Exception
-    
+
+    ### TO DELETE THE INTERMEDIATE FOLDER AFTER EACH RUN, UNCOMMENT THE FOLLOWING LINES
         
     # Clean up temporary files
-    arcpy.AddMessage("\nCleaning up temporary files...\n")
-    try:
-        arcpy.Delete_management(interws)
-    except:
-        arcpy.AddError("\nError cleaning up temporary files:  " + arcpy.GetMessages(2))
-        raise Exception
+##    arcpy.AddMessage("\nCleaning up temporary files...\n")
+##    try:
+##        arcpy.Delete_management(interws)
+##    except:
+##        arcpy.AddError("\nError cleaning up temporary files:  " + arcpy.GetMessages(2))
+##        raise Exception
+
+    ###
 
 
 except:
