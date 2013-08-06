@@ -44,6 +44,10 @@ tweaks, and new functionality of the InVEST standalone models.  Including:
  * Beta release of the recreation model
     - The recreation is available for beta use with limited documentation.
 
+ * Full release of the wind energy model
+    - Removing the 'beta' designation on the wind energy model.
+
+
 Known Issues:
 
  * Flow routing in the standalone sediment and nutrient models has a
