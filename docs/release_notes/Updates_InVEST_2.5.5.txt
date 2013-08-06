@@ -1,0 +1,46 @@
+This is a minor release of InVEST that addresses numerous minor bugs 
+and performance tweaks, and new functionality of the InVEST 3.0
+models.  Including:
+
+ * Production level release of the 3.0 Coastal Vulnerability model.
+    - This upgrades the InVEST 2.5.4 version of the standalone CV
+      to our production level release with a full users guide.
+    - The standalone version of the CV model now deprecates the
+      ArcGIS equivalent.
+
+ * Production level release of the Habitat Risk Assessment model.
+    - This release includes a production quality version of the
+      standalone habitat risk assessment model. It deprecates
+      the ArcGIS equivalent.
+
+ * Uncertainty analysis in Carbon model (beta)
+    - We have added functionality to assess uncertainty in 
+      sequestration and emissions given uncertainty in carbon
+      pool stocks.
+
+ * REDD+ Scenario Analysis in Carbon model (beta)
+    - We have added functionality to assist users in running REDD
+      and REDD+ scenarios in the carbon model.  The scenarios
+      also include the uncertainty analysis added to the
+      carbon model on this release.
+
+ * Uncertainty analysis in Finfish Aquaculture model (beta)
+    - Additionally functionality to account for uncertainty in
+      alpha and beta growth parameters as well as histogram
+      plots showing the distribution of harvest weights and
+      net present value.
+
+ * Streamlined Nutrient Retention model functionality
+    - The nutrient retention module no longer requires users to explicitly
+      run the water yield model first.  Instead the model runs
+      the InVEST water yield model seamlessly as part of the execution.
+
+Known Issues:
+
+ * Flow routing in the standalone sediment and nutrient models has a
+   bug that prevents routing in some (not all) landscapes.  This bug is 
+   related to resolving d-infinity flow directions across flat areas.
+   We are implementing the solution in Garbrecht and Martx (1997).
+   In the meanwhile the sediment and nutrient models are still marked
+   as beta until this issue is resolved.
+      
