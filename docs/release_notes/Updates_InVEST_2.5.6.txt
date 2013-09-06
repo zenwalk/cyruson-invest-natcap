@@ -6,6 +6,9 @@ Including:
   name from LULC to lucode so it is consistent with the InVEST water
   yield biophysical table.
 
+* Added Monte Carlo uncertainty analysis and documentation to finfish
+  aquaculture model.
+
 * Replaced sample data in overlap analysis that was causing the model
   to crash.
 
