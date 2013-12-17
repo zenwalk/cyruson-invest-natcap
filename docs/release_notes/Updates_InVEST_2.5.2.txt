@@ -1,0 +1,1 @@
+This is a minor release of InVEST that fixes an issue with the HRA sample data that caused ArcGIS versions of the model to fail on the training data.  There is no need to upgrade for most users unless you are doing InVEST training.

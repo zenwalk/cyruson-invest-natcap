@@ -1,0 +1,1 @@
+This is a minor release of InVEST that fixes an issue with the HRA model that caused ArcGIS versions of the model to fail when calculating habitat maps for risk hotspots. This upgrade is strongly recommended for users of InVEST 2.5.1 or 2.5.2.
