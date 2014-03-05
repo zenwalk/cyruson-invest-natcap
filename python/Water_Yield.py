@@ -376,7 +376,7 @@ try:
         gp.ZonalStatisticsAsTable_sa(watersheds, wshed_id_field, wyield, ws_wyield_table, "DATA")
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = wshed_id_field
         else:
             zstat_id_field = "Value"
@@ -400,7 +400,7 @@ try:
         # Add values to table
         while (precip_row):
             # Zonal stats field name has changed in Arc 10
-            if (install_info["Version"] == "10.0"  or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 ws_id = precip_row.getValue(wshed_id_field)
             else:
                 ws_id = precip_row.getValue("VALUE")
@@ -475,7 +475,7 @@ try:
         gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, wyield, sws_wyield_table, "DATA")
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "Value"
@@ -509,7 +509,7 @@ try:
 
             
             # Zonal stats field name has changed in Arc 10
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 sws_id = precip_row.getValue(subwshed_id_field)
             else:
                 sws_id = precip_row.getValue("VALUE")

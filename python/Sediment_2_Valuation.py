@@ -316,7 +316,7 @@ try:
                 gp.CopyRaster_management("wshed_tmp_wq", watershed_join)
                 gp.Lookup_sa(watershed_join, wq_cost_field, watershed_cost)
                 
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     gp.Delete_management("sed_tmp_wq.dbf")
                     gp.Delete_management("wshed_tmp_wq")
 
@@ -411,7 +411,7 @@ try:
                 gp.CopyRaster_management("wshed_tmp_wq3", watershed_join3)
                 gp.Lookup_sa(watershed_join3, pv_table_pv_field, watershed_pv)
 
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     gp.Delete_management("pv_tmp_wq.dbf")
                     gp.Delete_management("wshed_tmp_wq3")
 
@@ -441,7 +441,7 @@ try:
                 gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, wquality_value, subws_val_zstat, "DATA")
 
                 # Zonal stats field name changed in Arc10
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     zstat_id_field = subwshed_id_field
                 else:
                     zstat_id_field = "Value"
@@ -599,7 +599,7 @@ try:
                 gp.Lookup_sa(watershed_join, dredge_time_field, watershed_time)
                 gp.Lookup_sa(watershed_join, dredge_cost_field, watershed_cost)
 
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     gp.Delete_management("sed_tmp_dr.dbf")
                     gp.Delete_management("wshed_tmp_dr")
 
@@ -670,7 +670,7 @@ try:
                 gp.CopyRaster_management("wshed_tmp_dr2", watershed_join2)
                 gp.Lookup_sa(watershed_join2, pv_table_pv_field, watershed_pv)
 
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     gp.Delete_management("pv_tmp_dr.dbf")
                     gp.Delete_management("wshed_tmp_dr2")               
 
@@ -697,7 +697,7 @@ try:
                 gp.ZonalStatisticsAsTable_sa(sub_watersheds, subwshed_id_field, dredging_value, subws_val_zstat, "DATA")
 
                 # Zonal stats field name changed in Arc10
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     zstat_id_field = subwshed_id_field
                 else:
                     zstat_id_field = "Value"

@@ -505,7 +505,7 @@ try:
         gp.MakeRasterLayer_management(wshed_ras, "wsheds", "#", "#")
 
         # Zonal stats field name has changed in Arc 10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "VALUE"
@@ -700,7 +700,7 @@ try:
                 input_frac_removed = open(frac_removed_ascii, 'r')
                 
                 # New for Arc 10: read/write is now 'r+'
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     daccum_recgrid = open(daccum_grid_ascii, 'r+')
                     export_recgrid = open(export_grid_ascii, 'r+')
                 else:
@@ -1182,7 +1182,7 @@ try:
         gp.CopyRaster_management("wsheds_exp", wsheds_export)
         gp.Lookup_sa(wsheds_export, mean_ha_field, sws_export_mean)
 
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             gp.Delete_management("totret_wq_table_view")
             gp.Delete_management("wsheds_tr")
             gp.Delete_management("exp_table_view")
@@ -1216,7 +1216,7 @@ try:
         out_table_rows = gp.InsertCursor(ws_out_table)
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = wshed_id_field
         else:
             zstat_id_field = "Value"
@@ -1234,7 +1234,7 @@ try:
 
         while (wse_row):
             # Zonal stats field name changed in Arc 10
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 ws_id = wse_row.getValue(wshed_id_field)
             else:
                 ws_id = wse_row.getValue("VALUE")
@@ -1281,7 +1281,7 @@ try:
         gp.SpatialJoin_analysis(sub_watersheds, watershed, watersheds_sjoin, "JOIN_ONE_TO_ONE", "KEEP_ALL", "#", "IS_WITHIN")
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "Value"
@@ -1305,7 +1305,7 @@ try:
                 sj_row = sj_rows.Next()
         
             # Zonal stats field name changed in Arc 10
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 sws_id = swse_row.getValue(subwshed_id_field)
             else:
                 sws_id = swse_row.getValue("VALUE")

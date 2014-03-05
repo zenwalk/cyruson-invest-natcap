@@ -596,7 +596,7 @@ try:
         gp.MakeTableView(sws_USLE_table, "usle_table_view")
         
         # Zonal stats field name has changed in Arc 10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "VALUE"
@@ -604,7 +604,7 @@ try:
         gp.AddJoin_management("wsheds", "VALUE", "usle_table_view", zstat_id_field)
         gp.CopyRaster_management("wsheds", wsheds_j)
         
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             gp.Delete_management("usle_table_view")
             gp.Delete_management("wsheds")
 
@@ -775,7 +775,7 @@ try:
                 input_frac_removed = open(frac_removed_ascii, 'r')
                 
                 # New for Arc 10: read/write is now 'r+'
-                if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+                if (install_info["Version"] >= "10.0"):
                     daccum_recgrid = open(daccum_grid_ascii, 'r+')
                     export_recgrid = open(export_grid_ascii, 'r+')
                 else:
@@ -1219,7 +1219,7 @@ try:
             gp.AddJoin_management("wshed_tmp_wq", "Value", "sed_tmp_wq.dbf", value_id_field)
             gp.CopyRaster_management("wshed_tmp_wq", wshed_wq_join)
 
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 gp.Delete_management("sed_tmp_wq.dbf")
                 gp.Delete_management("wshed_tmp_wq")
             
@@ -1248,7 +1248,7 @@ try:
             gp.AddJoin_management("wshed_tmp_dr", "Value", "sed_tmp_dr.dbf", value_id_field)
             gp.CopyRaster_management("wshed_tmp_dr", wshed_dr_join)
 
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 gp.Delete_management("sed_tmp_dr.dbf")
                 gp.Delete_management("wshed_tmp_dr")
 
@@ -1284,9 +1284,9 @@ try:
             gp.CopyRaster_management("wsheds_tr_wq", wsheds_totret_wq)
             gp.Lookup_sa(wsheds_totret_wq, mean_ha_field, sws_total_retention_mean_wq)
 
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
-                gp.Delete_management("totret_wq_table_view")
-                gp.Delete_management("wsheds_tr_wq")
+##        if (install_info["Version"] >= "10.0"):
+##                gp.Delete_management("totret_wq_table_view")
+##                gp.Delete_management("wsheds_tr_wq")
 
         if (value_dredging):
             # Total sediment retention (upstream + what originates on the cell)
@@ -1302,7 +1302,7 @@ try:
             gp.CopyRaster_management("wsheds_tr_dr", wsheds_totret_dr)
             gp.Lookup_sa(wsheds_totret_dr, mean_ha_field, sws_total_retention_mean_dr)
 
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 gp.Delete_management("totret_dr_table_view")
                 gp.Delete_management("wsheds_tr_dr")
 
@@ -1320,7 +1320,7 @@ try:
         gp.CopyRaster_management("wsheds_ups", wsheds_upsret)
         gp.Lookup_sa(wsheds_upsret, mean_ha_field, sws_ups_retention_mean)
 
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             gp.Delete_management("ups_table_view")
             gp.Delete_management("wsheds_ups")
 
@@ -1338,7 +1338,7 @@ try:
         gp.CopyRaster_management("wsheds_exp", wsheds_export)
         gp.Lookup_sa(wsheds_export, mean_ha_field, sws_export_mean)
 
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             gp.Delete_management("exp_table_view")
             gp.Delete_management("wsheds_exp")
         
@@ -1380,7 +1380,7 @@ try:
         ws_out_table_rows = gp.InsertCursor(ws_out_table)
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = wshed_id_field
         else:
             zstat_id_field = "Value"
@@ -1407,7 +1407,7 @@ try:
 
         while (wse_row):
             # Zonal stats field name changed in Arc 10
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 ws_id = wse_row.getValue(wshed_id_field)
             else:
                 ws_id = wse_row.getValue("VALUE")
@@ -1467,7 +1467,7 @@ try:
         gp.SpatialJoin_analysis(sub_watersheds, watershed, watersheds_sjoin, "JOIN_ONE_TO_ONE", "KEEP_ALL", "#", "IS_WITHIN")
 
         # Zonal stats field name changed in Arc10
-        if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+        if (install_info["Version"] >= "10.0"):
             zstat_id_field = subwshed_id_field
         else:
             zstat_id_field = "Value"
@@ -1497,7 +1497,7 @@ try:
                 sj_row = sj_rows.Next()
             
             # Zonal stats field name changed in Arc 10
-            if (install_info["Version"] == "10.0" or install_info["Version"] == "10.1"):
+            if (install_info["Version"] >= "10.0"):
                 sws_id = swse_row.getValue(subwshed_id_field)
             else:
                 sws_id = swse_row.getValue("VALUE")
