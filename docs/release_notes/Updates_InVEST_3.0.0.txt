@@ -1,0 +1,11 @@
+The 2.6.0 release of InVEST removes most of the old InVEST models from the Arc toolbox in favor of the new InVEST standalone models.  While we have been developing standalone equivalents for the InVEST Arc models since version 2.3.0, this is the first release in which we removed support for the deprecated ArcGIS versions after an internal review of correctness, performance, and stability on the standalones.  Additionally, this is one of the last milestones before the InVEST 3.0.0 release later next year which will transition InVEST models away from strict ArcGIS dependence to a standalone form.
+
+Specifically, support for the following models have been moved from the ArcGIS toolbox to their Windows based standalones: (1) hydropower/water yield, (2) finfish aquaculture, (3) coastal protection tier 0/coastal vulnerability, (4) wave energy, (5) carbon, (6) habitat quality/biodiversity, (7) pollination, (8) timber, and (9) overlap analysis.  Additionally, documentation references to ArcGIS for those models have been replaced with instructions for launching standalone InVEST models from the Windows start menu.
+
+This release also addresses minor bugs, documentation updates, performance tweaks, and new functionality to the toolset, including:
+
+*  A Google doc to provide guidance for scripting the InVEST standalone models: https://docs.google.com/document/d/158WKiSHQ3dBX9C3Kc99HUBic0nzZ3MqW3CmwQgvAqGo/edit?usp=sharing
+
+* Fixed a bug in the sample data that defined Kc as a number between 0 and 1000 instead of a number between 0 and 1.
+
+* Link to report an issue now takes user to the online forums rather than an email address.
