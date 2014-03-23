@@ -17,3 +17,12 @@ The 3.0.0 release of InVEST represents a shift away from the ArcGIS to the InVES
 * Fixed a bug in Overlap Analysis where Human Use Hubs would error if run without inter-activity weighting, and Intra-Activity weighting would error if run without Human Use Hubs.
 
 * The runtime performance of the hydropower water yield model has been improved.
+
+* Released InVEST's implementation of the D-infinity flow algorithm in a tool called RouteDEM available from the start menu.
+
+* Unstable version of blue carbon available.
+
+* Unstable version of scenario generator available.
+
+* Numerous other minor bug fixes and performance enhacnements. 
+
