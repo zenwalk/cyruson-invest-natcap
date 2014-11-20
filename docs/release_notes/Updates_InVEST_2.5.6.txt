@@ -1,0 +1,64 @@
+The 2.5.6 release of InVEST that addresses minor bugs, performance
+tweaks, and new functionality of the InVEST standalone models.
+Including:
+
+* Change the changed the Carbon biophysical table to use code field
+  name from LULC to lucode so it is consistent with the InVEST water
+  yield biophysical table.
+
+* Added Monte Carlo uncertainty analysis and documentation to finfish
+  aquaculture model.
+
+* Replaced sample data in overlap analysis that was causing the model
+  to crash.
+
+* Updates to the overlap analysis user’s guide.
+
+* Added preprocessing toolkit available under 
+  C:\{InVEST install directory}\utils
+
+* Biodiversity Model now exits gracefully if a threat raster is not
+  found in the input folder.
+
+* Wind Energy now uses linear (bilinear because its over 2D space?)
+  interpolation.
+
+* Wind Energy has been refactored to current API.
+
+* Potential Evapotranspiration input has been properly named to
+  Reference Evapotranspiration.
+
+* PET_mn for Water Yield is now Ref Evapotranspiration times Kc
+  (evapotranspiration coefficient).
+
+* The soil depth field has been renamed “depth to root restricting
+  layer” in both the hydropower and nutrient retention models.
+
+* ETK column in biophysical table for Water Yield is now Kc.
+
+* Added help text to Timber model.
+
+* Changed the behavior of nutrient retention to return nodata values
+  when the mean runoff index is zero.
+
+* Fixed an issue where the hydropower model didn’t use the suffix
+  inputs.
+
+* Fixed a bug in Biodiversity that did not allow for numerals in the
+  threat names and rasters.
+
+* Updated routing algorithm to use a modern algorithm for plateau
+  direction resolution.
+
+* Fixed an issue in HRA where individual risk pixels weren’t being
+  calculated correctly.
+
+* HRA will now properly detect in the preprocessed CSVs when criteria
+  or entire habitat-stressor pairs are not desired within an
+  assessment..
+
+* Added an infrastructure feature so that temporary files are created
+  in the user’s workspace rather than at the system level
+  folder.  This lets users work in a secondary workspace on a USB
+  attached hard drive and use the space of that drive, rather than the
+  primary operating system drive.

@@ -1,0 +1,58 @@
+The 2.5.5 release of InVEST that addresses minor bugs, performance
+tweaks, and new functionality of the InVEST standalone models.  Including:
+
+ * Production level release of the 3.0 Coastal Vulnerability model.
+    - This upgrades the InVEST 2.5.4 version of the beta standalone CV
+      to a full release with full users guide.  This version of the 
+      CV model should be used in all cases over its ArcGIS equivalent.
+
+ * Production level release of the Habitat Risk Assessment model.
+    - This release upgrades the InVEST 2.5.4 beta version of the
+      standalone habitat risk assessment model. It should be used in 
+      all cases over its ArcGIS equivalent.
+
+ * Uncertainty analysis in Carbon model (beta) 
+    - Added functionality to assess uncertainty in sequestration and
+      emissions given known uncertainty in carbon pool stocks.  Users
+      can now specify standard  deviations of carbon pools with
+      normal distributions as well as desired uncertainty levels.
+      New outputs include masks for regions which both sequester and
+      emit carbon with a high probability of confidence.  Please see
+      the "Uncertainty Analysis" section of the carbon user's guide
+      chapter for more information.
+
+ * REDD+ Scenario Analysis in Carbon model (beta)
+    - Additional functionality to assist users evaluating REDD
+      and REDD+ scenarios in the carbon model.  The uncertainty analysis
+      functionality can also be used with these scenarios.
+      Please see the "REDD Scenario Analysis" section of the
+      carbon user's guide chapter for more information.
+
+ * Uncertainty analysis in Finfish Aquaculture model (beta)
+    - Additionally functionality to account for uncertainty in
+      alpha and beta growth parameters as well as histogram
+      plots showing the distribution of harvest weights and
+      net present value.   Uncertainty analysis is performed
+      through Monte Carlo runs that normally sample the
+      growth parameters.
+
+ * Streamlined Nutrient Retention model functionality
+    - The nutrient retention module no longer requires users to explicitly
+      run the water yield model.  The model now seamlessly runs water yield
+      during execution.
+
+ * Beta release of the recreation model
+    - The recreation is available for beta use with limited documentation.
+
+ * Full release of the wind energy model
+    - Removing the 'beta' designation on the wind energy model.
+
+
+Known Issues:
+
+ * Flow routing in the standalone sediment and nutrient models has a
+   bug that prevents routing in some (not all) landscapes.  This bug is 
+   related to resolving d-infinity flow directions across flat areas.
+   We are implementing the solution in Garbrecht and Martx (1997).
+   In the meanwhile the sediment and nutrient models are still marked
+   as beta until this issue is resolved.

@@ -1,0 +1,28 @@
+The 3.0.0 release of InVEST represents a shift away from the ArcGIS to the InVEST standalone computational platform.  The only exception to this shift is the marine coastal protection tier 1 model which is still supported in an ArcGIS toolbox and has no InVEST 3.0 standalone at the moment.  Specific changes are detailed below
+
+* A standalone version of the aesthetic quality model has been developed and packaged along with this release.  The standalone outperforms the ArcGIS equivalent and includes a valuation component.  See the user's guide for details.
+
+* The core water routing algorithms for the sediment and nutrient models have been overhauled.  The routing algorithms now correctly adjust flow in plateau regions, address a bug that would sometimes not route large sections of a DEM, and has been optimized for both run time and memory performance.  In most cases the core d-infinity flow accumulation algorithm out performs TauDEM.  We have also packaged a simple interface to these algorithms in a standalone tool called RouteDEM; the functions can also be referenced from the scripting API in the invest_natcap.routing package.
+
+* The sediment and nutrient models are now at a production level release.  We no longer support the ArcGIS equivalent of these models.
+
+* The sediment model has had its outputs simplified with major changes including the removal of the 'pixel mean' outputs, a direct output of the pixel level export and retention maps, and a single output shapefile whose attribute table contains aggregations of sediment output values.  Additionally all inputs to the sediment biophysical table including p, c, and retention coefficients are now expressed as a proportion between 0 and 1; the ArcGIS model had previously required those inputs were integer values between 0 and 1000.  See the "Interpreting Results" section of sediment model for full details on the outputs.
+
+* The nutrient model has had a similar overhaul to the sediment model including a simplified output structure with many key outputs contained in the attribute table of the shapefile.  Retention coefficients are also expressed in proportions between 0 and 1.  See the "Interpreting Results" section of nutrient model for full details on the outputs.
+
+* Fixed a bug in Habitat Risk Assessment where the HRA module would incorrectly error if a criteria with a 0 score (meant to be removed from the assessment) had a 0 data quality or weight.
+
+* Fixed a bug in Habitat Risk Assessment where the average E/C/Risk values across the given subregion were evaluating to negative numbers.
+
+* Fixed a bug in Overlap Analysis where Human Use Hubs would error if run without inter-activity weighting, and Intra-Activity weighting would error if run without Human Use Hubs.
+
+* The runtime performance of the hydropower water yield model has been improved.
+
+* Released InVEST's implementation of the D-infinity flow algorithm in a tool called RouteDEM available from the start menu.
+
+* Unstable version of blue carbon available.
+
+* Unstable version of scenario generator available.
+
+* Numerous other minor bug fixes and performance enhacnements. 
+
