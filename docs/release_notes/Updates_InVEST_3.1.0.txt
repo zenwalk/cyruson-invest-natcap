@@ -1,27 +1,29 @@
-* InVEST Sediment Model has been replaced with the InVEST Sediment Delivery Ratio model.  See the SDR user's guide chapter for the difference between the two.
-* Fixed an issue in the pollination model where the exponential decay function decreased too quickly.
-* Fixed an issue in the habitat quality model where the exponential decay function decreased too quickly and added back linear decay as an option.
-* Fixed an InVEST wide issue where some input rasters that were signed bytes did not correctly map to their negative nodata values.
-* Hydropower input rasters have been normalized to the LULC size so sampling error is the same for all the input watersheds.
-* Adding a check to make sure that input biophysical parameters to the water yield model do not exceed invalid scientific ranges.
-* Added a check on nutrient retention in case the upstream water yield was less than 1 so that the log value did not go negative.  In that case we clamp upstream water yield to 0.
-* A KeyError issue in hydropower was resolved that occurred when the input rasters were at such a coarse resolution that at least one pixel was completely contained in each watershed.  Now a value of -9999 will be reported for watersheds that don't contain any valid data.
-* An early version of the monthly water yield model that was erroneously included in was in the installer; it was removed in this version.
-* Python scripts necessary for running the ArcGIS version of Coastal Protection were missing.  They've since been added back to the distribution.
-* Raster calculations are now processed by raster block sizes.  Improvements in raster reads and writes.
-* Fixed an issue in the routing core where some wide DEMs would cause out of memory errors.
-* Scenario generator marked as stable.
-* Fixed bug in HRA where raster extents of shapefiles were not properly encapsulating the whole AOI.
-* Fixed bug in HRA where any number of habitats over 4 would compress the output plots. Now extends the figure so that all plots are correctly scaled.
-* Fixed a bug in HRA where the AOi attribute 'name' could not be an int. Should now accept any type.
-*Fixed bug in HRA which re-wrote the labels if it was run immediately without closing the UI.
-* Fixed nodata masking bug in Water Yield when raster extents were less than that covered by the watershed.
-* Removed hydropower calibration parameter form water yield model.
-* Models that had suffixes used to only allow alphanumeric characters.  Now all suffix types are allowed.
-* A bug in the core platform that would occasionally cause routing errors on irregularly pixel sized rasters was fixed.  This often had the effect that the user would see broken streams and/or nodata values scattered through sediment or nutrient results.
-* Wind Energy:
-    - Added new framework for valuation component. Can now input a yearly price table that spans the lifetime of the wind farm. Also if no price table is made, can specify a price for energy and an annual rate of change.
-    - Added new memory efficient distance transform functionality
-    - Added ability to leave out 'landing points' in 'grid connection points' input. If not landing points are found, it will calculate wind farm directly to grid point distances
-* Error message added in Wave Energy if clip shape has no intersection
-* Fixed an issue where the data type of the nodata value in a raster might be different than the values in the raster.  This was common in the case of 64 bit floating point values as nodata when the underlying raster was 32 bit.  Now nodata values are cast to the underlying types which improves the reliability of many of the InVEST models.
+InVEST 3.1.0 (http://www.naturalcapitalproject.org/download.html) is a major software and science milestone that includes an overhauled sedimentation model, long awaited fixes to exponential decay routines in habitat quality and pollination, and a massive update to the underlying hydrological routing routines.  The updated sediment model, called SDR (sediment delivery ratio), is part of our continuing effort to improve the science and capabilities of the InVEST tool suite.  The SDR model inputs are backwards comparable with the InVEST 3.0.1 sediment model with two additional global calibration parameters and removed the need for the retention efficiency parameter in the biophysical table; most users can run SDR directly with the data they have prepared for previous versions.  The biophysical differences between the models are described in a section within the SDR user's guide and represent a superior representation of the hydrological connectivity of the watershed, biophysical parameters that are independent of cell size, and a more accurate representation of sediment retention on the landscape.  Other InVEST improvements to include standard bug fixes, performance improvements, and usability features which in part are described below:
+
+    * InVEST Sediment Model has been replaced with the InVEST Sediment Delivery Ratio model.  See the SDR user's guide chapter for the difference between the two.
+    * Fixed an issue in the pollination model where the exponential decay function decreased too quickly.
+    * Fixed an issue in the habitat quality model where the exponential decay function decreased too quickly and added back linear decay as an option.
+    * Fixed an InVEST wide issue where some input rasters that were signed bytes did not correctly map to their negative nodata values.
+    * Hydropower input rasters have been normalized to the LULC size so sampling error is the same for all the input watersheds.
+    * Adding a check to make sure that input biophysical parameters to the water yield model do not exceed invalid scientific ranges.
+    * Added a check on nutrient retention in case the upstream water yield was less than 1 so that the log value did not go negative.  In that case we clamp upstream water yield to 0.
+    * A KeyError issue in hydropower was resolved that occurred when the input rasters were at such a coarse resolution that at least one pixel was completely contained in each watershed.  Now a value of -9999 will be reported for watersheds that don't contain any valid data.
+    * An early version of the monthly water yield model that was erroneously included in was in the installer; it was removed in this version.
+    * Python scripts necessary for running the ArcGIS version of Coastal Protection were missing.  They've since been added back to the distribution.
+    * Raster calculations are now processed by raster block sizes.  Improvements in raster reads and writes.
+    * Fixed an issue in the routing core where some wide DEMs would cause out of memory errors.
+    * Scenario generator marked as stable.
+    * Fixed bug in HRA where raster extents of shapefiles were not properly encapsulating the whole AOI.
+    * Fixed bug in HRA where any number of habitats over 4 would compress the output plots. Now extends the figure so that all plots are correctly scaled.
+    * Fixed a bug in HRA where the AOI attribute 'name' could not be an int. Should now accept any type.
+    * Fixed bug in HRA which re-wrote the labels if it was run immediately without closing the UI.
+    * Fixed nodata masking bug in Water Yield when raster extents were less than that covered by the watershed.
+    * Removed hydropower calibration parameter form water yield model.
+    * Models that had suffixes used to only allow alphanumeric characters.  Now all suffix types are allowed.
+    * A bug in the core platform that would occasionally cause routing errors on irregularly pixel sized rasters was fixed.  This often had the effect that the user would see broken streams and/or nodata values scattered through sediment or nutrient results.
+    * Wind Energy:
+        - Added new framework for valuation component. Can now input a yearly price table that spans the lifetime of the wind farm. Also if no price table is made, can specify a price for energy and an annual rate of change.
+        - Added new memory efficient distance transform functionality
+        - Added ability to leave out 'landing points' in 'grid connection points' input. If not landing points are found, it will calculate wind farm directly to grid point distances
+    * Error message added in Wave Energy if clip shape has no intersection
+    * Fixed an issue where the data type of the nodata value in a raster might be different than the values in the raster.  This was common in the case of 64 bit floating point values as nodata when the underlying raster was 32 bit.  Now nodata values are cast to the underlying types which improves the reliability of many of the InVEST models.
